@@ -18,14 +18,6 @@ class Site(BaseModel):
     odor_concentration: List[float] = Field(
         description="An array representing the concentration levels of each odor channels. (unit: percentage)"
     )
-    patch_index: int = Field(description="Patch number within the session")
-    patch_in_block_index: int = Field(description="Patch number within the block")
-    site_index: int = Field(description="Site number within the session")
-    site_in_block_index: int = Field(description="Site number within the block")
-    site_in_patch_index: int = Field(description="Site number within the patch")
-    site_by_type_in_patch_index: int = Field(
-        description="Same as site_in_patch_index but only counting sites of the same type (e.g. RewardSite)"
-    )
     odor_onset_time: Optional[float] = Field(
         None, description="Time of odor onset. Will be null if no odor was delivered. (unit: second)"
     )
@@ -52,4 +44,24 @@ class Site(BaseModel):
         None,
         description="Boolean whether the mouse successfully waited through the reward delay to get the reward. Will be null if has_choice is false.",
     )
+    site_index: int = Field(description="Site number within the session")
+    patch_index: int = Field(description="Patch number within the session")
     block_index: int = Field(description="Block number within the session")
+
+    site_index_in_patch: int = Field(description="Site number within the patch")
+    site_index_in_block: int = Field(description="Site number within the block")
+    site_index_by_type: int = Field(description="Site number only counting sites of the same type (e.g. RewardSite)")
+    site_index_in_patch_by_type: int = Field(
+        description="Same as site_in_patch_index but only counting sites of the same type (e.g. RewardSite)"
+    )
+    site_index_in_block_by_type: int = Field(
+        description="Same as site_in_block_index but only counting sites of the same type (e.g. RewardSite)"
+    )
+
+    patch_index_by_type: int = Field(description="Patch number only counting patches of the same label")
+    patch_index_in_block: int = Field(description="Patch number within the block")
+    patch_index_in_block_by_type: int = Field(
+        description="Same as patch_in_block_index but only counting patches of the same label"
+    )
+
+    block_index_by_type: int = Field(description="Block number only counting blocks of the same index")
