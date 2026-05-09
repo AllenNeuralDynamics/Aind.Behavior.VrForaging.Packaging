@@ -9,6 +9,7 @@ on:
       - release*
   release:
     types: [ published ]
+  workflow_dispatch:
 
 jobs:
   # ╔──────────────────────────╗
@@ -55,6 +56,45 @@ jobs:
       - name: Build
         run: uv build
 
+  # ╔─────────────────────────────────────────────────╗
+  # │   ___       _                        _   _              │
+  # │  |_ _|_ __ | |_ ___  __ _ _ __ __ _| |_(_) ___  _ __  │
+  # │   | || '_ \| __/ _ \/ _` | '__/ _` | __| |/ _ \| '_ \ │
+  # │   | || | | | ||  __/ (_| | | | (_| | |_| | (_) | | | |│
+  # │  |___|_| |_|\__\___|\__, |_|  \__,_|\__|_|\___/|_| |_| │
+  # │                     |___/                               │
+  # ╚─────────────────────────────────────────────────────────╝
+
+  integration-tests:
+    name: Integration tests (S3 datasets)
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-integration')) ||
+      (github.event_name == 'release' && github.event.action == 'published')
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
+
+      - name: Install python dependencies
+        run: uv sync
+
+      - name: Restore integration data cache
+        uses: actions/cache@v4
+        with:
+          path: tests/integration/.cache
+          key: integration-data-${{ hashFiles('tests/integration/datasets.yml') }}
+          restore-keys: |
+            integration-data-
+
+      - name: Run integration tests
+        run: uv run pytest -m integration --tb=short
+
   # ╔─────────────────────────────────────────────────────────────────╗
   # │   ____        _     _ _        ____      _                      │
   # │  |  _ \ _   _| |__ | (_) ___  |  _ \ ___| | ___  __ _ ___  ___  │
@@ -67,7 +107,7 @@ jobs:
   prepare-release:
     runs-on: ubuntu-latest
     name: Set version from release tag
-    needs: tests
+    needs: [tests, integration-tests]
     if: github.event_name == 'release' && github.event.action == 'published'
     outputs:
       version: ${{ steps.get_version.outputs.version }}

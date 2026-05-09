@@ -18,6 +18,32 @@ We use [ruff](https://docs.astral.sh/ruff/) as our primary linting tool.
 Attempt to add tests when new features are added.
 To run the currently available tests, run `uv run pytest` from the root of the repository.
 
+## Integration tests
+
+Integration tests run the parser end-to-end against real datasets stored in a public S3 bucket. They are gated by a pytest marker so they don't run by default.
+
+**Run locally:**
+
+```bash
+uv run pytest -m integration
+```
+
+The first run downloads datasets (~100 MB per dataset) to `tests/integration/.cache/`. Subsequent runs reuse the cache when the S3 ETag matches. The cache directory is gitignored.
+
+**Trigger on a PR:**
+
+Integration tests do not run on every PR. To run them for a specific PR, add the `run-integration` label via the GitHub UI (open the PR, click **Labels** in the right-hand sidebar, and select `run-integration`) or with:
+
+```bash
+gh pr edit <PR_NUMBER> --add-label run-integration
+```
+
+The integration job runs automatically on push to `main` and on `release: published`. A release cannot ship without the integration suite passing.
+
+**Adding a dataset:**
+
+Add an entry to `tests/integration/datasets.yml`. The manifest schema and full field documentation are in `tests/integration/model.py` (Pydantic model). The `rationale` field is required and is printed alongside any test failure to make triage fast.
+
 ### Lock files
 
 We use [uv](https://docs.astral.sh/uv/) to manage our lock files and therefore encourage everyone to use uv as a package manager as well.

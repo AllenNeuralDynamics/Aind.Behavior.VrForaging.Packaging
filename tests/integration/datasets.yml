@@ -1,0 +1,23 @@
+# Integration test datasets. See docs/plans/2026-05-09-integration-tests-design.md.
+#
+# Default exclusions (always applied, in addition to per-entry `exclude`):
+#   **/*.mp4, **/*.avi, **/*.mkv
+# See DEFAULT_EXCLUDES in tests/integration/conftest.py.
+#
+# Schema (every field):
+# datasets:
+#   - id: <stable-handle>            # unique kebab-case identifier
+#     uri: s3://bucket/prefix/       # must end with '/'
+#     rationale: |                   # required; explains why this dataset is here
+#       Multi-line description of why this dataset is in the suite.
+#     exclude:                       # optional; pathlib glob, case-insensitive
+#       - "videos/**"
+#       - "**/*.avi"
+#     expected:                      # optional; assertion invariants
+#       n_trials: 412
+#       n_blocks: 4
+#       n_patches: 16
+#       nwb_validates: true
+#     xfail: false                   # optional; default false
+#     xfail_reason: ""               # optional; only when xfail: true
+datasets: []

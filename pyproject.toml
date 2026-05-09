@@ -70,6 +70,9 @@ ignore-words-list = 'nd'
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers --tb=short --cov=src --cov-report=term-missing --cov-fail-under=0"
+markers = [
+  "integration: integration tests that download data from S3 (run with `-m integration`)",
+]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
