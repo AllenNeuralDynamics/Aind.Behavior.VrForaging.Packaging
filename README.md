@@ -5,6 +5,24 @@
 [![ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
+## Getting Started
+
+A quick example of how to use the TrialTableProcessor to extract site-level metadata from a dataset:
+
+```python
+from aind_behavior_vr_foraging.data_contract import dataset
+import pandas as pd
+
+from aind_behavior_vr_foraging_nwb.processing import (
+    TrialTableProcessor,
+)
+
+ds = dataset("session_path")
+ttp = TrialTableProcessor(ds)
+sites = ttp.process_to_sites()
+sites_df = pd.DataFrame([s.model_dump() for s in sites])
+```
+
 ## Contributors
 
 Contributions to this repository are welcome! However, please ensure that your code adheres to the recommended DevOps practices below:
