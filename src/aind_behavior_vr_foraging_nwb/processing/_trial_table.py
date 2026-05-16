@@ -4,6 +4,7 @@ import typing as t
 import contraqctor
 import numpy as np
 import pandas as pd
+import semver
 from aind_behavior_vr_foraging.task_logic import OdorMixture
 from contraqctor.contract.json import PydanticModel
 from pydantic import BaseModel, TypeAdapter
@@ -69,8 +70,10 @@ class TrialTableProcessor(AbstractProcessor):
         patches_state = patches_state.join(expanded)
         return patches_state
 
-    @staticmethod
-    def _parse_patch_state_at_reward(dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
+    def _parse_patch_state_at_reward(self, dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
+        if self.dataset_version < semver.Version(major=0, minor=6, patch=0):
+            raise DatasetProcessorError("PatchStateAtReward is only available in dataset version 0.6.0 and above")
+        # TODO this is likely something we want to overload for 0.5.x to work.
         patches_state_at_reward = dataset.at("Behavior").at("SoftwareEvents").at("PatchStateAtReward").load().data
         expanded = pd.json_normalize(patches_state_at_reward["data"])
         expanded.index = patches_state_at_reward.index
@@ -226,10 +229,6 @@ class TrialTableProcessor(AbstractProcessor):
             site_choice_feedback = slice_by_index(choice_feedback, this_timestamp, next_timestamp)
             assert len(site_choice_feedback) <= 1, "Multiple speaker choices in site interval"
 
-            site_water_delivery = slice_by_index(water_delivery, this_timestamp, next_timestamp)
-            if len(site_water_delivery) > 1:
-                logger.error("FIX ME BY USING METADATA!!!! Multiple water deliveries in site interval")
-
             site_odor_onset = slice_by_index(odor_onset, this_timestamp, next_timestamp)
 
             this_friction = slice_by_index(friction, this_timestamp, next_timestamp)
@@ -268,6 +267,7 @@ class TrialTableProcessor(AbstractProcessor):
                 # we always take the first odor onset in case animal goes in and out
                 odor_onset_time = t.cast(float, site_odor_onset.index[0]) if not site_odor_onset.empty else np.nan
 
+            site_water_delivery = slice_by_index(water_delivery, this_timestamp, next_timestamp)
             reward_metadata_sliced = slice_by_index(reward_metadata, this_timestamp, next_timestamp)
             if reward_metadata_sliced.empty or bool(reward_metadata_sliced["data"].fillna(0).eq(0).all()):
                 # Note: for None or 0 reward metadata there won't be a hardware water delivery event
@@ -281,11 +281,11 @@ class TrialTableProcessor(AbstractProcessor):
                             "Valid reward metadata found but no water delivery in site interval"
                         )
                     else:
-                        logger.warning("Valid reward metadata found but no water delivery in site interval")
+                        logger.error("Valid reward metadata found but no water delivery in site interval")
                         reward_onset_time = np.nan
                 elif len(reward_metadata_sliced) > 1:
-                    logger.warning("Multiple reward metadata entries in site interval...Using first one")
-                    reward_onset_time = t.cast(float, site_water_delivery.index[0])
+                    closest_index = site_water_delivery.index.get_indexer([this_timestamp], method="nearest")[0]
+                    reward_onset_time = t.cast(float, site_water_delivery.index[closest_index])
                 else:
                     reward_onset_time = (
                         t.cast(float, site_water_delivery.index[0]) if not site_water_delivery.empty else np.nan

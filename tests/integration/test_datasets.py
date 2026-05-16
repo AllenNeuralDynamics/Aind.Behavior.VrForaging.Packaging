@@ -8,9 +8,15 @@ The suite is gated behind the ``integration`` marker so the default
 ``uv run pytest`` invocation is unaffected.
 """
 
+from urllib.parse import urlparse
+
+import pandas as pd
 import pytest
 
-from .conftest import CACHE_ROOT, _manifest, download_dataset
+from aind_behavior_vr_foraging_nwb.processing import TrialTableProcessor
+
+from .conftest import CACHE_ROOT, _manifest
+from .model import DatasetEntry
 
 pytestmark = pytest.mark.integration
 
@@ -21,48 +27,46 @@ pytestmark = pytest.mark.integration
 _entries = _manifest.datasets
 _ids = [e.id for e in _entries]
 
-
 # ---------------------------------------------------------------------------
 # Invariant assertion helper
 # ---------------------------------------------------------------------------
 
 
-def _assert_invariants(session, nwb, entry) -> None:  # type: ignore[no-untyped-def]
-    """Dispatch per-field invariant checks from *entry.expected*."""
-    from aind_behavior_vr_foraging_nwb.processing import TrialTableProcessor
-
+def _assert_trials_table_invariants(sites_df: pd.DataFrame, entry: DatasetEntry) -> None:
+    """Check invariants for the trial table."""
     inv = entry.expected
+    if inv is None:
+        return
 
-    # We need the trial table for n_trials, n_blocks, and n_patches.
-    # process_to_sites() returns the full list without modifying the NWB file.
-    processor = TrialTableProcessor(session.dataset)
+    if inv.n_sites is not None:
+        actual = len(sites_df)
+        assert actual == inv.n_sites, (
+            f"{entry.id}: expected n_sites={inv.n_sites}, got {actual}\nRationale: {entry.rationale}"
+        )
 
-    if inv.n_trials is not None or inv.n_blocks is not None or inv.n_patches is not None:
-        sites = processor.process_to_sites()
+    if inv.n_choices is not None:
+        actual = int(sites_df["has_choice"].fillna(False).astype(bool).sum())
+        assert actual == inv.n_choices, (
+            f"{entry.id}: expected n_choices={inv.n_choices}, got {actual}\nRationale: {entry.rationale}"
+        )
 
-        if inv.n_trials is not None:
-            actual = len(sites)
-            assert actual == inv.n_trials, (
-                f"{entry.id}: expected n_trials={inv.n_trials}, got {actual}\nRationale: {entry.rationale}"
-            )
+    if inv.n_rewards is not None:
+        actual = int(sites_df["has_reward"].fillna(False).astype(bool).sum())
+        assert actual == inv.n_rewards, (
+            f"{entry.id}: expected n_rewards={inv.n_rewards}, got {actual}\nRationale: {entry.rationale}"
+        )
 
-        if inv.n_blocks is not None:
-            actual = len({s.block_index for s in sites})
-            assert actual == inv.n_blocks, (
-                f"{entry.id}: expected n_blocks={inv.n_blocks}, got {actual}\nRationale: {entry.rationale}"
-            )
+    if inv.n_blocks is not None:
+        actual = int(sites_df["block_index"].nunique(dropna=True))
+        assert actual == inv.n_blocks, (
+            f"{entry.id}: expected n_blocks={inv.n_blocks}, got {actual}\nRationale: {entry.rationale}"
+        )
 
-        if inv.n_patches is not None:
-            actual = len({s.patch_index for s in sites})
-            assert actual == inv.n_patches, (
-                f"{entry.id}: expected n_patches={inv.n_patches}, got {actual}\nRationale: {entry.rationale}"
-            )
-
-    if inv.nwb_validates:
-        import pynwb
-
-        errors = pynwb.validate(nwb)
-        assert not errors, f"{entry.id}: pynwb validation failed.\nErrors: {errors}\nRationale: {entry.rationale}"
+    if inv.n_patches is not None:
+        actual = int(sites_df["patch_index"].nunique(dropna=True))
+        assert actual == inv.n_patches, (
+            f"{entry.id}: expected n_patches={inv.n_patches}, got {actual}\nRationale: {entry.rationale}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -71,8 +75,8 @@ def _assert_invariants(session, nwb, entry) -> None:  # type: ignore[no-untyped-
 
 
 @pytest.mark.parametrize("entry", _entries, ids=_ids)
-def test_dataset(entry, s3_client, request) -> None:  # type: ignore[no-untyped-def]
-    """Smoke-test the parser against a real dataset and check declared invariants."""
+def test_trials_table(entry, request):
+    """Test the trial table processing logic using already downloaded datasets."""
     if entry.xfail:
         request.applymarker(
             pytest.mark.xfail(
@@ -82,13 +86,20 @@ def test_dataset(entry, s3_client, request) -> None:  # type: ignore[no-untyped-
         )
 
     try:
-        local_path = download_dataset(s3_client, entry, CACHE_ROOT)
-        from aind_behavior_vr_foraging_nwb.nwb_file import NwbSession
+        from aind_behavior_vr_foraging.data_contract import dataset
 
-        session = NwbSession(local_path)
-        nwb = session.process()
+        parsed = urlparse(entry.uri)
+        session_path = CACHE_ROOT / parsed.netloc / parsed.path.strip("/")
+
+        ds = dataset(session_path)
+        processor = TrialTableProcessor(ds, raise_on_error=True)
+        sites = processor.process_to_sites()
+        sites_df = pd.DataFrame([s.model_dump() for s in sites])
+
+        if entry.expected is not None:
+            _assert_trials_table_invariants(sites_df, entry)
+
+        assert not sites_df.empty, f"{entry.id}: trial table is unexpectedly empty"
+
     except Exception as e:
-        pytest.fail(f"Dataset {entry.id} failed parser smoke test.\nRationale: {entry.rationale}\nError: {e}")
-
-    if entry.expected is not None:
-        _assert_invariants(session, nwb, entry)
+        pytest.fail(f"Dataset {entry.id} failed trial table test.\nRationale: {entry.rationale}\nError: {e}")

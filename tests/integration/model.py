@@ -15,9 +15,17 @@ class ExpectedInvariants(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    n_trials: Optional[int] = Field(
+    n_sites: Optional[int] = Field(
         default=None,
-        description="Expected total number of trials in the parsed session. Asserted against the trial table row count.",
+        description="Expected total number of sites in the parsed session. Asserted against the trial table row count.",
+    )
+    n_choices: Optional[int] = Field(
+        default=None,
+        description="Expected number of sites where has_choice is true.",
+    )
+    n_rewards: Optional[int] = Field(
+        default=None,
+        description="Expected number of sites where has_reward is true.",
     )
     n_blocks: Optional[int] = Field(
         default=None,

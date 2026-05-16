@@ -14,10 +14,62 @@
 #       - "videos/**"
 #       - "**/*.avi"
 #     expected:                      # optional; assertion invariants
-#       n_trials: 412
+#       n_sites: 412
+#       n_choices: 180
+#       n_rewards: 92
 #       n_blocks: 4
 #       n_patches: 16
 #       nwb_validates: true
 #     xfail: false                   # optional; default false
 #     xfail_reason: ""               # optional; only when xfail: true
-datasets: []
+datasets:
+  - id: behavior_815103_2025-11-05_22-52-21
+    uri: s3://aind-open-data/behavior_815103_2025-11-05_22-52-21/
+    rationale: |
+      Schema version 0.6.1 dataset for subject 815103.
+    expected:
+      n_sites: 1144
+      n_choices: 390
+      n_rewards: 193
+      n_patches: 91
+      n_blocks: 1
+  - id: behavior_815103_2025-11-24_22-54-13
+    uri: s3://aind-open-data/behavior_815103_2025-11-24_22-54-13/
+    rationale: |
+      Schema version 0.6.2 dataset for subject 815103.
+    expected:
+      n_sites: 1296
+      n_choices: 394
+      n_rewards: 209
+      n_patches: 127
+      n_blocks: 1
+  - id: behavior_815103_2025-12-06_19-55-41
+    uri: s3://aind-open-data/behavior_815103_2025-12-06_19-55-41/
+    rationale: |
+      Schema version 0.6.3 dataset for subject 815103.
+    expected:
+      n_sites: 1208
+      n_choices: 432
+      n_rewards: 199
+      n_patches: 86
+      n_blocks: 1
+  - id: 815103_2026-02-09_22-01-14
+    uri: s3://aind-open-data/815103_2026-02-09_22-01-14/
+    rationale: |
+      Schema version 0.6.4 dataset for subject 815103.
+    expected:
+      n_sites: 1240
+      n_choices: 557
+      n_rewards: 213
+      n_patches: 32
+      n_blocks: 1
+  - id: behavior_808728_2025-12-10_20-40-41
+    uri: s3://aind-open-data/behavior_808728_2025-12-10_20-40-41/
+    rationale: |
+      Single-site dataset for subject 808728.
+    expected:
+      n_sites: 1164
+      n_choices: 143
+      n_rewards: 103
+      n_patches: 291
+      n_blocks: 6
