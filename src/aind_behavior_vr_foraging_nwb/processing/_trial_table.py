@@ -33,7 +33,7 @@ class TrialTableProcessor(AbstractProcessor):
             logger.warning(
                 "Dataset version %s does not match parser version %s", self.dataset_version, self.parser_version
             )
-        self.rig_configuration = self._ensure_json_not_pydantic(self.dataset["Behavior"]["InputSchemas"]["Rig"].load())
+        self.rig_configuration = self._ensure_json_not_pydantic(self.dataset["Behavior"]["InputSchemas"]["Rig"].load().data)
 
     @staticmethod
     def _ensure_json_not_pydantic(d: t.Any) -> dict:
@@ -113,7 +113,7 @@ class TrialTableProcessor(AbstractProcessor):
         return dataset.at("Behavior").at("OperationControl").at("IsStopped").load().data
 
     def _parse_velocity(self, dataset: contraqctor.contract.Dataset) -> pd.Series:
-        rig_config = self._ensure_json_not_pydantic(self.rig_configuration.data)
+        rig_config = self._ensure_json_not_pydantic(self.rig_configuration)
         return compute_position_and_velocity_from_treadmill(dataset, rig_config)["velocity"]
 
     def _get_olfactometer_channel_count(self, dataset: contraqctor.contract.Dataset) -> int:
