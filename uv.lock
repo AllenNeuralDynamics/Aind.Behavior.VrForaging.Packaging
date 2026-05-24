@@ -60,7 +60,7 @@ data = [
 
 [[package]]
 name = "aind-behavior-vr-foraging-nwb"
-version = "0.0.0rc0"
+version = "0.0.0rc1"
 source = { editable = "." }
 dependencies = [
     { name = "aind-behavior-vr-foraging", extra = ["data"] },
