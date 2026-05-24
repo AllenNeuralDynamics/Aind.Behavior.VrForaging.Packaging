@@ -2,7 +2,6 @@ import logging
 import typing as ty
 
 import contraqctor.contract
-import numpy as np
 import pandas as pd
 from ndx_events import NdxEventsNWBFile
 from pydantic import BaseModel
@@ -11,6 +10,7 @@ from pynwb.behavior import Position, SpatialSeries
 
 from .._base import AbstractProcessor
 from ._create_processing_module import CreateProcessingModuleProcessor
+from .helper import compute_position_and_velocity_from_treadmill
 
 logger = logging.getLogger(__name__)
 
@@ -63,36 +63,13 @@ class PositionAndVelocityProcessor(AbstractProcessor):
         rig_settings = rig_settings.model_dump() if isinstance(rig_settings, BaseModel) else rig_settings
 
         try:
-            # For backwards compatibility, we need to check for both "calibration" and "output" keys in the rig settings. We should consider removing this in the future.
-            calibration = rig_settings["harp_treadmill"]["calibration"]
-            assert calibration is not None, (
-                "Calibration data is missing for HarpTreadmill. Cannot compute position and velocity."
-            )
-            calibration = calibration["output"] if "output" in calibration else calibration
-            converting_factor = (
-                calibration["wheel_diameter"]
-                * np.pi
-                / calibration["pulses_per_revolution"]
-                * (-1 if calibration["invert_direction"] else 1)
-            )
+            df = compute_position_and_velocity_from_treadmill(dataset, rig_settings)
         except KeyError as e:
             e.add_note(
                 "Missing calibration data for HarpTreadmill in rig settings. Cannot compute position and velocity."
             )
             raise
 
-        ## Parse velocity and position
-        treadmill_data = ty.cast(
-            pd.DataFrame,
-            dataset.at("Behavior").at("HarpTreadmill").load().at("SensorData").load().data,
-        )
-        encoder = treadmill_data.query("MessageType == 'EVENT'")["Encoder"].copy()
-
-        position = (encoder - encoder.iloc[0]) * converting_factor
-
-        displacement = position.diff().fillna(0)
-        velocity = displacement / position.index.to_series().diff().fillna(1)
-        df = pd.DataFrame({"position": position, "velocity": velocity})
         if downsample_to_hz is None:
             return df
 
