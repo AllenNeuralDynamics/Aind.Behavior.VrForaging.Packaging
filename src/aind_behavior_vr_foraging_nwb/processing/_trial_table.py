@@ -11,7 +11,7 @@ from pydantic import BaseModel, TypeAdapter
 
 from .._base import AbstractProcessor
 from ..models import Site
-from .helper import slice_by_index
+from .helper import compute_position_and_velocity_from_treadmill, get_closest_from_timestamp, slice_by_index
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,9 @@ class TrialTableProcessor(AbstractProcessor):
             logger.warning(
                 "Dataset version %s does not match parser version %s", self.dataset_version, self.parser_version
             )
-        self.rig_configuration = self._ensure_json_not_pydantic(self.dataset["Behavior"]["InputSchemas"]["Rig"].load())
+        self.rig_configuration = self._ensure_json_not_pydantic(
+            self.dataset["Behavior"]["InputSchemas"]["Rig"].load().data
+        )
 
     @staticmethod
     def _ensure_json_not_pydantic(d: t.Any) -> dict:
@@ -108,6 +110,14 @@ class TrialTableProcessor(AbstractProcessor):
         d = dataset.at("Behavior").at("HarpTreadmill").at("BrakeCurrentSetPoint").load().data
         return d.loc[d["MessageType"] == "WRITE", "BrakeCurrentSetPoint"]
 
+    @staticmethod
+    def _parse_is_stopped(dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
+        return dataset.at("Behavior").at("OperationControl").at("IsStopped").load().data
+
+    def _parse_velocity(self, dataset: contraqctor.contract.Dataset) -> pd.Series:
+        rig_config = self._ensure_json_not_pydantic(self.rig_configuration)
+        return compute_position_and_velocity_from_treadmill(dataset, rig_config)["velocity"]
+
     def _get_olfactometer_channel_count(self, dataset: contraqctor.contract.Dataset) -> int:
         extra_olfs = getattr(self.rig_configuration, "harp_olfactometer_extension", None)
         n_extra_channels = 4 * len(extra_olfs) if extra_olfs is not None else 0
@@ -137,7 +147,7 @@ class TrialTableProcessor(AbstractProcessor):
             nwb_file.add_trial(**trial_data)
         return nwb_file
 
-    def process_to_sites(self) -> list[Site]:
+    def process_to_sites(self) -> list[Site]:  # noqa: C901
         """
         Processes sites, patches, and blocks from the dataset and merges them.
         Returns a DataFrame with merged information.
@@ -177,6 +187,8 @@ class TrialTableProcessor(AbstractProcessor):
         friction = self._parse_friction(dataset)
         olfactometer_channel_count = self._get_olfactometer_channel_count(dataset)
         wait_reward_outcome = self._parse_wait_reward_outcome(dataset)
+        is_stopped = self._parse_is_stopped(dataset)
+        velocity = self._parse_velocity(dataset)
 
         # Precompute all trial indices
         merged["site_label"] = merged["data"].apply(lambda d: d["label"])
@@ -247,6 +259,34 @@ class TrialTableProcessor(AbstractProcessor):
             choice_time: float = (
                 t.cast(float, site_choice_feedback.index[0]) if not site_choice_feedback.empty else np.nan
             )
+
+            # Compute last_stop_time, last_stop_duration, velocity_at_last_stop
+            # We skip calculation if no choice_time was found
+            site_stop_time: float = np.nan
+            site_stop_duration: float = np.nan
+            site_velocity_at_stop: float = np.nan
+            if not np.isnan(choice_time):
+                site_is_stopped = slice_by_index(is_stopped, this_timestamp, choice_time, end_inclusive=True)
+                stops_before_choice = site_is_stopped[site_is_stopped["IsStopped"]]
+                if stops_before_choice.empty:
+                    msg = f"Choice occurred at {choice_time} but no IsStopped=True event found in site interval [{this_timestamp}, {next_timestamp})"
+                    if self.raise_on_error:
+                        raise DatasetProcessorError(msg)
+                    else:
+                        logger.warning(msg + ". Falling back to global search.")
+                        stops_before_choice = is_stopped[is_stopped["IsStopped"] & (is_stopped.index <= choice_time)]
+                    if stops_before_choice.empty:
+                        raise DatasetProcessorError(
+                            f"Choice occurred at {choice_time} but no IsStopped=True event found before choice time"
+                        )
+
+                site_stop_time = (
+                    t.cast(float, stops_before_choice.index[-1]) if not stops_before_choice.empty else np.nan
+                )
+                site_stop_duration = choice_time - site_stop_time
+                if velocity is not None:
+                    closest_ts = get_closest_from_timestamp(np.array([site_stop_time]), velocity, search_mode="closest")
+                    site_velocity_at_stop = float(velocity[closest_ts[0]])
 
             if site_odor_onset.empty and this_site["odor_specification"] is not None:
                 # Sometimes the timestamp for the odor onset arrives slightly before the site. We should investigate
@@ -337,6 +377,9 @@ class TrialTableProcessor(AbstractProcessor):
                 if reward_onset_time is not np.nan and choice_time is not None
                 else np.nan,
                 has_waited_reward_delay=has_waited_reward_delay,
+                last_stop_time=None if np.isnan(site_stop_time) else site_stop_time,
+                last_stop_duration=None if np.isnan(site_stop_duration) else site_stop_duration,
+                velocity_at_last_stop=None if np.isnan(site_velocity_at_stop) else site_velocity_at_stop,
                 block_index=row["block_count"],
             )
             sites.append(site)
