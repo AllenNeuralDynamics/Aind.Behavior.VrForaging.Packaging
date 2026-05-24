@@ -33,7 +33,9 @@ class TrialTableProcessor(AbstractProcessor):
             logger.warning(
                 "Dataset version %s does not match parser version %s", self.dataset_version, self.parser_version
             )
-        self.rig_configuration = self._ensure_json_not_pydantic(self.dataset["Behavior"]["InputSchemas"]["Rig"].load().data)
+        self.rig_configuration = self._ensure_json_not_pydantic(
+            self.dataset["Behavior"]["InputSchemas"]["Rig"].load().data
+        )
 
     @staticmethod
     def _ensure_json_not_pydantic(d: t.Any) -> dict:
