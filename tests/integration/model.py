@@ -63,6 +63,10 @@ class DatasetEntry(BaseModel):
         default=None,
         description="Optional scalar invariants to assert after parsing. If omitted, the dataset only gets the smoke test (parser must not crash).",
     )
+    raise_on_error: bool = Field(
+        default=True,
+        description="If true, turns warnings into hard errors. Useful for datasets where strict parsing is expected.",
+    )
     xfail: bool = Field(
         default=False,
         description="If true, the test is marked pytest.xfail(strict=True) — failure is expected, unexpected pass becomes a hard failure forcing removal of the marker. Use to keep known-broken datasets in the suite without blocking CI.",

@@ -147,7 +147,7 @@ class TrialTableProcessor(AbstractProcessor):
             nwb_file.add_trial(**trial_data)
         return nwb_file
 
-    def process_to_sites(self) -> list[Site]:
+    def process_to_sites(self) -> list[Site]:  # noqa: C901
         """
         Processes sites, patches, and blocks from the dataset and merges them.
         Returns a DataFrame with merged information.
@@ -266,13 +266,23 @@ class TrialTableProcessor(AbstractProcessor):
             site_stop_duration: float = np.nan
             site_velocity_at_stop: float = np.nan
             if not np.isnan(choice_time):
-                site_is_stopped = slice_by_index(is_stopped, this_timestamp, choice_time)
+                site_is_stopped = slice_by_index(is_stopped, this_timestamp, choice_time, end_inclusive=True)
                 stops_before_choice = site_is_stopped[site_is_stopped["IsStopped"]]
                 if stops_before_choice.empty:
-                    raise DatasetProcessorError(
-                        f"Choice occurred at {choice_time} but no IsStopped=True event found before it in site interval [{this_timestamp}, {next_timestamp})"
-                    )
-                site_stop_time = t.cast(float, stops_before_choice.index[-1])
+                    msg = f"Choice occurred at {choice_time} but no IsStopped=True event found in site interval [{this_timestamp}, {next_timestamp})"
+                    if self.raise_on_error:
+                        raise DatasetProcessorError(msg)
+                    else:
+                        logger.warning(msg + ". Falling back to global search.")
+                        stops_before_choice = is_stopped[is_stopped["IsStopped"] & (is_stopped.index <= choice_time)]
+                    if stops_before_choice.empty:
+                        raise DatasetProcessorError(
+                            f"Choice occurred at {choice_time} but no IsStopped=True event found before choice time"
+                        )
+
+                site_stop_time = (
+                    t.cast(float, stops_before_choice.index[-1]) if not stops_before_choice.empty else np.nan
+                )
                 site_stop_duration = choice_time - site_stop_time
                 if velocity is not None:
                     closest_ts = get_closest_from_timestamp(np.array([site_stop_time]), velocity, search_mode="closest")

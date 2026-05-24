@@ -92,7 +92,7 @@ def test_trials_table(entry, request):
         session_path = CACHE_ROOT / parsed.netloc / parsed.path.strip("/")
 
         ds = dataset(session_path)
-        processor = TrialTableProcessor(ds, raise_on_error=True)
+        processor = TrialTableProcessor(ds, raise_on_error=entry.raise_on_error)
         sites = processor.process_to_sites()
         sites_df = pd.DataFrame([s.model_dump() for s in sites])
 
