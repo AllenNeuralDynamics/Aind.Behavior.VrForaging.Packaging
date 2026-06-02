@@ -95,6 +95,45 @@ class TrialTableProcessor(AbstractProcessor):
         return reward_metadata
 
     @staticmethod
+    def _parse_force_reward(dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
+        """Forced/manual reward events (``ForceGiveReward`` software event), harp-timestamp indexed.
+
+        Forced rewards share the water valve with the contingent reward but are logged on their own
+        software-event stream. The stream is optional -- a session that never triggered a manual
+        reward simply has no file -- so its absence is treated as "no forced rewards", not an error.
+        """
+        try:
+            return dataset.at("Behavior").at("SoftwareEvents").at("ForceGiveReward").load().data
+        except FileNotFoundError:
+            return pd.DataFrame()
+
+    @staticmethod
+    def _count_force_rewards_per_site(site_start_times: np.ndarray, force_onsets: np.ndarray) -> tuple[np.ndarray, int]:
+        """Count forced-reward onsets falling in each site's ``[start, next_start)`` interval.
+
+        ``site_start_times`` are the (monotonically increasing) site start timestamps for all
+        ``n`` sites. Returns counts for the first ``n - 1`` sites only -- mirroring
+        ``process_to_sites``, which drops the last (possibly incomplete) site -- plus the number of
+        onsets that fell outside those intervals (before the first site, or within the dropped last
+        site) and are therefore not represented in the trial table.
+
+        Interval membership is right-exclusive to exactly match ``slice_by_index`` in the per-site
+        loop, including at the boundary into the dropped last site.
+        """
+        starts = np.asarray(site_start_times, dtype=float)
+        onsets = np.asarray(force_onsets, dtype=float)
+        n_sites = max(len(starts) - 1, 0)
+        counts = np.zeros(n_sites, dtype=int)
+        if n_sites == 0 or len(onsets) == 0:
+            return counts, int(len(onsets))
+        # idx = index of the greatest start not exceeding each onset; side="right" makes the
+        # interval [starts[idx], starts[idx+1]) right-exclusive, matching slice_by_index.
+        idx = np.searchsorted(starts, onsets, side="right") - 1
+        attributed = (idx >= 0) & (idx < n_sites)
+        np.add.at(counts, idx[attributed], 1)
+        return counts, int((~attributed).sum())
+
+    @staticmethod
     def _as_dict(d: contraqctor.contract.DataStream | PydanticModel | BaseModel | dict) -> dict:
         if isinstance(d, (PydanticModel, contraqctor.contract.DataStream)):
             d = t.cast(BaseModel | dict, d.data)
@@ -221,6 +260,20 @@ class TrialTableProcessor(AbstractProcessor):
             ],
             on="patch_count",
         )
+
+        # Forced rewards: count per site up-front so attribution uses the same contiguous
+        # [start, next_start) intervals as the loop and we can report any that fall outside them.
+        force_reward = self._parse_force_reward(dataset)
+        force_onsets = force_reward.index.to_numpy(dtype=float) if not force_reward.empty else np.empty(0, dtype=float)
+        force_reward_counts, n_unattributed_force = self._count_force_rewards_per_site(
+            merged.index.to_numpy(dtype=float), force_onsets
+        )
+        if n_unattributed_force:
+            logger.warning(
+                "%d ForceGiveReward event(s) fell outside processed site intervals (before the first site or "
+                "within the dropped last site) and are not represented in the trial table.",
+                n_unattributed_force,
+            )
 
         # Only mutable states that requires trial-based
         current_friction = 0  # Keeps track of the last known friction. Sites with null friction will not update this.
@@ -371,6 +424,7 @@ class TrialTableProcessor(AbstractProcessor):
                 if site_patch_state_at_reward.empty
                 else site_patch_state_at_reward.iloc[0]["Available"],
                 has_reward=np.isnan(reward_onset_time) == False,  # noqa: E712
+                n_force_rewards=int(force_reward_counts[i]),
                 choice_cue_time=choice_time,
                 has_choice=not site_choice_feedback.empty,
                 reward_delay_duration=reward_onset_time - choice_time

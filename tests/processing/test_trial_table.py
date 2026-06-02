@@ -6,8 +6,11 @@ The tests replicate the same pandas operations used in
 TrialTableProcessor.process_to_sites without requiring a real dataset.
 """
 
+import numpy as np
 import pandas as pd
 import pytest
+
+from aind_behavior_vr_foraging_nwb.processing._trial_table import TrialTableProcessor
 
 
 def _build_merged(sites: pd.DataFrame, patches: pd.DataFrame, blocks: pd.DataFrame) -> pd.DataFrame:
@@ -414,3 +417,50 @@ class TestManyPatchTypesInBlock:
         """Count by label within block: A→0,1  B→0,1."""
         expected = [0, 0, 1, 1]
         assert list(session["_patch_index_in_block_by_type"]) == expected
+
+
+class TestForceRewardCounting:
+    """Per-site attribution of ForceGiveReward onsets to [start, next_start) intervals.
+
+    Mirrors the contiguous-interval logic in process_to_sites: counts are returned for the
+    first n-1 sites only (the last site is dropped), interval membership is right-exclusive,
+    and onsets outside the returned intervals are reported as unattributed.
+    """
+
+    _count = staticmethod(TrialTableProcessor._count_force_rewards_per_site)
+
+    def test_counts_in_reward_and_nonreward_sites(self):
+        # 4 site starts -> 3 returned sites (last start=30 dropped). Forced rewards land in
+        # site 0 (x2) and site 2 -- including non-reward sites, which is the point.
+        starts = np.array([0.0, 10.0, 20.0, 30.0])
+        onsets = np.array([1.0, 5.0, 25.0])
+        counts, unattributed = self._count(starts, onsets)
+        assert counts.tolist() == [2, 0, 1]
+        assert unattributed == 0
+
+    def test_right_exclusive_boundary(self):
+        # An onset exactly at a site start belongs to that site, not the previous one
+        # (matches slice_by_index's index >= start).
+        starts = np.array([0.0, 10.0, 20.0])
+        counts, unattributed = self._count(starts, np.array([10.0]))
+        assert counts.tolist() == [0, 1]
+        assert unattributed == 0
+
+    def test_unattributed_before_first_and_in_dropped_last(self):
+        # site at start=20 is the dropped last site
+        starts = np.array([0.0, 10.0, 20.0])
+        onsets = np.array([-1.0, 21.0, 20.0])  # before first, within dropped last, at its start
+        counts, unattributed = self._count(starts, onsets)
+        assert counts.tolist() == [0, 0]
+        assert unattributed == 3
+
+    def test_empty_onsets(self):
+        counts, unattributed = self._count(np.array([0.0, 10.0, 20.0]), np.empty(0))
+        assert counts.tolist() == [0, 0]
+        assert unattributed == 0
+
+    def test_single_site_returns_empty(self):
+        # One site -> zero returned intervals; the lone onset is unattributed.
+        counts, unattributed = self._count(np.array([0.0]), np.array([1.0]))
+        assert counts.tolist() == []
+        assert unattributed == 1
