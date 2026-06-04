@@ -20,7 +20,7 @@ classifiers = [
 readme = {file = "README.md", content-type = "text/markdown"}
 
 dependencies = [
-    "aind-behavior-vr-foraging[data] >= 1.0.0rc5",
+    "aind-behavior-vr-foraging[data] >= 1.0.0",
     "aind-data-schema>2.7",
     "hdmf-zarr",
     "numpy>=2",
