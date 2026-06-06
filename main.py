@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 from aind_behavior_vr_foraging.data_contract import dataset
 
-from aind_behavior_vr_foraging_nwb.processing import (
+from aind_behavior_vr_foraging_packaging.processing import (
     TrialTableProcessor,
 )
 

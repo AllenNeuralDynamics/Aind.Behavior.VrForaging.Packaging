@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 import pandas as pd
 import pytest
 
-from aind_behavior_vr_foraging_nwb.processing import TrialTableProcessor
+from aind_behavior_vr_foraging_packaging.processing import TrialTableProcessor
 
 from .conftest import CACHE_ROOT, _manifest
 from .model import DatasetEntry

@@ -1,4 +1,4 @@
-name: aind-behavior-vr-foraging-nwb test suite
+name: aind-behavior-vr-foraging-packaging test suite
 
 on:
   pull_request:
