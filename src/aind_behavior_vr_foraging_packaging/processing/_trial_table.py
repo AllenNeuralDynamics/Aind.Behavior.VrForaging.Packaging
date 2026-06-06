@@ -16,7 +16,7 @@ from .helper import compute_position_and_velocity_from_treadmill, get_closest_fr
 logger = logging.getLogger(__name__)
 
 if t.TYPE_CHECKING:
-    from aind_behavior_vr_foraging_nwb.nwb_file import NdxEventsNWBFile
+    from aind_behavior_vr_foraging_packaging.nwb_file import NdxEventsNWBFile
 else:
     NdxEventsNWBFile = t.Any
 

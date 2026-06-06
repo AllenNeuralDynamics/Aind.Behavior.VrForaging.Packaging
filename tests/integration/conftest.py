@@ -40,7 +40,7 @@ _manifest: DatasetManifest = load_manifest(MANIFEST_PATH)
 
 def pytest_configure(config: pytest.Config) -> None:
     """Swap NwbSession._get_aind_data_schema_json to read local JSON files."""
-    from aind_behavior_vr_foraging_nwb.nwb_file import NwbSession, _AindDataSchemaJson
+    from aind_behavior_vr_foraging_packaging.nwb_file import NwbSession, _AindDataSchemaJson
 
     def _from_root(self: NwbSession) -> _AindDataSchemaJson:
         return _AindDataSchemaJson.from_root_path(self.root_path)
@@ -51,7 +51,15 @@ def pytest_configure(config: pytest.Config) -> None:
 @pytest.fixture(scope="session")
 def s3_client() -> BaseClient:
     """Anonymous S3 client for accessing public buckets."""
-    return boto3.client("s3", config=Config(signature_version=UNSIGNED))
+    return boto3.client(
+        "s3",
+        config=Config(
+            signature_version=UNSIGNED,
+            connect_timeout=10,
+            read_timeout=60,
+            retries={"max_attempts": 2},
+        ),
+    )
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -60,8 +68,13 @@ def ensure_datasets_cached(s3_client: BaseClient) -> None:
     entries = _manifest.datasets
     total = len(entries)
     for i, entry in enumerate(entries, start=1):
-        _log.info("[%d/%d] Preparing dataset: %s", i, total, entry.id)
-        download_dataset(s3_client, entry, CACHE_ROOT)
+        print(f"\n[{i}/{total}] Preparing dataset: {entry.id} ...", flush=True)
+        try:
+            download_dataset(s3_client, entry, CACHE_ROOT)
+            print(f"[{i}/{total}] {entry.id}: ready.", flush=True)
+        except Exception as exc:
+            print(f"[{i}/{total}] {entry.id}: SKIPPED ({exc})", flush=True)
+            _log.warning("[%d/%d] Could not prepare dataset %s: %s", i, total, entry.id, exc)
 
 
 def _is_excluded(rel_key: str, patterns: list[str]) -> bool:
@@ -135,7 +148,6 @@ def _fetch(
 
     s3.download_file(bucket, key, str(cached_path))
     etag_index[cache_key] = remote_etag
-    _save_etag_index(ETAG_INDEX_PATH, etag_index)
     return True
 
 
@@ -174,9 +186,16 @@ def download_dataset(s3: BaseClient, entry: DatasetEntry, cache_root: Path) -> P
             total_bytes += int(obj.get("Size", 0))
 
     _log.info("Downloading dataset %s — %d objects, %s", entry.id, len(objects), _format_bytes(total_bytes))
+    print(f"  Downloading {len(objects)} objects ({_format_bytes(total_bytes)}) ...", flush=True)
     start = time.monotonic()
 
-    fetched = sum(1 for key, etag in objects if _fetch(s3, bucket, key, etag, cache_root, etag_index))
+    fetched = 0
+    for j, (key, etag) in enumerate(objects, start=1):
+        if _fetch(s3, bucket, key, etag, cache_root, etag_index):
+            fetched += 1
+        if j % 10 == 0 or j == len(objects):
+            print(f"  {j}/{len(objects)} files checked ({fetched} downloaded)", end="\r", flush=True)
+    print(flush=True)  # newline after \r progress
 
     _log.info(
         "Dataset %s ready in %.1fs (%d fetched, %d cache hits)",

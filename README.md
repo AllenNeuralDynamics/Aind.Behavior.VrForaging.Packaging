@@ -1,6 +1,6 @@
-# Aind.Behavior.VrForaging.Nwb
+# Aind.Behavior.VrForaging.Packaging
 
-![CI](https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Nwb/actions/workflows/aind-behavior-vr-foraging-nwb.yml/badge.svg)
+![CI](https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging/actions/workflows/aind-behavior-vr-foraging-packaging.yml/badge.svg)
 [![License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 [![ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
@@ -13,7 +13,7 @@ A quick example of how to use the TrialTableProcessor to extract site-level meta
 from aind_behavior_vr_foraging.data_contract import dataset
 import pandas as pd
 
-from aind_behavior_vr_foraging_nwb.processing import (
+from aind_behavior_vr_foraging_packaging.processing import (
     TrialTableProcessor,
 )
 
