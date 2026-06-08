@@ -2,6 +2,7 @@ import logging
 import typing as ty
 
 import contraqctor.contract
+import numpy as np
 import pandas as pd
 from ndx_events import NdxEventsNWBFile
 from pydantic import BaseModel
@@ -10,7 +11,6 @@ from pynwb.behavior import Position, SpatialSeries
 
 from .._base import AbstractProcessor
 from ._create_processing_module import CreateProcessingModuleProcessor
-from .helper import compute_position_and_velocity_from_treadmill
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class PositionAndVelocityProcessor(AbstractProcessor):
                 f"Processing module '{CreateProcessingModuleProcessor.module_name()}' not found in NWB file. Please run '{CreateProcessingModuleProcessor.__name__}' processor first to create the processing module."
             )
 
-        position_and_velocity = self._compute_position_and_velocity(
+        position_and_velocity = self.compute_position_and_velocity(
             self.dataset, downsample_to_hz=self._sampling_rate_hz
         )
 
@@ -53,7 +53,7 @@ class PositionAndVelocityProcessor(AbstractProcessor):
 
         return nwb_file
 
-    def _compute_position_and_velocity(
+    def compute_position_and_velocity(
         self, dataset: contraqctor.contract.Dataset, *, downsample_to_hz: ty.Optional[float]
     ) -> pd.DataFrame:
         """Computes position and velocity from treadmill encoder data"""
@@ -63,7 +63,7 @@ class PositionAndVelocityProcessor(AbstractProcessor):
         rig_settings = rig_settings.model_dump() if isinstance(rig_settings, BaseModel) else rig_settings
 
         try:
-            df = compute_position_and_velocity_from_treadmill(dataset, rig_settings)
+            df = self.compute_position_and_velocity_from_treadmill(dataset, rig_settings)
         except KeyError as e:
             e.add_note(
                 "Missing calibration data for HarpTreadmill in rig settings. Cannot compute position and velocity."
@@ -81,3 +81,38 @@ class PositionAndVelocityProcessor(AbstractProcessor):
         df.index = df.index.total_seconds()  # Convert back to harp time!
 
         return df
+
+    @staticmethod
+    def compute_position_and_velocity_from_treadmill(
+        dataset: contraqctor.contract.Dataset,
+        rig_config: dict,
+    ) -> pd.DataFrame:
+        """Compute position and velocity from treadmill encoder data.
+
+        Args:
+            dataset: A contraqctor Dataset providing access to HarpTreadmill data.
+            rig_config: Rig configuration dict. Must contain a
+                ``harp_treadmill.calibration`` entry with ``wheel_diameter``
+                (cm), ``pulses_per_revolution``, and ``invert_direction``.
+
+        Returns:
+            DataFrame with ``position`` (cm) and ``velocity`` (cm/s) columns,
+            indexed by harp timestamp (seconds).
+        """
+        calibration = rig_config.get("harp_treadmill", {}).get("calibration")
+        if calibration is None:
+            raise KeyError("Missing harp_treadmill.calibration in rig_config.")
+        calibration = calibration.get("output", calibration)
+        wheel_diameter: float = calibration["wheel_diameter"]
+        pulses_per_revolution: float = calibration["pulses_per_revolution"]
+        invert_direction: bool = calibration["invert_direction"]
+        converting_factor = wheel_diameter * np.pi / pulses_per_revolution * (-1 if invert_direction else 1)
+        treadmill_data = ty.cast(
+            pd.DataFrame,
+            dataset.at("Behavior").at("HarpTreadmill").load().at("SensorData").load().data,
+        )
+        encoder = treadmill_data.query("MessageType == 'EVENT'")["Encoder"].copy()
+        position = (encoder - encoder.iloc[0]) * converting_factor
+        displacement = position.diff().fillna(0)
+        velocity = displacement / position.index.to_series().diff().fillna(1)
+        return pd.DataFrame({"position": position, "velocity": velocity})

@@ -4,41 +4,6 @@ import numpy as np
 import pandas as pd
 
 
-def compute_position_and_velocity_from_treadmill(
-    dataset: t.Any,
-    rig_config: dict,
-) -> pd.DataFrame:
-    """Compute position and velocity from treadmill encoder data.
-
-    Args:
-        dataset: A contraqctor Dataset providing access to HarpTreadmill data.
-        rig_config: Rig configuration dict. Must contain a
-            ``harp_treadmill.calibration`` entry with ``wheel_diameter``
-            (cm), ``pulses_per_revolution``, and ``invert_direction``.
-
-    Returns:
-        DataFrame with ``position`` (cm) and ``velocity`` (cm/s) columns,
-        indexed by harp timestamp (seconds).
-    """
-    calibration = rig_config.get("harp_treadmill", {}).get("calibration")
-    if calibration is None:
-        raise KeyError("Missing harp_treadmill.calibration in rig_config.")
-    calibration = calibration.get("output", calibration)
-    wheel_diameter: float = calibration["wheel_diameter"]
-    pulses_per_revolution: float = calibration["pulses_per_revolution"]
-    invert_direction: bool = calibration["invert_direction"]
-    converting_factor = wheel_diameter * np.pi / pulses_per_revolution * (-1 if invert_direction else 1)
-    treadmill_data = t.cast(
-        pd.DataFrame,
-        dataset.at("Behavior").at("HarpTreadmill").load().at("SensorData").load().data,
-    )
-    encoder = treadmill_data.query("MessageType == 'EVENT'")["Encoder"].copy()
-    position = (encoder - encoder.iloc[0]) * converting_factor
-    displacement = position.diff().fillna(0)
-    velocity = displacement / position.index.to_series().diff().fillna(1)
-    return pd.DataFrame({"position": position, "velocity": velocity})
-
-
 def get_closest_from_timestamp(
     timestamps: np.ndarray,
     df: pd.DataFrame | pd.Series,
