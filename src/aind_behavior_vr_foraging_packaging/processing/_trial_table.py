@@ -117,7 +117,9 @@ class TrialTableProcessor(AbstractProcessor):
 
     def _parse_velocity(self, dataset: contraqctor.contract.Dataset) -> pd.Series:
         rig_config = self._ensure_json_not_pydantic(self.rig_configuration)
-        return PositionAndVelocityProcessor.compute_position_and_velocity_from_treadmill(dataset, rig_config)["velocity"]
+        return PositionAndVelocityProcessor.compute_position_and_velocity_from_treadmill(dataset, rig_config)[
+            "velocity"
+        ]
 
     def _get_olfactometer_channel_count(self, dataset: contraqctor.contract.Dataset) -> int:
         extra_olfs = getattr(self.rig_configuration, "harp_olfactometer_extension", None)

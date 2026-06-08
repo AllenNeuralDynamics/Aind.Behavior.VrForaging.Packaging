@@ -89,10 +89,14 @@ class TestRefractoryPeriod:
     def test_two_independent_violations_removed_in_one_pass(self) -> None:
         # two separate spurious pairs, each removed; the legitimate licks survive.
         samples = [
-            (0.00, True), (0.01, False),  # lick A (kept)
-            (0.02, True), (0.03, False),  # spurious 0.02 s after A -> removed
-            (0.50, True), (0.51, False),  # lick B (kept)
-            (0.52, True), (0.53, False),  # spurious 0.02 s after B -> removed
+            (0.00, True),
+            (0.01, False),  # lick A (kept)
+            (0.02, True),
+            (0.03, False),  # spurious 0.02 s after A -> removed
+            (0.50, True),
+            (0.51, False),  # lick B (kept)
+            (0.52, True),
+            (0.53, False),  # spurious 0.02 s after B -> removed
         ]
         result = _compute(samples, refractory_period_s=0.05)
         assert _as_pairs(result) == [(0.00, True), (0.01, False), (0.50, True), (0.51, False)]
