@@ -3,6 +3,7 @@ from ._legacy_trial_table import LegacyTrialTableProcessor
 from ._licks import LicksProcessor
 from ._position_and_velocity import PositionAndVelocityProcessor
 from ._sniffing import SniffingProcessor
+from ._software_events import SoftwareEventsProcessor
 from ._trial_table import DatasetProcessorError, TrialTableProcessor
 
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     "LegacyPositionAndVelocityProcessor",
     "SniffingProcessor",
     "LicksProcessor",
+    "SoftwareEventsProcessor",
 ]

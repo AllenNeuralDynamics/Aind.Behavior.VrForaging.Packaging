@@ -21,6 +21,7 @@ from .processing import (
     LicksProcessor,
     PositionAndVelocityProcessor,
     SniffingProcessor,
+    SoftwareEventsProcessor,
     TrialTableProcessor,
 )
 
@@ -72,6 +73,7 @@ def create_processors(
         pos_vel_cls(dataset, sampling_rate_hz=sampling_rate_hz, raise_on_error=raise_on_error),
         LicksProcessor(dataset, raise_on_error=raise_on_error),
         SniffingProcessor(dataset, raise_on_error=raise_on_error),
+        SoftwareEventsProcessor(dataset, raise_on_error=raise_on_error),
     ]
 
 
