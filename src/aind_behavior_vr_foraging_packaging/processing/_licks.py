@@ -17,7 +17,7 @@ class LicksProcessor(AbstractProcessor):
         super().__init__(dataset=dataset, **kwargs)
         self._refractory_period_s = refractory_period_s
 
-    def compute(self) -> pd.DataFrame:
+    def _compute(self) -> pd.DataFrame:
         """Returns DataFrame with 'is_lick_onset' (bool) indexed by harp time."""
         licks = self._compute_lick_state(self.dataset)
         return licks.rename("is_lick_onset").to_frame()

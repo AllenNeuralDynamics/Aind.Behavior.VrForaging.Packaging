@@ -42,6 +42,7 @@ def _make_processor(streams: list) -> SoftwareEventsProcessor:
 
     dataset = MagicMock()
     dataset.at.return_value = behavior
+    dataset.version = "0.6.0"  # required by AbstractProcessor.compute() for dataset_version
 
     proc = SoftwareEventsProcessor.__new__(SoftwareEventsProcessor)
     proc._dataset = dataset

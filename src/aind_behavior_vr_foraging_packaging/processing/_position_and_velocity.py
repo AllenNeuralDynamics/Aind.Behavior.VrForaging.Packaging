@@ -18,7 +18,7 @@ class PositionAndVelocityProcessor(AbstractProcessor):
         super().__init__(dataset=dataset, **kwargs)
         self._sampling_rate_hz = sampling_rate_hz
 
-    def compute(self) -> pd.DataFrame:
+    def _compute(self) -> pd.DataFrame:
         """Returns DataFrame with 'position' (cm) and 'velocity' (cm/s) indexed by harp time."""
         return self.compute_position_and_velocity(self.dataset, downsample_to_hz=self._sampling_rate_hz)
 

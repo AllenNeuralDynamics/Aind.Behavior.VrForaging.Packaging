@@ -376,7 +376,7 @@ class TrialTableProcessor(AbstractProcessor):
             sites.append(site)
         return sites
 
-    def compute(self) -> pd.DataFrame:
+    def _compute(self) -> pd.DataFrame:
         """Returns trial table as a DataFrame with one row per site."""
         sites = self.process_to_sites()
         return pd.DataFrame([s.model_dump() for s in sites])

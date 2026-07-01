@@ -136,9 +136,26 @@ def run_session(
     for proc in create_processors(dataset, raise_on_error=raise_on_error, sampling_rate_hz=sampling_rate_hz):
         name = proc.output_name
         logger.info("compute: %s → %s.parquet", proc.__class__.__name__, name)
+        # compute() stamps provenance attrs automatically (see AbstractProcessor.compute)
         df = proc.compute()
-        df.to_parquet(output_dir / f"{name}.parquet")
+        _write_parquet(df, output_dir / f"{name}.parquet")
         all_data[name] = df
         logger.info("  saved %d rows", len(df))
 
     return all_data
+
+
+def _write_parquet(df: pd.DataFrame, path: Path) -> None:
+    """Write *df* to *path*, promoting ``df.attrs`` to first-class parquet metadata.
+
+    All keys in ``df.attrs`` are written both in the pandas metadata blob
+    (for pandas round-trips) and as top-level key-value entries in the parquet
+    schema (readable from DuckDB, R arrow, Polars, Spark, etc.).
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    table = pa.Table.from_pandas(df)
+    kv = {str(k).encode(): str(v).encode() for k, v in df.attrs.items()}
+    table = table.replace_schema_metadata({**table.schema.metadata, **kv})
+    pq.write_table(table, path)

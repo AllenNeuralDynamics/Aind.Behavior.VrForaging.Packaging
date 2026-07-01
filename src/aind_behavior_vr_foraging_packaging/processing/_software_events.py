@@ -28,7 +28,7 @@ class SoftwareEventsProcessor(AbstractProcessor):
 
     __output_name__ = "software_events"
 
-    def compute(self) -> pd.DataFrame:
+    def _compute(self) -> pd.DataFrame:
         """Returns all software events sorted by timestamp.
 
         Returns

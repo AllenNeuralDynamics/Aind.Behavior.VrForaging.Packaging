@@ -50,13 +50,35 @@ class AbstractProcessor(abc.ABC):
         return semver.Version.parse(value)
 
     @abc.abstractmethod
-    def compute(self) -> pd.DataFrame:
+    def _compute(self) -> pd.DataFrame:
         """Compute this processor's output as a DataFrame.
 
-        This is the primary, NWB-agnostic output. Suitable for saving directly
-        to parquet. Column names and dtypes are stable across versions.
+        Subclasses implement this method. Callers should use :meth:`compute`,
+        which wraps ``_compute`` and stamps provenance metadata into ``df.attrs``.
         """
         raise NotImplementedError
+
+    def compute(self) -> pd.DataFrame:
+        """Return the processor's output DataFrame with provenance metadata in attrs.
+
+        Calls :meth:`_compute`, then stamps ``df.attrs`` with:
+
+        - ``packaging_version``: version of this package (``aind-behavior-vr-foraging-packaging``)
+        - ``data_contract_version``: version of ``aind-behavior-vr-foraging`` (defines the behavioral data schema)
+        - ``dataset_version``: actual version recorded in the session's ``tasklogic_input.json``
+        - ``processor``: this processor's class name
+
+        Attrs already set by ``_compute`` (e.g. ``sampling_rate_hz`` from
+        :class:`SniffingProcessor`) are preserved via ``setdefault``.
+        """
+        from importlib.metadata import version as _pkg_version
+
+        df = self._compute()
+        df.attrs.setdefault("packaging_version", _pkg_version("aind-behavior-vr-foraging-packaging"))
+        df.attrs.setdefault("data_contract_version", str(self.parser_version))
+        df.attrs.setdefault("dataset_version", str(self.dataset_version))
+        df.attrs.setdefault("processor", type(self).__name__)
+        return df
 
     def nwbize(self, nwb_file: ty.Any) -> ty.Any:
         """Write this processor's output to *nwb_file* and return it.

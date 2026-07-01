@@ -6,14 +6,23 @@ from aind_behavior_vr_foraging_packaging._base import AbstractProcessor
 
 
 class _Minimal(AbstractProcessor):
-    def compute(self) -> pd.DataFrame:
+    def _compute(self) -> pd.DataFrame:
         return pd.DataFrame({"x": [1, 2, 3]})
 
 
 def test_compute_returns_dataframe():
+    from unittest.mock import MagicMock as _MM
+
     proc = _Minimal.__new__(_Minimal)
+    proc._dataset = _MM()
+    proc._dataset.version = "0.6.0"
     result = proc.compute()
     assert isinstance(result, pd.DataFrame)
+    # provenance attrs are stamped automatically
+    assert "packaging_version" in result.attrs
+    assert result.attrs["dataset_version"] == "0.6.0"
+    assert result.attrs["processor"] == "_Minimal"
+    assert "data_contract_version" in result.attrs
 
 
 def test_nwbize_is_noop_by_default():
@@ -36,7 +45,7 @@ def test_output_name_defaults_to_snake_case():
 class _Named(AbstractProcessor):
     __output_name__ = "my_stream"
 
-    def compute(self) -> pd.DataFrame:
+    def _compute(self) -> pd.DataFrame:
         return pd.DataFrame()
 
 

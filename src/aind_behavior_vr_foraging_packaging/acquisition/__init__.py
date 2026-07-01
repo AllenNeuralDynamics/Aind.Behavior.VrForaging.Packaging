@@ -15,7 +15,7 @@ class AcquisitionProcessor(AbstractProcessor):
     def __init__(self, dataset: data_contract.Dataset, *, raise_on_error: bool = False) -> None:
         super().__init__(dataset, raise_on_error=raise_on_error)
 
-    def compute(self) -> pd.DataFrame:
+    def _compute(self) -> pd.DataFrame:
         """Returns a tall DataFrame of all acquisition streams.
 
         Includes a ``_stream_name`` column (e.g. ``"Behavior.HarpBehavior.PwmStart"``)

@@ -21,7 +21,7 @@ class SniffingProcessor(AbstractProcessor):
         super().__init__(dataset=dataset, **kwargs)
         self._resampling_frequency_hz = resampling_frequency_hz
 
-    def compute(self) -> pd.DataFrame:
+    def _compute(self) -> pd.DataFrame:
         """Returns DataFrame with 'voltage' (V) indexed by harp time.
         Sampling rate stored in df.attrs['sampling_rate_hz'].
         """
