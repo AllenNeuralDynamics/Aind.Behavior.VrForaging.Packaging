@@ -49,15 +49,21 @@ class TestLegacyChannelCount:
         assert _LEGACY_OLFACTOMETER_CHANNEL_COUNT == 3
 
     def test_method_returns_three(self):
-        assert _uninit_processor()._get_olfactometer_channel_count(None) == 3  # type: ignore[arg-type]
+        from unittest.mock import MagicMock
+
+        assert _uninit_processor()._get_olfactometer_channel_count(MagicMock()) == 3
 
 
 class TestLegacyIsStoppedAndVelocity:
     def test_parse_is_stopped_returns_none(self):
-        assert LegacyTrialTableProcessor._parse_is_stopped(None) is None  # type: ignore[arg-type]
+        from unittest.mock import MagicMock
+
+        assert LegacyTrialTableProcessor._parse_is_stopped(MagicMock()) is None
 
     def test_parse_velocity_returns_none(self):
-        assert _uninit_processor()._parse_velocity(None) is None  # type: ignore[arg-type]
+        from unittest.mock import MagicMock
+
+        assert _uninit_processor()._parse_velocity(MagicMock()) is None
 
 
 class TestLegacyLoadBlocksFallback:

@@ -35,11 +35,10 @@ class SniffingProcessor(AbstractProcessor):
         from pynwb import TimeSeries
         from pynwb.base import ProcessingModule
 
-        _nwb = ty.cast(ty.Any, nwb_file)
-        module = _nwb.processing.get("behavior")
+        module = nwb_file.processing.get("behavior")
         if module is None:
             module = ProcessingModule(name="behavior", description="Processing module for behavior data")
-            _nwb.add_processing_module(module)
+            nwb_file.add_processing_module(module)
 
         df = self.compute()
         fs = float(df.attrs.get("sampling_rate_hz", 0.0))

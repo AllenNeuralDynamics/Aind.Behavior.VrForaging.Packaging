@@ -28,11 +28,10 @@ class PositionAndVelocityProcessor(AbstractProcessor):
         from pynwb.base import ProcessingModule
         from pynwb.behavior import Position, SpatialSeries
 
-        _nwb = ty.cast(ty.Any, nwb_file)
-        module = _nwb.processing.get("behavior")
+        module = nwb_file.processing.get("behavior")
         if module is None:
             module = ProcessingModule(name="behavior", description="Processing module for behavior data")
-            _nwb.add_processing_module(module)
+            nwb_file.add_processing_module(module)
 
         df = self.compute()
         module.add(

@@ -104,7 +104,7 @@ class TrialTableProcessor(AbstractProcessor):
             raise TypeError(f"Cannot convert type {type(d)} to dict")
 
     @staticmethod
-    def _parse_friction(dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
+    def _parse_friction(dataset: contraqctor.contract.Dataset) -> pd.Series:
         d = dataset.at("Behavior").at("HarpTreadmill").at("BrakeCurrentSetPoint").load().data
         return d.loc[d["MessageType"] == "WRITE", "BrakeCurrentSetPoint"]
 
@@ -112,7 +112,7 @@ class TrialTableProcessor(AbstractProcessor):
     def _parse_is_stopped(dataset: contraqctor.contract.Dataset) -> pd.DataFrame | None:
         return dataset.at("Behavior").at("OperationControl").at("IsStopped").load().data
 
-    def _parse_velocity(self, dataset: contraqctor.contract.Dataset) -> pd.Series:
+    def _parse_velocity(self, dataset: contraqctor.contract.Dataset) -> pd.Series | None:
         rig_config = self._ensure_json_not_pydantic(self.rig_configuration)
         return PositionAndVelocityProcessor.compute_position_and_velocity_from_treadmill(dataset, rig_config)[
             "velocity"
