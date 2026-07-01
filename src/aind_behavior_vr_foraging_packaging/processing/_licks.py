@@ -4,40 +4,45 @@ import typing as ty
 import contraqctor.contract
 import numpy as np
 import pandas as pd
-from ndx_events import NdxEventsNWBFile
-from pynwb import TimeSeries
 
 from .._base import AbstractProcessor
-from ._create_processing_module import CreateProcessingModuleProcessor
 
 logger = logging.getLogger(__name__)
 
 
 class LicksProcessor(AbstractProcessor):
+    __output_name__ = "licks"
+
     def __init__(self, dataset: contraqctor.contract.Dataset, *, refractory_period_s: float | None = 0.01, **kwargs):
         super().__init__(dataset=dataset, **kwargs)
         self._refractory_period_s = refractory_period_s
 
-    def process(self, nwb_file: NdxEventsNWBFile) -> NdxEventsNWBFile:
-        _nwb = ty.cast(ty.Any, nwb_file)
-        processing_module = _nwb.processing.get(CreateProcessingModuleProcessor.module_name())
-        if processing_module is None:
-            raise ValueError(
-                f"Processing module '{CreateProcessingModuleProcessor.module_name()}' not found in NWB file. Please run '{CreateProcessingModuleProcessor.__name__}' processor first to create the processing module."
-            )
-
+    def compute(self) -> pd.DataFrame:
+        """Returns DataFrame with 'is_lick_onset' (bool) indexed by harp time."""
         licks = self._compute_lick_state(self.dataset)
+        return licks.rename("is_lick_onset").to_frame()
 
-        licks_series = TimeSeries(
-            name="licks",
-            data=licks.values,
-            unit="n/a",
-            timestamps=licks.index.values,
-            description="Lick onset/offset transitions from the lickometer after refractory-period filtering (True = lick onset, False = lick offset).",
+    def nwbize(self, nwb_file: ty.Any) -> ty.Any:
+        """Add lick TimeSeries to *nwb_file*."""
+        from pynwb import TimeSeries
+        from pynwb.base import ProcessingModule
+
+        _nwb = ty.cast(ty.Any, nwb_file)
+        module = _nwb.processing.get("behavior")
+        if module is None:
+            module = ProcessingModule(name="behavior", description="Processing module for behavior data")
+            _nwb.add_processing_module(module)
+
+        df = self.compute()
+        module.add(
+            TimeSeries(
+                name="licks",
+                data=df["is_lick_onset"].values,
+                unit="n/a",
+                timestamps=df.index.values,
+                description="Lick onset/offset transitions (True = lick onset, False = lick offset).",
+            )
         )
-
-        processing_module.add(licks_series)
-
         return nwb_file
 
     def _compute_lick_state(self, dataset: contraqctor.contract.Dataset) -> pd.Series:

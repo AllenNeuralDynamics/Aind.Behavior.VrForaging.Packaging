@@ -16,17 +16,14 @@ from ._position_and_velocity import PositionAndVelocityProcessor
 
 logger = logging.getLogger(__name__)
 
-if t.TYPE_CHECKING:
-    from aind_behavior_vr_foraging_packaging.nwb_file import NdxEventsNWBFile
-else:
-    NdxEventsNWBFile = t.Any
-
 
 class DatasetProcessorError(Exception):
     pass
 
 
 class TrialTableProcessor(AbstractProcessor):
+    __output_name__ = "trials"
+
     def __init__(self, dataset: contraqctor.contract.Dataset, *, raise_on_error: bool = False) -> None:
         super().__init__(dataset, raise_on_error=raise_on_error)
 
@@ -112,7 +109,7 @@ class TrialTableProcessor(AbstractProcessor):
         return d.loc[d["MessageType"] == "WRITE", "BrakeCurrentSetPoint"]
 
     @staticmethod
-    def _parse_is_stopped(dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
+    def _parse_is_stopped(dataset: contraqctor.contract.Dataset) -> pd.DataFrame | None:
         return dataset.at("Behavior").at("OperationControl").at("IsStopped").load().data
 
     def _parse_velocity(self, dataset: contraqctor.contract.Dataset) -> pd.Series:
@@ -136,19 +133,11 @@ class TrialTableProcessor(AbstractProcessor):
         odor_specification = self._ensure_json_not_pydantic(odor_specification)
         return TypeAdapter(OdorMixture).validate_python(odor_specification)
 
-    def process(self, nwb_file: NdxEventsNWBFile) -> NdxEventsNWBFile:
-        sites = self.process_to_sites()
-        for field_name, field in Site.model_fields.items():
-            if field_name in ["start_time", "stop_time"]:
-                continue
-            nwb_file.add_trial_column(name=field_name, description=field.description)
-
-        for site in sites:
-            trial_data = site.model_dump()
-            # Replace None with np.nan
-            trial_data = {k: (np.nan if v is None else v) for k, v in trial_data.items()}
-            nwb_file.add_trial(**trial_data)
-        return nwb_file
+    @staticmethod
+    def _load_blocks(dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
+        blocks = t.cast(pd.DataFrame, dataset.at("Behavior").at("SoftwareEvents").at("Block").load().data)
+        blocks["block_count"] = range(len(blocks))
+        return blocks
 
     def process_to_sites(self) -> list[Site]:  # noqa: C901
         """
@@ -159,8 +148,7 @@ class TrialTableProcessor(AbstractProcessor):
         odor_sites = t.cast(pd.DataFrame, dataset.at("Behavior").at("SoftwareEvents").at("ActiveSite").load().data)
         patches = t.cast(pd.DataFrame, dataset.at("Behavior").at("SoftwareEvents").at("ActivePatch").load().data)
         patches["patch_count"] = range(len(patches))
-        blocks = t.cast(pd.DataFrame, dataset.at("Behavior").at("SoftwareEvents").at("Block").load().data)
-        blocks["block_count"] = range(len(blocks))
+        blocks = self._load_blocks(dataset)
 
         # Merge nearest patch (backward in time)
         merged = pd.merge_asof(
@@ -264,11 +252,11 @@ class TrialTableProcessor(AbstractProcessor):
             )
 
             # Compute last_stop_time, last_stop_duration, velocity_at_last_stop
-            # We skip calculation if no choice_time was found
+            # We skip calculation if no choice_time was found or IsStopped data is unavailable
             site_stop_time: float = np.nan
             site_stop_duration: float = np.nan
             site_velocity_at_stop: float = np.nan
-            if not np.isnan(choice_time):
+            if not np.isnan(choice_time) and is_stopped is not None:
                 site_is_stopped = slice_by_index(is_stopped, this_timestamp, choice_time, end_inclusive=True)
                 stops_before_choice = site_is_stopped[site_is_stopped["IsStopped"]]
                 if stops_before_choice.empty:
@@ -387,3 +375,22 @@ class TrialTableProcessor(AbstractProcessor):
             )
             sites.append(site)
         return sites
+
+    def compute(self) -> pd.DataFrame:
+        """Returns trial table as a DataFrame with one row per site."""
+        sites = self.process_to_sites()
+        return pd.DataFrame([s.model_dump() for s in sites])
+
+    def nwbize(self, nwb_file: t.Any) -> t.Any:
+        """Add trials to *nwb_file* from compute() output."""
+        import numpy as np
+
+        df = self.compute()
+        for col in df.columns:
+            if col in ("start_time", "stop_time"):
+                continue
+            nwb_file.add_trial_column(name=col, description=col)
+        for _, row in df.iterrows():
+            trial = {k: (np.nan if v is None else v) for k, v in row.to_dict().items()}
+            nwb_file.add_trial(**trial)
+        return nwb_file
