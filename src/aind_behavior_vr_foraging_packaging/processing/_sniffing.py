@@ -4,46 +4,55 @@ import typing as ty
 import contraqctor.contract
 import numpy as np
 import pandas as pd
-from ndx_events import NdxEventsNWBFile
-from pynwb import TimeSeries
 from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
 
 from .._base import AbstractProcessor
-from ._create_processing_module import CreateProcessingModuleProcessor
 
 logger = logging.getLogger(__name__)
 
 
 class SniffingProcessor(AbstractProcessor):
+    __output_name__ = "sniffing"
+
     def __init__(
         self, dataset: contraqctor.contract.Dataset, *, resampling_frequency_hz: float | None = None, **kwargs
     ):
         super().__init__(dataset=dataset, **kwargs)
         self._resampling_frequency_hz = resampling_frequency_hz
 
-    def process(self, nwb_file: NdxEventsNWBFile) -> NdxEventsNWBFile:
-        _nwb = ty.cast(ty.Any, nwb_file)
-        processing_module = _nwb.processing.get(CreateProcessingModuleProcessor.module_name())
-        if processing_module is None:
-            raise ValueError(
-                f"Processing module '{CreateProcessingModuleProcessor.module_name()}' not found in NWB file. Please run '{CreateProcessingModuleProcessor.__name__}' processor first to create the processing module."
-            )
-
+    def _compute(self) -> pd.DataFrame:
+        """Returns DataFrame with 'voltage' (V) indexed by harp time.
+        Sampling rate stored in df.attrs['sampling_rate_hz'].
+        """
         sniff, fs = self.compute_sniff_signal(self.dataset)
+        df = sniff.rename("voltage").to_frame()
+        df.attrs["sampling_rate_hz"] = fs
+        return df
 
-        sniff_series = TimeSeries(
-            name="sniffing",
-            data=sniff.values,
-            unit="V",
-            starting_time=sniff.index.values[0],
-            rate=fs,
-            timestamps=sniff.index.values,
-            description="Filtered breathing/sniff signal derived from the sniff detector raw voltage.",
+    def nwbize(self, nwb_file: ty.Any) -> ty.Any:
+        """Add sniffing TimeSeries to *nwb_file*."""
+        from pynwb import TimeSeries
+        from pynwb.base import ProcessingModule
+
+        module = nwb_file.processing.get("behavior")
+        if module is None:
+            module = ProcessingModule(name="behavior", description="Processing module for behavior data")
+            nwb_file.add_processing_module(module)
+
+        df = self.compute()
+        fs = float(df.attrs.get("sampling_rate_hz", 0.0))
+        module.add(
+            TimeSeries(
+                name="sniffing",
+                data=df["voltage"].values,
+                unit="V",
+                starting_time=float(df.index[0]),
+                rate=fs,
+                timestamps=df.index.values,
+                description="Filtered breathing/sniff signal derived from the sniff detector raw voltage.",
+            )
         )
-
-        processing_module.add(sniff_series)
-
         return nwb_file
 
     def compute_sniff_signal(self, dataset: contraqctor.contract.Dataset) -> ty.Tuple[pd.Series, float]:

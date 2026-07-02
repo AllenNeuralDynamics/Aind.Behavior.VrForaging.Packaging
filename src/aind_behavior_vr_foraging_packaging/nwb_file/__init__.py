@@ -20,8 +20,15 @@ logger = logging.getLogger(__name__)
 
 
 class NwbSession:
-    def __init__(self, root_path: Path, *, dataset: Optional[data_contract.Dataset] = None) -> None:
+    def __init__(
+        self,
+        root_path: Path,
+        *,
+        dataset: Optional[data_contract.Dataset] = None,
+        use_local_schema: bool = False,
+    ) -> None:
         self._root_path = root_path
+        self._use_local_schema = use_local_schema
         self._dataset = dataset if dataset else aind_behavior_vr_foraging.data_contract.dataset(root_path)
         self._aind_data_schema = self._get_aind_data_schema_json()
         self._nwb_file: Optional[NdxEventsNWBFile] = None
@@ -57,13 +64,15 @@ class NwbSession:
         nwb = self.process()
         logging.info("Running %s processors on NWB file...", len(processors))
         for processor in processors:
-            logging.info("Running processor %s...", processor.__class__.__name__)
-            nwb = processor.process(nwb)
+            logging.info("Running nwbize: %s", processor.__class__.__name__)
+            nwb = processor.nwbize(nwb)
         return nwb
 
     def _get_aind_data_schema_json(self) -> "_AindDataSchemaJson":
-        jsons = _AindDataSchemaJson.from_doc_db(Path(self.root_path).name)
-        # jsons = _AindDataSchemaJson.from_root_path(self.root_path)
+        if self._use_local_schema:
+            jsons = _AindDataSchemaJson.from_root_path(self._root_path)
+        else:
+            jsons = _AindDataSchemaJson.from_doc_db(Path(self.root_path).name)
         logger.debug("Found primary data %s", jsons.data_description.name)
         return jsons
 

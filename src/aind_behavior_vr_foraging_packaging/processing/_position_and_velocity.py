@@ -4,53 +4,54 @@ import typing as ty
 import contraqctor.contract
 import numpy as np
 import pandas as pd
-from ndx_events import NdxEventsNWBFile
 from pydantic import BaseModel
-from pynwb import TimeSeries
-from pynwb.behavior import Position, SpatialSeries
 
 from .._base import AbstractProcessor
-from ._create_processing_module import CreateProcessingModuleProcessor
 
 logger = logging.getLogger(__name__)
 
 
 class PositionAndVelocityProcessor(AbstractProcessor):
+    __output_name__ = "position_velocity"
+
     def __init__(self, dataset: contraqctor.contract.Dataset, *, sampling_rate_hz: ty.Optional[float] = None, **kwargs):
         super().__init__(dataset=dataset, **kwargs)
         self._sampling_rate_hz = sampling_rate_hz
 
-    def process(self, nwb_file: NdxEventsNWBFile) -> NdxEventsNWBFile:
-        _nwb = ty.cast(ty.Any, nwb_file)
-        processing_module = _nwb.processing.get(CreateProcessingModuleProcessor.module_name())
-        if processing_module is None:
-            raise ValueError(
-                f"Processing module '{CreateProcessingModuleProcessor.module_name()}' not found in NWB file. Please run '{CreateProcessingModuleProcessor.__name__}' processor first to create the processing module."
+    def _compute(self) -> pd.DataFrame:
+        """Returns DataFrame with 'position' (cm) and 'velocity' (cm/s) indexed by harp time."""
+        return self.compute_position_and_velocity(self.dataset, downsample_to_hz=self._sampling_rate_hz)
+
+    def nwbize(self, nwb_file: ty.Any) -> ty.Any:
+        """Add position and velocity TimeSeries to *nwb_file*."""
+        from pynwb import TimeSeries
+        from pynwb.base import ProcessingModule
+        from pynwb.behavior import Position, SpatialSeries
+
+        module = nwb_file.processing.get("behavior")
+        if module is None:
+            module = ProcessingModule(name="behavior", description="Processing module for behavior data")
+            nwb_file.add_processing_module(module)
+
+        df = self.compute()
+        module.add(
+            Position(
+                spatial_series=SpatialSeries(
+                    name="position",
+                    data=df["position"].values,
+                    unit="cm",
+                    timestamps=df.index.values,
+                )
             )
-
-        position_and_velocity = self.compute_position_and_velocity(
-            self.dataset, downsample_to_hz=self._sampling_rate_hz
         )
-
-        position_series = SpatialSeries(  # https://nwb-schema.readthedocs.io/en/latest/format.html#spatialseries
-            name="position",
-            data=position_and_velocity["position"].values,
-            unit="cm",
-            timestamps=position_and_velocity.index.values,
+        module.add(
+            TimeSeries(
+                name="velocity",
+                data=df["velocity"].values,
+                unit="cm/s",
+                timestamps=df.index.values,
+            )
         )
-
-        velocity_series = TimeSeries(
-            name="velocity",
-            data=position_and_velocity["velocity"].values,
-            unit="cm/s",
-            timestamps=position_and_velocity.index.values,
-        )
-
-        processing_module.add(
-            Position(spatial_series=position_series)
-        )  # https://nwb-schema.readthedocs.io/en/latest/format.html#position
-        processing_module.add(velocity_series)
-
         return nwb_file
 
     def compute_position_and_velocity(

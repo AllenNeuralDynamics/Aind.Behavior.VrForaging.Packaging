@@ -38,14 +38,22 @@ DEFAULT_EXCLUDES: tuple[str, ...] = ("**/*.mp4", "**/*.avi", "**/*.mkv")
 _manifest: DatasetManifest = load_manifest(MANIFEST_PATH)
 
 
-def pytest_configure(config: pytest.Config) -> None:
-    """Swap NwbSession._get_aind_data_schema_json to read local JSON files."""
+@pytest.fixture(autouse=True)
+def _use_local_schema_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Swap NwbSession._get_aind_data_schema_json to read local JSON files.
+
+    Scoped to this conftest's fixture (not a global pytest_configure patch) so it
+    only applies to tests under tests/integration/ and is reverted afterwards —
+    a session-wide setattr here previously leaked into unit tests collected
+    under tests/ whenever the full suite ran (testpaths includes tests/integration/
+    for collection even when `-m 'not integration'` deselects its test items).
+    """
     from aind_behavior_vr_foraging_packaging.nwb_file import NwbSession, _AindDataSchemaJson
 
     def _from_root(self: NwbSession) -> _AindDataSchemaJson:
         return _AindDataSchemaJson.from_root_path(self.root_path)
 
-    setattr(NwbSession, "_get_aind_data_schema_json", _from_root)
+    monkeypatch.setattr(NwbSession, "_get_aind_data_schema_json", _from_root)
 
 
 @pytest.fixture(scope="session")

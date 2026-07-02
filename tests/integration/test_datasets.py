@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 import pandas as pd
 import pytest
 
-from aind_behavior_vr_foraging_packaging.processing import TrialTableProcessor
+from aind_behavior_vr_foraging_packaging.pipeline import get_trial_table_processor
 
 from .conftest import CACHE_ROOT, _manifest
 from .model import DatasetEntry
@@ -86,13 +86,28 @@ def test_trials_table(entry, request):
         )
 
     try:
+        import json as _json
+
+        import semver as _semver
         from aind_behavior_vr_foraging.data_contract import dataset
 
         parsed = urlparse(entry.uri)
         session_path = CACHE_ROOT / parsed.netloc / parsed.path.strip("/")
 
-        ds = dataset(session_path)
-        processor = TrialTableProcessor(ds, raise_on_error=entry.raise_on_error)
+        # Determine the loader version from tasklogic_input.json, handling both
+        # the modern "version" key and the legacy "schema_version" key (v0.3.x).
+        # v0.3.x sessions use the v0_4_0 contract (compatible file layout).
+        tasklogic_path = session_path / "behavior" / "Logs" / "tasklogic_input.json"
+        loader_version = None
+        if tasklogic_path.exists():
+            data = _json.loads(tasklogic_path.read_text())
+            raw_version = data.get("schema_version") or data.get("version")
+            if raw_version:
+                v = _semver.Version.parse(raw_version)
+                loader_version = "0.4.0" if v < _semver.Version.parse("0.4.0") else raw_version
+
+        ds = dataset(session_path, version=loader_version)
+        processor = get_trial_table_processor(ds, raise_on_error=entry.raise_on_error)
         sites = processor.process_to_sites()
         sites_df = pd.DataFrame([s.model_dump() for s in sites])
 
