@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "aind-behavior-vr-foraging-packaging"
-description = "A library of curricula for the VrForaging task."
+description = "Parses and packages AIND VR Foraging behavioral sessions into tabular (parquet) and NWB outputs."
 authors = [
     {name = "Bruno Cruz", email = "bruno.cruz@alleninstitute.org"},
     ]

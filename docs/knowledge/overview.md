@@ -13,10 +13,6 @@ analysis-ready artifacts: a set of **parquet** tables and an **NWB** file. It
 is the "packaging" layer that sits downstream of acquisition and upstream of
 analysis.
 
-> Note: the `pyproject.toml` `description` field ("A library of curricula…")
-> is stale and does not describe the current code. The authoritative
-> description is this file.
-
 # Dataflow
 
 The whole system is a fan-out of independent **processors** over one loaded
