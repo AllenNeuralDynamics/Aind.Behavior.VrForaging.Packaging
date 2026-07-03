@@ -9,7 +9,7 @@ authors = [
     {name = "Bruno Cruz", email = "bruno.cruz@alleninstitute.org"},
     ]
 license = "MIT"
-version = "0.0.0rc1"
+version = "0.0.1"
 requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3.11",
