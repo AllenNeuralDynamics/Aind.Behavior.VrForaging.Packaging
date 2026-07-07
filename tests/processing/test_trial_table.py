@@ -470,6 +470,28 @@ class TestForcedRewardTimes:
         proc = self._proc(valve_times=[1.0, 2.0], force_times=[], auto_times=[1.0])
         assert proc._forced_reward_times(None).tolist() == []
 
+    def test_absent_force_stream_node(self):
+        # Pre-0.6.0 schemas do not register ForceGiveReward, so _parse_force_reward must detect its
+        # absence from the SoftwareEvents collection and report no forced rewards.
+        import typing as t
+
+        class _Stream:
+            def __init__(self, name):
+                self.name = name
+
+        class _SoftwareEvents:
+            def __iter__(self):
+                return iter([_Stream("GiveReward"), _Stream("ActiveSite")])
+
+        class _Dataset:
+            def at(self, name):
+                assert name in ("Behavior", "SoftwareEvents")
+                return self if name == "Behavior" else _SoftwareEvents()
+
+        result = TrialTableProcessor._parse_force_reward(t.cast(t.Any, _Dataset()))
+        assert result.empty
+        assert list(result.columns) == ["data"]
+
 
 class TestBinTimesToSites:
     """Binning times into right-exclusive [start, next_start) intervals, dropping the last site."""

@@ -94,8 +94,12 @@ class TrialTableProcessor(AbstractProcessor):
 
     @staticmethod
     def _parse_force_reward(dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
-        """Forced/manual reward events (``ForceGiveReward``). Software-timestamped; optional stream."""
-        stream = dataset.at("Behavior").at("SoftwareEvents").at("ForceGiveReward").load()
+        """Forced/manual reward events (``ForceGiveReward``). Software-timestamped; added in schema 0.6.0."""
+        software_events = dataset.at("Behavior").at("SoftwareEvents")
+        # The stream is not registered in pre-0.6.0 schemas, so guard before accessing it.
+        if not any(stream.name == "ForceGiveReward" for stream in software_events):
+            return pd.DataFrame(columns=["data"])
+        stream = software_events.at("ForceGiveReward").load()
         return stream.data if stream.has_data else pd.DataFrame(columns=["data"])
 
     def _forced_reward_times(self, dataset: contraqctor.contract.Dataset) -> np.ndarray:
