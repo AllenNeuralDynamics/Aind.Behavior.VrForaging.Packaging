@@ -41,6 +41,15 @@ def get_closest_from_timestamp(
     return df.index[idxs]
 
 
+def nearest_positions(sorted_values: np.ndarray, query: np.ndarray) -> np.ndarray:
+    """Position in ``sorted_values`` (ascending, non-empty) nearest each ``query``; ties go earlier."""
+    right = np.searchsorted(sorted_values, query, side="left")
+    left = np.clip(right - 1, 0, sorted_values.size - 1)
+    right = np.clip(right, 0, sorted_values.size - 1)
+    use_left = np.abs(sorted_values[left] - query) <= np.abs(sorted_values[right] - query)
+    return np.where(use_left, left, right)
+
+
 _TSliceable = t.TypeVar("_TSliceable", pd.DataFrame, pd.Series)
 
 

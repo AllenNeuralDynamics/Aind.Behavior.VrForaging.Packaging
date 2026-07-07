@@ -34,12 +34,17 @@ class Site(BaseModel):
         description="Reward left at the time of reward delivery. Will be null if the reward is not sampled (e.g. has_choice is False). (unit: milliliter)",
     )
     has_reward: Optional[bool] = Field(default=None, description="Boolean whether reward was delivered, bool.")
-    n_force_rewards: int = Field(
-        default=0,
+    has_force_rewards: bool = Field(
+        default=False,
+        description="Whether any forced/manual reward was delivered while the animal was within this site interval.",
+    )
+    force_reward_times: List[float] = Field(
+        default_factory=list,
+        json_schema_extra={"ragged": True},
         description=(
-            "Number of forced rewards (ForceGiveReward / manual rewards) delivered while the animal was within "
-            "this site interval. Counted for every site type, not only reward sites, and independently of the "
-            "contingent foraging reward. (unit: count)"
+            "Hardware-derived valve-open times of forced/manual rewards (ForceGiveReward) delivered within this "
+            "site interval. Independent of the contingent foraging reward and counted for every site type. "
+            "(unit: second)"
         ),
     )
     choice_cue_time: Optional[float] = Field(

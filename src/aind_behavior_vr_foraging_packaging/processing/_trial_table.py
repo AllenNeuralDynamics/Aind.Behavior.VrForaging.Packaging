@@ -11,7 +11,7 @@ from pydantic import BaseModel, TypeAdapter
 
 from .._base import AbstractProcessor
 from ..models import Site
-from ._helper import get_closest_from_timestamp, slice_by_index
+from ._helper import get_closest_from_timestamp, nearest_positions, slice_by_index
 from ._position_and_velocity import PositionAndVelocityProcessor
 
 logger = logging.getLogger(__name__)
@@ -94,42 +94,58 @@ class TrialTableProcessor(AbstractProcessor):
 
     @staticmethod
     def _parse_force_reward(dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
-        """Forced/manual reward events (``ForceGiveReward`` software event), harp-timestamp indexed.
+        """Forced/manual reward events (``ForceGiveReward``). Software-timestamped; optional stream."""
+        stream = dataset.at("Behavior").at("SoftwareEvents").at("ForceGiveReward").load()
+        return stream.data if stream.has_data else pd.DataFrame(columns=["data"])
 
-        Forced rewards share the water valve with the contingent reward but are logged on their own
-        software-event stream. The stream is optional -- a session that never triggered a manual
-        reward simply has no file -- so its absence is treated as "no forced rewards", not an error.
+    def _forced_reward_times(self, dataset: contraqctor.contract.Dataset) -> np.ndarray:
+        """Valve-open times (sorted) of forced rewards: those not claimed by an automatic delivery.
+
+        ``GiveReward`` deliveries claim their nearest valve open; each ``ForceGiveReward`` is then
+        matched to its nearest remaining one, recovering a hardware time for the software event.
         """
-        try:
-            return dataset.at("Behavior").at("SoftwareEvents").at("ForceGiveReward").load().data
-        except FileNotFoundError:
-            return pd.DataFrame()
+        valve_opens = np.sort(self._parse_water_delivery(dataset).index.to_numpy(dtype=float))
+        force_reward = self._parse_force_reward(dataset)
+        if force_reward.empty or valve_opens.size == 0:
+            return np.empty(0, dtype=float)
+
+        # Step 1: account for automatic deliveries -- mark their nearest valve opens as consumed.
+        reward_metadata = self._parse_reward_metadata(dataset)
+        auto_times = reward_metadata.index[reward_metadata["data"].fillna(0) != 0].to_numpy(dtype=float)
+        consumed = np.zeros(valve_opens.size, dtype=bool)
+        if auto_times.size:
+            consumed[nearest_positions(valve_opens, auto_times)] = True
+
+        # Step 2: whatever valve opens are left get matched to the forced-reward events.
+        leftover = valve_opens[~consumed]
+        if leftover.size == 0:
+            logger.warning("Found %d ForceGiveReward event(s) but no unclaimed valve openings.", len(force_reward))
+            return np.empty(0, dtype=float)
+        forced = np.unique(leftover[nearest_positions(leftover, force_reward.index.to_numpy(dtype=float))])
+        if forced.size != len(force_reward):
+            logger.warning(
+                "Matched %d ForceGiveReward event(s) to %d distinct valve opening(s).", len(force_reward), forced.size
+            )
+        return forced
 
     @staticmethod
-    def _count_force_rewards_per_site(site_start_times: np.ndarray, force_onsets: np.ndarray) -> tuple[np.ndarray, int]:
-        """Count forced-reward onsets falling in each site's ``[start, next_start)`` interval.
+    def _bin_times_to_sites(site_start_times: np.ndarray, times: np.ndarray) -> tuple[list[list[float]], int]:
+        """Bin ``times`` into right-exclusive ``[start, next_start)`` intervals.
 
-        ``site_start_times`` are the (monotonically increasing) site start timestamps for all
-        ``n`` sites. Returns counts for the first ``n - 1`` sites only -- mirroring
-        ``process_to_sites``, which drops the last (possibly incomplete) site -- plus the number of
-        onsets that fell outside those intervals (before the first site, or within the dropped last
-        site) and are therefore not represented in the trial table.
-
-        Interval membership is right-exclusive to exactly match ``slice_by_index`` in the per-site
-        loop, including at the boundary into the dropped last site.
+        Returns per-site time lists for the first ``n - 1`` sites (the last site is dropped, as in
+        ``process_to_sites``) and the count of times falling outside them.
         """
-        starts = np.asarray(site_start_times, dtype=float)
-        onsets = np.asarray(force_onsets, dtype=float)
-        n_sites = max(len(starts) - 1, 0)
-        counts = np.zeros(n_sites, dtype=int)
-        if n_sites == 0 or len(onsets) == 0:
-            return counts, int(len(onsets))
-        # idx = index of the greatest start not exceeding each onset; side="right" makes the
-        # interval [starts[idx], starts[idx+1]) right-exclusive, matching slice_by_index.
-        idx = np.searchsorted(starts, onsets, side="right") - 1
-        attributed = (idx >= 0) & (idx < n_sites)
-        np.add.at(counts, idx[attributed], 1)
-        return counts, int((~attributed).sum())
+        n_sites = max(len(site_start_times) - 1, 0)
+        per_site: list[list[float]] = [[] for _ in range(n_sites)]
+        # side="right" makes the interval [starts[idx], starts[idx+1]) right-exclusive.
+        idx = np.searchsorted(site_start_times, times, side="right") - 1
+        n_unattributed = 0
+        for site_idx, value in zip(idx, times):
+            if 0 <= site_idx < n_sites:
+                per_site[site_idx].append(float(value))
+            else:
+                n_unattributed += 1
+        return per_site, n_unattributed
 
     @staticmethod
     def _as_dict(d: contraqctor.contract.DataStream | PydanticModel | BaseModel | dict) -> dict:
@@ -252,16 +268,14 @@ class TrialTableProcessor(AbstractProcessor):
             on="patch_count",
         )
 
-        # Forced rewards: count per site up-front so attribution uses the same contiguous
-        # [start, next_start) intervals as the loop and we can report any that fall outside them.
-        force_reward = self._parse_force_reward(dataset)
-        force_onsets = force_reward.index.to_numpy(dtype=float) if not force_reward.empty else np.empty(0, dtype=float)
-        force_reward_counts, n_unattributed_force = self._count_force_rewards_per_site(
-            merged.index.to_numpy(dtype=float), force_onsets
+        # Forced rewards: bin the hardware-derived valve-open times into the same contiguous
+        # [start, next_start) site intervals used by the loop, so we can report any that fall outside.
+        force_reward_times, n_unattributed_force = self._bin_times_to_sites(
+            merged.index.to_numpy(dtype=float), self._forced_reward_times(dataset)
         )
         if n_unattributed_force:
             logger.warning(
-                "%d ForceGiveReward event(s) fell outside processed site intervals (before the first site or "
+                "%d forced reward(s) fell outside processed site intervals (before the first site or "
                 "within the dropped last site) and are not represented in the trial table.",
                 n_unattributed_force,
             )
@@ -415,7 +429,8 @@ class TrialTableProcessor(AbstractProcessor):
                 if site_patch_state_at_reward.empty
                 else site_patch_state_at_reward.iloc[0]["Available"],
                 has_reward=np.isnan(reward_onset_time) == False,  # noqa: E712
-                n_force_rewards=int(force_reward_counts[i]),
+                has_force_rewards=bool(force_reward_times[i]),
+                force_reward_times=force_reward_times[i],
                 choice_cue_time=choice_time,
                 has_choice=not site_choice_feedback.empty,
                 reward_delay_duration=reward_onset_time - choice_time
@@ -437,13 +452,15 @@ class TrialTableProcessor(AbstractProcessor):
 
     def nwbize(self, nwb_file: t.Any) -> t.Any:
         """Add trials to *nwb_file* from compute() output."""
-        import numpy as np
-
         df = self.compute()
         for col in df.columns:
             if col in ("start_time", "stop_time"):
                 continue
-            nwb_file.add_trial_column(name=col, description=col)
+            # Fields marked ``ragged`` hold a variable-length list per row and must be stored as an
+            # indexed (ragged) column; a plain column can't represent empty/uneven per-row vectors.
+            field = Site.model_fields.get(col)
+            extra = field.json_schema_extra if field and isinstance(field.json_schema_extra, dict) else {}
+            nwb_file.add_trial_column(name=col, description=col, index=bool(extra.get("ragged", False)))
         for _, row in df.iterrows():
             trial = {k: (np.nan if v is None else v) for k, v in row.to_dict().items()}
             nwb_file.add_trial(**trial)
