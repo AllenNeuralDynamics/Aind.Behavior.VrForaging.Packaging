@@ -16,6 +16,7 @@ from contraqctor.contract import Dataset
 
 from ._base import AbstractProcessor
 from .processing import (
+    EventsProcessor,
     LegacyPositionAndVelocityProcessor,
     LegacyTrialTableProcessor,
     LicksProcessor,
@@ -74,6 +75,7 @@ def create_processors(
         LicksProcessor(dataset, raise_on_error=raise_on_error),
         SniffingProcessor(dataset, raise_on_error=raise_on_error),
         SoftwareEventsProcessor(dataset, raise_on_error=raise_on_error),
+        EventsProcessor(dataset, raise_on_error=raise_on_error),
     ]
 
 
