@@ -8,7 +8,11 @@ import pandas as pd
 import pytest
 
 from aind_behavior_vr_foraging_packaging.processing._events import EventsProcessor
-from aind_behavior_vr_foraging_packaging.processing._helper import nearest_positions, parse_force_reward
+from aind_behavior_vr_foraging_packaging.processing._helper import (
+    nearest_positions,
+    parse_force_reward,
+    parse_manual_water_delivery,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -119,11 +123,11 @@ class TestManualWaterDelivery:
     def _patch(monkeypatch, valve_times, auto_times, auto_amounts=None):
         amounts = [3.0] * len(auto_times) if auto_amounts is None else auto_amounts
         monkeypatch.setattr(
-            "aind_behavior_vr_foraging_packaging.processing._events.parse_water_delivery",
+            "aind_behavior_vr_foraging_packaging.processing._helper.parse_water_delivery",
             lambda ds: pd.Series(True, index=np.asarray(valve_times, dtype=float)),
         )
         monkeypatch.setattr(
-            "aind_behavior_vr_foraging_packaging.processing._events.parse_reward_metadata",
+            "aind_behavior_vr_foraging_packaging.processing._helper.parse_reward_metadata",
             lambda ds: pd.DataFrame({"data": amounts}, index=np.asarray(auto_times, dtype=float)),
         )
 
@@ -133,7 +137,7 @@ class TestManualWaterDelivery:
         # but keep the original event payload.
         self._patch(monkeypatch, valve_times=[1.0, 2.01, 3.0, 4.02], auto_times=[1.0, 3.0])
         dataset = _make_force_reward_dataset(index=[2.0, 4.0], data=["a", "b"])
-        result = EventsProcessor._parse_manual_water_delivery(dataset)
+        result = parse_manual_water_delivery(dataset)
         assert result.index.tolist() == [2.01, 4.02]
         assert result["data"].tolist() == ["a", "b"]
 
@@ -142,31 +146,31 @@ class TestManualWaterDelivery:
         # first prevents the force event from being mis-attributed to the automatic delivery.
         self._patch(monkeypatch, valve_times=[1.0, 1.05], auto_times=[1.0])
         dataset = _make_force_reward_dataset(index=[1.04], data=["a"])
-        result = EventsProcessor._parse_manual_water_delivery(dataset)
+        result = parse_manual_water_delivery(dataset)
         assert result.index.tolist() == [1.05]
 
     def test_zero_amount_give_reward_does_not_claim_valve(self, monkeypatch):
         # GiveReward with amount 0 is not a real delivery, so it must not consume a valve open.
         self._patch(monkeypatch, valve_times=[5.0], auto_times=[5.0], auto_amounts=[0.0])
         dataset = _make_force_reward_dataset(index=[5.0], data=["a"])
-        result = EventsProcessor._parse_manual_water_delivery(dataset)
+        result = parse_manual_water_delivery(dataset)
         assert result.index.tolist() == [5.0]
 
     def test_no_unclaimed_valve_returns_empty(self, monkeypatch):
         self._patch(monkeypatch, valve_times=[1.0], auto_times=[1.0])
         dataset = _make_force_reward_dataset(index=[1.0], data=["a"])
-        result = EventsProcessor._parse_manual_water_delivery(dataset)
+        result = parse_manual_water_delivery(dataset)
         assert result.empty
 
     def test_no_force_reward_events_returns_empty(self, monkeypatch):
         self._patch(monkeypatch, valve_times=[1.0, 2.0], auto_times=[1.0])
         dataset = _make_force_reward_dataset(index=[], data=[])
-        result = EventsProcessor._parse_manual_water_delivery(dataset)
+        result = parse_manual_water_delivery(dataset)
         assert result.empty
 
     def test_absent_stream_returns_empty(self):
         # Pre-0.6.0 schemas do not register ForceGiveReward.
-        result = EventsProcessor._parse_manual_water_delivery(_make_absent_stream_dataset())
+        result = parse_manual_water_delivery(_make_absent_stream_dataset())
         assert result.empty
         assert list(result.columns) == ["data"]
 
@@ -225,3 +229,32 @@ class TestEventsCompute:
     def test_output_name_is_events(self):
         proc = EventsProcessor.__new__(EventsProcessor)
         assert proc.output_name == "events"
+
+
+class TestEventsNwbize:
+    """nwbize() writes the tall compute() frame into an ndx-events EventsTable."""
+
+    def test_writes_events_table(self, monkeypatch):
+        proc = _make_processor()
+        monkeypatch.setattr(
+            EventsProcessor,
+            "_EVENT_SOURCES",
+            [("ManualWaterDelivery", lambda ds: pd.DataFrame({"data": [0.002, 0.002]}, index=[1.0, 2.5]))],
+        )
+        nwb_file = MagicMock()
+        proc.nwbize(nwb_file)
+
+        nwb_file.add_events_table.assert_called_once()
+        table = nwb_file.add_events_table.call_args.args[0]
+        frame = table.to_dataframe()
+        assert frame["timestamp"].tolist() == [1.0, 2.5]
+        assert frame["event_name"].tolist() == ["ManualWaterDelivery", "ManualWaterDelivery"]
+        # data is JSON-serialized to stay within NWB string dtypes
+        assert frame["data"].tolist() == ["0.002", "0.002"]
+
+    def test_no_events_adds_no_table(self, monkeypatch):
+        proc = _make_processor()
+        monkeypatch.setattr(EventsProcessor, "_EVENT_SOURCES", [])
+        nwb_file = MagicMock()
+        proc.nwbize(nwb_file)
+        nwb_file.add_events_table.assert_not_called()

@@ -2,11 +2,10 @@ import logging
 import typing as t
 
 import contraqctor
-import numpy as np
 import pandas as pd
 
 from .._base import AbstractProcessor
-from ._helper import nearest_positions, parse_force_reward, parse_reward_metadata, parse_water_delivery
+from ._helper import parse_manual_water_delivery
 
 logger = logging.getLogger(__name__)
 
@@ -24,45 +23,8 @@ class EventsProcessor(AbstractProcessor):
 
     __output_name__ = "events"
 
-    @staticmethod
-    def _parse_manual_water_delivery(dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
-        """Forced/manual reward events (``ForceGiveReward``), re-timestamped to their valve-open time.
-
-        ``GiveReward`` deliveries claim their nearest valve open; each ``ForceGiveReward`` is then
-        matched to its nearest remaining one, recovering a hardware time for the software event.
-        """
-        force_reward = parse_force_reward(dataset)
-        if force_reward.empty:
-            return pd.DataFrame(columns=["data"])
-
-        valve_opens = np.sort(parse_water_delivery(dataset).index.to_numpy(dtype=float))
-        if valve_opens.size == 0:
-            return pd.DataFrame(columns=["data"])
-
-        # Step 1: account for automatic deliveries -- mark their nearest valve opens as consumed.
-        reward_metadata = parse_reward_metadata(dataset)
-        auto_times = reward_metadata.index[reward_metadata["data"].fillna(0) != 0].to_numpy(dtype=float)
-        consumed = np.zeros(valve_opens.size, dtype=bool)
-        if auto_times.size:
-            consumed[nearest_positions(valve_opens, auto_times)] = True
-
-        # Step 2: whatever valve opens are left get matched to the forced-reward events.
-        leftover = valve_opens[~consumed]
-        if leftover.size == 0:
-            logger.warning("Found %d ForceGiveReward event(s) but no unclaimed valve openings.", len(force_reward))
-            return pd.DataFrame(columns=["data"])
-
-        matched = force_reward.copy()
-        matched.index = leftover[nearest_positions(leftover, force_reward.index.to_numpy(dtype=float))]
-        matched = matched[~matched.index.duplicated(keep="first")].sort_index()
-        if len(matched) != len(force_reward):
-            logger.warning(
-                "Matched %d ForceGiveReward event(s) to %d distinct valve opening(s).", len(force_reward), len(matched)
-            )
-        return matched
-
     _EVENT_SOURCES: t.ClassVar[list[tuple[str, t.Callable[[contraqctor.contract.Dataset], pd.DataFrame]]]] = [
-        ("ManualWaterDelivery", _parse_manual_water_delivery),
+        ("ManualWaterDelivery", parse_manual_water_delivery),
     ]
 
     def _compute(self) -> pd.DataFrame:
@@ -94,3 +56,33 @@ class EventsProcessor(AbstractProcessor):
         result = pd.concat(frames).sort_index()
         result.index.name = "timestamp"
         return result
+
+    def nwbize(self, nwb_file: t.Any) -> t.Any:
+        """Add the derived events to *nwb_file* as an ndx-events ``EventsTable``.
+
+        The tall ``compute()`` frame maps one-to-one onto the table: the index becomes the required
+        ``timestamp`` column, and ``event_name``/``data`` become columns. ``data`` is JSON-serialized
+        to stay within NWB's string dtypes. No table is added when there are no derived events.
+        """
+        import json
+
+        from ndx_events import EventsTable
+
+        df = self.compute()
+        if df.empty:
+            return nwb_file
+
+        table = EventsTable(name="events", description="Events derived/computed from one or more raw streams.")
+        table.add_column(name="event_name", description="Name of the derived event source.")
+        table.add_column(name="data", description="JSON-serialized event payload.")
+        for timestamp, row in df.iterrows():
+            table.add_row(
+                data={
+                    "timestamp": float(t.cast(float, timestamp)),
+                    "event_name": str(row["event_name"]),
+                    "data": json.dumps(row["data"], default=str),
+                }
+            )
+
+        nwb_file.add_events_table(table)
+        return nwb_file

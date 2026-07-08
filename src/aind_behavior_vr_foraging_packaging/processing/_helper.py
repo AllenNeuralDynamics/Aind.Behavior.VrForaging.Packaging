@@ -1,8 +1,11 @@
+import logging
 import typing as t
 
 import contraqctor
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def parse_water_delivery(dataset: contraqctor.contract.Dataset) -> pd.Series:
@@ -39,6 +42,49 @@ def nearest_positions(sorted_values: np.ndarray, query: np.ndarray) -> np.ndarra
     right = np.clip(right, 0, sorted_values.size - 1)
     use_left = np.abs(sorted_values[left] - query) <= np.abs(sorted_values[right] - query)
     return np.where(use_left, left, right)
+
+
+def parse_manual_water_delivery(dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
+    """Forced/manual reward events (``ForceGiveReward``), re-timestamped to their valve-open time.
+
+    ``GiveReward`` deliveries claim their nearest valve open; each ``ForceGiveReward`` is then
+    matched to its nearest remaining one, recovering a hardware time for the software event.
+
+    This is the single source of truth for forced/manual rewards: :class:`EventsProcessor` emits
+    these rows as ``ManualWaterDelivery`` events, and :class:`TrialTableProcessor` derives
+    ``Site.has_force_rewards`` by binning these hardware times into site intervals. Returns a
+    ``data``-column frame indexed by hardware valve-open time (harp seconds), or an empty frame
+    when there are no forced rewards / no valve openings to match.
+    """
+    force_reward = parse_force_reward(dataset)
+    if force_reward.empty:
+        return pd.DataFrame(columns=["data"])
+
+    valve_opens = np.sort(parse_water_delivery(dataset).index.to_numpy(dtype=float))
+    if valve_opens.size == 0:
+        return pd.DataFrame(columns=["data"])
+
+    # Step 1: account for automatic deliveries -- mark their nearest valve opens as consumed.
+    reward_metadata = parse_reward_metadata(dataset)
+    auto_times = reward_metadata.index[reward_metadata["data"].fillna(0) != 0].to_numpy(dtype=float)
+    consumed = np.zeros(valve_opens.size, dtype=bool)
+    if auto_times.size:
+        consumed[nearest_positions(valve_opens, auto_times)] = True
+
+    # Step 2: whatever valve opens are left get matched to the forced-reward events.
+    leftover = valve_opens[~consumed]
+    if leftover.size == 0:
+        logger.warning("Found %d ForceGiveReward event(s) but no unclaimed valve openings.", len(force_reward))
+        return pd.DataFrame(columns=["data"])
+
+    matched = force_reward.copy()
+    matched.index = leftover[nearest_positions(leftover, force_reward.index.to_numpy(dtype=float))]
+    matched = matched[~matched.index.duplicated(keep="first")].sort_index()
+    if len(matched) != len(force_reward):
+        logger.warning(
+            "Matched %d ForceGiveReward event(s) to %d distinct valve opening(s).", len(force_reward), len(matched)
+        )
+    return matched
 
 
 def get_closest_from_timestamp(

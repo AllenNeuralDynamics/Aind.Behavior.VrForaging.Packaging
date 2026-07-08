@@ -74,25 +74,29 @@ streams into a single tall table: columns `event_name` (str) and `data`
 passthrough of a single raw stream.
 
 - Sources are registered in the `_EVENT_SOURCES` class-level list as
-  `(event_name, staticmethod)` pairs; each takes `dataset` and returns a
+  `(event_name, callable)` pairs; each takes `dataset` and returns a
   `data`-column `DataFrame` indexed by timestamp. `_compute()` iterates the
   list, tags each source's rows with its `event_name`, and concatenates.
-  Adding a new derived event is a self-contained addition: write one
-  `@staticmethod`, append one tuple.
+  Adding a new derived event is a self-contained addition: write one function,
+  append one tuple.
 - A source that raises is skipped and logged (or raises, if
   `raise_on_error`) — one broken source cannot take down the others.
 - Current source: `ManualWaterDelivery` — `ForceGiveReward` (forced/manual
-  reward) events, re-timestamped to their recovered hardware valve-open time.
-  `GiveReward` deliveries claim their nearest valve open first; each
-  `ForceGiveReward` is then matched to its nearest remaining one via
-  `_helper.nearest_positions`. `TrialTableProcessor.Site.has_force_rewards`
-  (see [trial-table.md](trial-table.md)) is unrelated to this matching — it's
-  a simple `slice_by_index` check against the raw `ForceGiveReward` software
-  timestamp via `_helper.parse_force_reward`, the same pattern used for every
-  other per-site field. The hardware-recovered time here exists only for the
-  events table's precision; the trial table doesn't need it for a boolean.
-- `nwbize()` is the inherited no-op for now; an NWB representation is a
-  separate decision once there's more than one source to generalize from.
+  reward) events, re-timestamped to their recovered hardware valve-open time by
+  `_helper.parse_manual_water_delivery`. `GiveReward` deliveries claim their
+  nearest valve open first; each `ForceGiveReward` is then matched to its
+  nearest remaining one via `_helper.nearest_positions`.
+  `_helper.parse_manual_water_delivery` is the **single source of truth** for
+  forced rewards: `TrialTableProcessor.Site.has_force_rewards` (see
+  [trial-table.md](trial-table.md)) derives its per-site boolean by
+  `slice_by_index`-ing these same de-conflicted hardware times, so the trial
+  table and the events table can never disagree.
+- `nwbize()` writes the tall `compute()` frame into an ndx-events `EventsTable`
+  (named `"events"`) on the `NdxEventsNWBFile`: the index becomes the required
+  `timestamp` column, and `event_name`/`data` become columns (`data`
+  JSON-serialized). No table is added when there are no derived events. This is
+  the NWB home for the exact forced-reward times, so the trial table needs only
+  a boolean and stays free of ragged columns.
 
 # Legacy variants
 

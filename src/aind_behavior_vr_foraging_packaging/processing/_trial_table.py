@@ -13,7 +13,7 @@ from .._base import AbstractProcessor
 from ..models import Site
 from ._helper import (
     get_closest_from_timestamp,
-    parse_force_reward,
+    parse_manual_water_delivery,
     parse_reward_metadata,
     parse_water_delivery,
     slice_by_index,
@@ -166,7 +166,10 @@ class TrialTableProcessor(AbstractProcessor):
         choice_feedback = self._parse_speaker_choice_feedback(dataset)
         water_delivery = parse_water_delivery(dataset)
         reward_metadata = parse_reward_metadata(dataset)
-        force_reward = parse_force_reward(dataset)
+        # Forced/manual rewards: hardware valve-open times (de-conflicted against automatic
+        # deliveries), the same source EventsProcessor emits as ManualWaterDelivery events. The
+        # trial table only needs the per-site boolean; exact times live in the events table.
+        manual_water_delivery = parse_manual_water_delivery(dataset)
         odor_onset = self._parse_odor_onset(dataset)
         patch_state_at_reward = self._parse_patch_state_at_reward(dataset)
         friction = self._parse_friction(dataset)
@@ -227,7 +230,7 @@ class TrialTableProcessor(AbstractProcessor):
             assert len(site_choice_feedback) <= 1, "Multiple speaker choices in site interval"
 
             site_odor_onset = slice_by_index(odor_onset, this_timestamp, next_timestamp)
-            site_force_reward = slice_by_index(force_reward, this_timestamp, next_timestamp)
+            site_force_reward = slice_by_index(manual_water_delivery, this_timestamp, next_timestamp)
 
             this_friction = slice_by_index(friction, this_timestamp, next_timestamp)
             if not this_friction.empty:
