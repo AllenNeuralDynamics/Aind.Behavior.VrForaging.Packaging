@@ -52,7 +52,7 @@ def parse_manual_water_delivery(dataset: contraqctor.contract.Dataset) -> pd.Dat
 
     This is the single source of truth for forced/manual rewards: :class:`EventsProcessor` emits
     these rows as ``ManualWaterDelivery`` events, and :class:`TrialTableProcessor` derives
-    ``Site.has_force_rewards`` by binning these hardware times into site intervals. Returns a
+    ``Site.has_forced_rewards`` by binning these hardware times into site intervals. Returns a
     ``data``-column frame indexed by hardware valve-open time (harp seconds), or an empty frame
     when there are no forced rewards / no valve openings to match.
     """

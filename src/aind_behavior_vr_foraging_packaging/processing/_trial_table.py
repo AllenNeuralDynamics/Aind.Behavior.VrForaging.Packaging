@@ -166,10 +166,11 @@ class TrialTableProcessor(AbstractProcessor):
         choice_feedback = self._parse_speaker_choice_feedback(dataset)
         water_delivery = parse_water_delivery(dataset)
         reward_metadata = parse_reward_metadata(dataset)
-        # Forced/manual rewards: hardware valve-open times (de-conflicted against automatic
-        # deliveries), the same source EventsProcessor emits as ManualWaterDelivery events. The
-        # trial table only needs the per-site boolean; exact times live in the events table.
+
+        # In theory we only need the metadata, but since we are aligning
+        # temporally later, we must have access to the hardware-aligned times.
         manual_water_delivery = parse_manual_water_delivery(dataset)
+
         odor_onset = self._parse_odor_onset(dataset)
         patch_state_at_reward = self._parse_patch_state_at_reward(dataset)
         friction = self._parse_friction(dataset)
@@ -360,7 +361,7 @@ class TrialTableProcessor(AbstractProcessor):
                 if site_patch_state_at_reward.empty
                 else site_patch_state_at_reward.iloc[0]["Available"],
                 has_reward=np.isnan(reward_onset_time) == False,  # noqa: E712
-                has_force_rewards=not site_force_reward.empty,
+                has_forced_rewards=not site_force_reward.empty,
                 choice_cue_time=choice_time,
                 has_choice=not site_choice_feedback.empty,
                 reward_delay_duration=reward_onset_time - choice_time

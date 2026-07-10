@@ -87,7 +87,7 @@ passthrough of a single raw stream.
   nearest valve open first; each `ForceGiveReward` is then matched to its
   nearest remaining one via `_helper.nearest_positions`.
   `_helper.parse_manual_water_delivery` is the **single source of truth** for
-  forced rewards: `TrialTableProcessor.Site.has_force_rewards` (see
+  forced rewards: `TrialTableProcessor.Site.has_forced_rewards` (see
   [trial-table.md](trial-table.md)) derives its per-site boolean by
   `slice_by_index`-ing these same de-conflicted hardware times, so the trial
   table and the events table can never disagree.
