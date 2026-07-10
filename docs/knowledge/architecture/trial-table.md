@@ -78,7 +78,7 @@ times are harp/software seconds unless noted):
 | `odor_onset_time` | float? | Odor valve onset; null if none. |
 | `reward_onset_time` / `reward_amount` / `reward_probability` / `reward_available` | float? | Reward timing and patch-state-at-reward values. |
 | `has_reward` / `has_choice` / `has_waited_reward_delay` | bool? | Outcome flags. |
-| `has_force_rewards` | bool | Whether a forced/manual reward (de-conflicted hardware valve-open time from `_helper.parse_manual_water_delivery`) fell in this site's interval. Exact times and payloads are in the [events table](continuous-and-event-streams.md) (`event_name="ManualWaterDelivery"`), not duplicated here. |
+| `has_forced_rewards` | bool | Whether a forced/manual reward (de-conflicted hardware valve-open time from `_helper.parse_manual_water_delivery`) fell in this site's interval. Exact times and payloads are in the [events table](continuous-and-event-streams.md) (`event_name="ManualWaterDelivery"`), not duplicated here. |
 | `choice_cue_time` | float? | Choice/stop tone time. |
 | `reward_delay_duration` | float? | `reward_onset_time - choice_cue_time`. |
 | `last_stop_time` / `last_stop_duration` / `velocity_at_last_stop` | float? | Last stop before choice, and speed there (cm/s). |
