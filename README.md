@@ -5,23 +5,81 @@
 [![ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
-## Getting Started
+Parses raw AIND VR-foraging behavioral sessions into analysis-ready **parquet** tables and an **NWB** file.
 
-A quick example of how to use the TrialTableProcessor to extract site-level metadata from a dataset:
+## Architecture
+
+A session is loaded once (via `contraqctor`), then a set of independent
+**processors** fan out over it. Each processor owns one output and knows how to
+express it in two targets:
+
+```text
+raw session dir
+      │
+      ▼
+  Dataset  ◄── aind_behavior_vr_foraging.data_contract.dataset(path)
+      │
+      ▼
+  create_processors(dataset)          # picks processor variants by dataset version
+      │   [TrialTable, PositionAndVelocity, Licks, Sniffing, SoftwareEvents, Events]
+      │
+      ├─► proc.compute()  ──► pandas DataFrame  ──► one <name>.parquet   (run_session)
+      │                        (provenance stamped into df.attrs / parquet schema)
+      │
+      └─► proc.nwbize(nwb) ──► populates an NdxEventsNWBFile ──► .nwb.zarr (NwbSession)
+```
+
+- **Processor** — every processor subclasses `AbstractProcessor`, implementing
+  `_compute()` and (optionally) `nwbize()`. `compute()` wraps `_compute()` and
+  stamps provenance (`packaging_version`, `data_contract_version`,
+  `dataset_version`, `processor`) into the DataFrame's `attrs`.
+- **DataFrame** — the common in-memory representation. One row per unit of the
+  output (e.g. one trial-table row = one *site*).
+- **Parquet** — `pipeline.run_session()` calls `compute()` on each processor and
+  writes a parquet per processor, promoting `df.attrs` to first-class parquet
+  metadata (readable from DuckDB, Polars, R arrow, Spark, …).
+- **NWB** — `NwbSession` builds a single `NdxEventsNWBFile` from AIND metadata,
+  then calls each processor's `nwbize()` to fill it, and writes NWB-Zarr.
+
+Version dispatch is automatic: datasets with schema version `< 0.6.0` receive
+legacy processor variants.
+
+## Examples
+
+- Runnable script covering the parquet workflows (all-at-once, single stream,
+  load-back): [scripts/example_parquet_pipeline.py](scripts/example_parquet_pipeline.py)
+- The NWB workflow: [docs/knowledge/architecture/nwb-packaging.md](docs/knowledge/architecture/nwb-packaging.md)
+- Full architecture docs: [docs/knowledge/](docs/knowledge/) (start at [overview.md](docs/knowledge/overview.md))
+
+### Get a trials table
+
+Install straight from GitHub with [uv](https://docs.astral.sh/uv/):
+
+```bash
+# into a uv project
+uv add "git+https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging.git"
+
+# or into the current environment
+uv pip install "git+https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging.git"
+```
+
+Then load a session and compute the trials table (one row per *site*):
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-import pandas as pd
+from aind_behavior_vr_foraging_packaging.pipeline import get_trial_table_processor
 
-from aind_behavior_vr_foraging_packaging.processing import (
-    TrialTableProcessor,
-)
+ds = dataset("path/to/session")           # load the raw session
+trials_df = get_trial_table_processor(ds).compute()
 
-ds = dataset("session_path")
-ttp = TrialTableProcessor(ds)
-sites = ttp.process_to_sites()
-sites_df = pd.DataFrame([s.model_dump() for s in sites])
+trials_df.to_parquet("trials.parquet")    # optional: persist to disk
+print(f"{len(trials_df)} sites, {trials_df['has_reward'].sum()} rewarded")
 ```
+
+`get_trial_table_processor` automatically picks the current or legacy variant
+based on the dataset's schema version. To produce every table at once, use
+`run_session(ds, "output_dir")` instead — it writes `trials.parquet`,
+`position_velocity.parquet`, and the rest, and returns them keyed by name.
 
 ## Contributors
 
