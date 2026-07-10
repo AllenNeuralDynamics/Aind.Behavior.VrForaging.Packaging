@@ -34,6 +34,10 @@ class Site(BaseModel):
         description="Reward left at the time of reward delivery. Will be null if the reward is not sampled (e.g. has_choice is False). (unit: milliliter)",
     )
     has_reward: Optional[bool] = Field(default=None, description="Boolean whether reward was delivered, bool.")
+    has_forced_rewards: bool = Field(
+        default=False,
+        description="Whether a forced/manual reward was delivered in this site interval. See events table (event_name='ManualWaterDelivery') for exact times.",
+    )
     choice_cue_time: Optional[float] = Field(
         default=None,
         description="Time when choice cue was delivered. Also can be considered the stop cue. The choice tone is delivered when a stop is successful. (unit: second)",

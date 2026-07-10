@@ -11,7 +11,13 @@ from pydantic import BaseModel, TypeAdapter
 
 from .._base import AbstractProcessor
 from ..models import Site
-from ._helper import get_closest_from_timestamp, slice_by_index
+from ._helper import (
+    get_closest_from_timestamp,
+    parse_manual_water_delivery,
+    parse_reward_metadata,
+    parse_water_delivery,
+    slice_by_index,
+)
 from ._position_and_velocity import PositionAndVelocityProcessor
 
 logger = logging.getLogger(__name__)
@@ -48,14 +54,6 @@ class TrialTableProcessor(AbstractProcessor):
         return speaker_choice
 
     @staticmethod
-    def _parse_water_delivery(dataset: contraqctor.contract.Dataset) -> pd.Series:
-        water_delivery = dataset.at("Behavior").at("HarpBehavior").load().at("OutputSet").load().data
-        water_delivery = water_delivery[(water_delivery["MessageType"] == "WRITE") & (water_delivery["SupplyPort0"])][
-            "SupplyPort0"
-        ]
-        return water_delivery
-
-    @staticmethod
     def _parse_odor_onset(dataset: contraqctor.contract.Dataset) -> pd.Series:
         odor_onset = dataset.at("Behavior").at("HarpOlfactometer").load().at("EndValveState").load().data
         odor_onset = odor_onset[odor_onset["MessageType"] == "WRITE"]["EndValve0"]
@@ -86,11 +84,6 @@ class TrialTableProcessor(AbstractProcessor):
             return dataset.at("Behavior").at("SoftwareEvents").at("WaitRewardOutcome").load().data
         except FileNotFoundError:
             return pd.Series(dtype=bool)
-
-    @staticmethod
-    def _parse_reward_metadata(dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
-        reward_metadata = dataset.at("Behavior").at("SoftwareEvents").at("GiveReward").load().data
-        return reward_metadata
 
     @staticmethod
     def _as_dict(d: contraqctor.contract.DataStream | PydanticModel | BaseModel | dict) -> dict:
@@ -171,8 +164,13 @@ class TrialTableProcessor(AbstractProcessor):
         )
 
         choice_feedback = self._parse_speaker_choice_feedback(dataset)
-        water_delivery = self._parse_water_delivery(dataset)
-        reward_metadata = self._parse_reward_metadata(dataset)
+        water_delivery = parse_water_delivery(dataset)
+        reward_metadata = parse_reward_metadata(dataset)
+
+        # In theory we only need the metadata, but since we are aligning
+        # temporally later, we must have access to the hardware-aligned times.
+        manual_water_delivery = parse_manual_water_delivery(dataset)
+
         odor_onset = self._parse_odor_onset(dataset)
         patch_state_at_reward = self._parse_patch_state_at_reward(dataset)
         friction = self._parse_friction(dataset)
@@ -233,6 +231,7 @@ class TrialTableProcessor(AbstractProcessor):
             assert len(site_choice_feedback) <= 1, "Multiple speaker choices in site interval"
 
             site_odor_onset = slice_by_index(odor_onset, this_timestamp, next_timestamp)
+            site_force_reward = slice_by_index(manual_water_delivery, this_timestamp, next_timestamp)
 
             this_friction = slice_by_index(friction, this_timestamp, next_timestamp)
             if not this_friction.empty:
@@ -362,6 +361,7 @@ class TrialTableProcessor(AbstractProcessor):
                 if site_patch_state_at_reward.empty
                 else site_patch_state_at_reward.iloc[0]["Available"],
                 has_reward=np.isnan(reward_onset_time) == False,  # noqa: E712
+                has_forced_rewards=not site_force_reward.empty,
                 choice_cue_time=choice_time,
                 has_choice=not site_choice_feedback.empty,
                 reward_delay_duration=reward_onset_time - choice_time
@@ -383,8 +383,6 @@ class TrialTableProcessor(AbstractProcessor):
 
     def nwbize(self, nwb_file: t.Any) -> t.Any:
         """Add trials to *nwb_file* from compute() output."""
-        import numpy as np
-
         df = self.compute()
         for col in df.columns:
             if col in ("start_time", "stop_time"):

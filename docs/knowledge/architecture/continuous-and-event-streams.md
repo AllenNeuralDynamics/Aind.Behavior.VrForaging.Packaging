@@ -1,13 +1,13 @@
 ---
 type: Component
 title: Continuous and event stream processors
-description: Position/velocity, licks, sniffing, and software-events processors — the non-trial outputs and their NWB representations.
+description: Position/velocity, licks, sniffing, software-events, and events processors — the non-trial outputs and their NWB representations.
 resource: src/aind_behavior_vr_foraging_packaging/processing/
-tags: [architecture, processor, position, velocity, licks, sniffing, software-events]
-timestamp: 2026-07-03T00:00:00Z
+tags: [architecture, processor, position, velocity, licks, sniffing, software-events, events]
+timestamp: 2026-07-08T00:00:00Z
 ---
 
-Beyond the [trial table](trial-table.md), four processors produce continuous
+Beyond the [trial table](trial-table.md), five processors produce continuous
 or event-level outputs. All subclass [`AbstractProcessor`](processor-abstraction.md)
 and follow the same `_compute`/`nwbize` contract.
 
@@ -66,10 +66,42 @@ streams into a single tall table: columns `event_name` (str) and `data`
   rather than the single tall table, using
   `acquisition.helper.clean_dataframe_for_nwb` to coerce NWB-safe dtypes.
 
+# EventsProcessor
+
+`output_name = "events"`. Same tall shape as `SoftwareEventsProcessor`
+(`event_name`, `data`, indexed by `timestamp`), but for events that are
+**derived** from one or more underlying streams rather than a straight
+passthrough of a single raw stream.
+
+- Sources are registered in the `_EVENT_SOURCES` class-level list as
+  `(event_name, callable)` pairs; each takes `dataset` and returns a
+  `data`-column `DataFrame` indexed by timestamp. `_compute()` iterates the
+  list, tags each source's rows with its `event_name`, and concatenates.
+  Adding a new derived event is a self-contained addition: write one function,
+  append one tuple.
+- A source that raises is skipped and logged (or raises, if
+  `raise_on_error`) — one broken source cannot take down the others.
+- Current source: `ManualWaterDelivery` — `ForceGiveReward` (forced/manual
+  reward) events, re-timestamped to their recovered hardware valve-open time by
+  `_helper.parse_manual_water_delivery`. `GiveReward` deliveries claim their
+  nearest valve open first; each `ForceGiveReward` is then matched to its
+  nearest remaining one via `_helper.nearest_positions`.
+  `_helper.parse_manual_water_delivery` is the **single source of truth** for
+  forced rewards: `TrialTableProcessor.Site.has_forced_rewards` (see
+  [trial-table.md](trial-table.md)) derives its per-site boolean by
+  `slice_by_index`-ing these same de-conflicted hardware times, so the trial
+  table and the events table can never disagree.
+- `nwbize()` writes the tall `compute()` frame into an ndx-events `EventsTable`
+  (named `"events"`) on the `NdxEventsNWBFile`: the index becomes the required
+  `timestamp` column, and `event_name`/`data` become columns (`data`
+  JSON-serialized). No table is added when there are no derived events. This is
+  the NWB home for the exact forced-reward times, so the trial table needs only
+  a boolean and stays free of ragged columns.
+
 # Legacy variants
 
 `LegacyPositionAndVelocityProcessor` and `LegacyTrialTableProcessor` handle
 datasets with schema version `< 0.6.0` (different odor-specification format,
 block-stream fallback, optional `PatchStateAtReward`, absent
 `IsStopped`/velocity). The [pipeline](pipeline.md) selects them automatically;
-licks, sniffing, and software events have no legacy variant.
+licks, sniffing, software events, and events have no legacy variant.

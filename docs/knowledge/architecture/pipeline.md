@@ -25,10 +25,10 @@ parses `dataset.version` and, if it is `< 0.6.0`, swaps in the legacy variants:
 |---------|----------------------|--------------------|
 | Trial table | `TrialTableProcessor` | `LegacyTrialTableProcessor` |
 | Position/velocity | `PositionAndVelocityProcessor` | `LegacyPositionAndVelocityProcessor` |
-| Licks / Sniffing / Software events | (shared — no legacy variant) | (same) |
+| Licks / Sniffing / Software events / Events | (shared — no legacy variant) | (same) |
 
 The returned list is **ordered**: trial table first, then position/velocity,
-then licks, sniffing, and software events.
+then licks, sniffing, software events, and events.
 
 Two convenience getters return a single version-correct processor without
 building the whole list:
@@ -46,7 +46,7 @@ building the whole list:
 3. Returns `dict[str, pd.DataFrame]` keyed by `output_name`.
 
 Output filenames come straight from each processor's `output_name`:
-`trials`, `position_velocity`, `licks`, `sniffing`, `software_events`.
+`trials`, `position_velocity`, `licks`, `sniffing`, `software_events`, `events`.
 
 # Provenance in parquet
 
@@ -64,7 +64,7 @@ from aind_behavior_vr_foraging.data_contract import dataset
 from aind_behavior_vr_foraging_packaging.pipeline import run_session
 
 ds = dataset("/path/to/session")
-data = run_session(ds, "/path/to/out")   # writes 5 parquet files
+data = run_session(ds, "/path/to/out")   # writes 6 parquet files
 trials = data["trials"]                    # also returned in-memory
 ```
 
