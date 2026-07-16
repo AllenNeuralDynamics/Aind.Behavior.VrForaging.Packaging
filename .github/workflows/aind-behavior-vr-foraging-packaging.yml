@@ -162,35 +162,35 @@ jobs:
           git push origin "${{ github.event.release.tag_name }}" --force
 
   # ╔───────────────────────────────────────╗
-  # │   ____        ____  ____  _           │
-  # │  |  _ \ _   _|  _ \|  _ \(_)          │
-  # │  | |_) | | | | |_) | |_) | |          │
-  # │  |  __/| |_| |  __/|  __/| |          │
-  # │  |_|    \__, |_|   |_|   |_|          │
-  # │          |___/  (disabled)            │
+  # │   ____        ____ ___                │
+  # │  |  _ \ _   _|  _ \_ _|               │
+  # │  | |_) | | | | |_) | |                │
+  # │  |  __/| |_| |  __/| |                │
+  # │  |_|    \__, |_|  |___|               │
+  # │         |___/                         │
   # ╚───────────────────────────────────────╝
-  # publish-to-pypi:
-  #   runs-on: ubuntu-latest
-  #   name: Publish to PyPI
-  #   needs: prepare-release
-  #   steps:
-  #     - name: Download wheels artifact
-  #       uses: actions/download-artifact@v7
-  #       with:
-  #         name: dist
-  #         path: dist/
-  #
-  #     - uses: astral-sh/setup-uv@v8.2.0
-  #       with:
-  #         enable-cache: true
-  #
-  #     - name: Publish to PyPI
-  #       run: uv publish --token ${{ secrets.AIND_PYPI_TOKEN }}
-  #
-  #     - name: Upload wheels to GitHub release
-  #       uses: softprops/action-gh-release@v3
-  #       with:
-  #         files: dist/*
+  publish-to-pypi:
+    runs-on: ubuntu-latest
+    name: Publish to PyPI
+    needs: prepare-release
+    steps:
+      - name: Download wheels artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+
+      - name: Publish to PyPI
+        run: uv publish --token ${{ secrets.AIND_PYPI_TOKEN }}
+
+      - name: Upload wheels to GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*
 
   # ╔─────────────────────────╗
   # │   ____                  │
