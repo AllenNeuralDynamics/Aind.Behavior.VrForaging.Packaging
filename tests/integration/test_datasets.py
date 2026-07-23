@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 import pandas as pd
 import pytest
 
-from aind_behavior_vr_foraging_packaging.pipeline import get_trial_table_processor
+from aind_behavior_vr_foraging_packaging.pipeline import get_trial_table_processor, run_session
 
 from .conftest import CACHE_ROOT, _manifest
 from .model import DatasetEntry
@@ -26,6 +26,21 @@ pytestmark = pytest.mark.integration
 
 _entries = _manifest.datasets
 _ids = [e.id for e in _entries]
+
+# ---------------------------------------------------------------------------
+# Dataset loading helper
+# ---------------------------------------------------------------------------
+
+
+def _load_dataset(entry: DatasetEntry):
+    """Load the cached dataset for *entry*, letting the loader infer its version."""
+    from aind_behavior_vr_foraging.data_contract import dataset
+
+    parsed = urlparse(entry.uri)
+    session_path = CACHE_ROOT / parsed.netloc / parsed.path.strip("/")
+
+    return dataset(session_path)
+
 
 # ---------------------------------------------------------------------------
 # Invariant assertion helper
@@ -86,27 +101,7 @@ def test_trials_table(entry, request):
         )
 
     try:
-        import json as _json
-
-        import semver as _semver
-        from aind_behavior_vr_foraging.data_contract import dataset
-
-        parsed = urlparse(entry.uri)
-        session_path = CACHE_ROOT / parsed.netloc / parsed.path.strip("/")
-
-        # Determine the loader version from tasklogic_input.json, handling both
-        # the modern "version" key and the legacy "schema_version" key (v0.3.x).
-        # v0.3.x sessions use the v0_4_0 contract (compatible file layout).
-        tasklogic_path = session_path / "behavior" / "Logs" / "tasklogic_input.json"
-        loader_version = None
-        if tasklogic_path.exists():
-            data = _json.loads(tasklogic_path.read_text())
-            raw_version = data.get("schema_version") or data.get("version")
-            if raw_version:
-                v = _semver.Version.parse(raw_version)
-                loader_version = "0.4.0" if v < _semver.Version.parse("0.4.0") else raw_version
-
-        ds = dataset(session_path, version=loader_version)
+        ds = _load_dataset(entry)
         processor = get_trial_table_processor(ds, raise_on_error=entry.raise_on_error)
         sites = processor.process_to_sites()
         sites_df = pd.DataFrame([s.model_dump() for s in sites])
@@ -118,3 +113,34 @@ def test_trials_table(entry, request):
 
     except Exception as e:
         pytest.fail(f"Dataset {entry.id} failed trial table test.\nRationale: {entry.rationale}\nError: {e}")
+
+
+@pytest.mark.parametrize("entry", _entries, ids=_ids)
+def test_full_pipeline(entry, request, tmp_path):
+    """Smoke-test the full parquet pipeline: all 6 processors must run without crashing.
+
+    Exercises ``run_session`` end-to-end. Parquet files are written to
+    ``tmp_path`` (auto-cleaned by pytest). Only the ``trials`` output is
+    asserted non-empty; other streams may legitimately be empty for some
+    sessions.
+
+    Uses ``run_session``'s default ``raise_on_error=False``: the pipeline runs
+    every processor, and some sessions legitimately lack optional SoftwareEvents
+    streams (e.g. ForceGiveReward, PatchRewardAmount). An absent optional stream
+    should not fail this smoke test.
+    """
+    if entry.xfail:
+        request.applymarker(
+            pytest.mark.xfail(
+                strict=True,
+                reason=entry.xfail_reason or "marked xfail in manifest",
+            )
+        )
+
+    try:
+        ds = _load_dataset(entry)
+        outputs = run_session(ds, tmp_path)
+        assert not outputs["trials"].empty, f"{entry.id}: trials table is unexpectedly empty"
+
+    except Exception as e:
+        pytest.fail(f"Dataset {entry.id} failed full pipeline test.\nRationale: {entry.rationale}\nError: {e}")
