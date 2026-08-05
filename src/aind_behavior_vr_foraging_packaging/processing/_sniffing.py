@@ -47,10 +47,11 @@ class SniffingProcessor(AbstractProcessor):
                 name="sniffing",
                 data=df["voltage"].values,
                 unit="V",
-                starting_time=float(df.index[0]),
-                rate=fs,
                 timestamps=df.index.values,
-                description="Filtered breathing/sniff signal derived from the sniff detector raw voltage.",
+                description=(
+                    "Filtered breathing/sniff signal derived from the sniff detector raw voltage "
+                    f"at sampling rate {fs} Hz."
+                ),
             )
         )
         return nwb_file
