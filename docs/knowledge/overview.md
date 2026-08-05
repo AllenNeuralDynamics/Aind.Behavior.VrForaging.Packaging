@@ -68,8 +68,9 @@ parent, and "by type") — see the [site table](architecture/site-table.md).
 - `aind-behavior-vr-foraging` — defines the behavioral **data contract**
   (schema) and provides `data_contract.dataset(...)`; its version is the
   "parser version".
-- `aind-nwb-utils` / `pynwb` / `hdmf-zarr` / `ndx-events` — base NWB file
-  construction from the session's metadata jsons, and the NWB/Zarr writing stack.
+- `aind-nwb-utils` / `pynwb` / `hdmf-zarr` — base NWB file construction from the
+  session's metadata jsons (`create_base_nwb_file`), and the NWB/Zarr writing
+  stack. Events use the `EventsTable` merged into core `pynwb`.
 - `semver` — every version comparison (legacy dispatch, provenance) is semver.
 
 # Where to go next

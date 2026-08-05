@@ -26,7 +26,7 @@ raw session dir
       ├─► proc.compute()  ──► pandas DataFrame  ──► one <name>.parquet   (run_session)
       │                        (provenance stamped into df.attrs / parquet schema)
       │
-      └─► proc.nwbize(nwb) ──► populates an NdxEventsNWBFile ──► .nwb.zarr (NwbSession)
+      └─► proc.nwbize(nwb) ──► populates an NWBFile ──► .nwb.zarr (NwbSession)
 ```
 
 - **Processor** — every processor subclasses `AbstractProcessor`, implementing
@@ -38,7 +38,7 @@ raw session dir
 - **Parquet** — `pipeline.run_session()` calls `compute()` on each processor and
   writes a parquet per processor, promoting `df.attrs` to first-class parquet
   metadata (readable from DuckDB, Polars, R arrow, Spark, …).
-- **NWB** — `NwbSession` builds a single `NdxEventsNWBFile` from AIND metadata,
+- **NWB** — `NwbSession` builds a single `NWBFile` from AIND metadata,
   then calls each processor's `nwbize()` to fill it, and writes NWB-Zarr.
 
 Version dispatch is automatic: datasets with schema version `< 0.6.0` receive

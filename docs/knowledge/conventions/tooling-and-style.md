@@ -22,7 +22,7 @@ uv version <x.y.z>      # set the project version (used by release)
 Dev dependencies live in the `dev` dependency group (default group): `ruff`,
 `pytest`, `pytest-cov`, `codespell`, `ty`, `pyarrow`. Runtime deps are pinned
 in `[project.dependencies]` (notably `aind-behavior-vr-foraging[data] >= 1`,
-`aind-nwb-utils`, `pynwb`, `hdmf-zarr`, `ndx-events`, `pandas`, `numpy>=2`,
+`aind-nwb-utils`, `pynwb`, `hdmf-zarr`, `pandas`, `numpy>=2`,
 `scipy`, `semver`).
 
 # Linting & formatting: ruff

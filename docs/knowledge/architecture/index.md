@@ -11,7 +11,7 @@ Read in this order:
 - [pipeline.md](pipeline.md) — `create_processors`, `run_session`, and the per-processor getters; version dispatch and parquet writing.
 - [site-table.md](site-table.md) — `SiteTableProcessor` and the `Site` model — the most complex processor and the core scientific output.
 - [continuous-and-event-streams.md](continuous-and-event-streams.md) — Position/velocity, licks, sniffing, and software events processors.
-- [nwb-packaging.md](nwb-packaging.md) — `NwbSession`: building an `NdxEventsNWBFile` and driving `nwbize()`.
+- [nwb-packaging.md](nwb-packaging.md) — `NwbSession`: building the base `NWBFile` and driving `nwbize()`.
 - [data-contract-and-versioning.md](data-contract-and-versioning.md) — The `contraqctor` dataset, Harp streams, AIND metadata, and the three versions the code tracks.
 
 ## Package layout
@@ -26,7 +26,7 @@ src/aind_behavior_vr_foraging_packaging/
 ├── acquisition/
 │   └── helper.py        # DataFrame → NWB-safe coercions
 ├── nwb_file/
-│   └── __init__.py      # NwbSession, _AindDataSchemaJson
+│   └── __init__.py      # NwbSession
 └── processing/
     ├── _site_table.py                  # SiteTableProcessor + DatasetProcessorError
     ├── _legacy_site_table.py           # LegacySiteTableProcessor (schema < 0.6.0)
