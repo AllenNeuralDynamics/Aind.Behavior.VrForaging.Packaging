@@ -1,7 +1,8 @@
 """Integration test fixtures and helpers.
 
-pytest_configure patches NwbSession to use local JSON files instead of the
-AIND metadata API, so integration tests work without network access to DocDB.
+Datasets are pulled from public S3 into a local ETag-validated cache; NWB
+metadata is read from the jsons in each cached session root, so no network
+access beyond S3 is required.
 """
 
 import json
@@ -36,24 +37,6 @@ _SENTINEL_FILE = "data_description.json"
 DEFAULT_EXCLUDES: tuple[str, ...] = ("**/*.mp4", "**/*.avi", "**/*.mkv")
 
 _manifest: DatasetManifest = load_manifest(MANIFEST_PATH)
-
-
-@pytest.fixture(autouse=True)
-def _use_local_schema_json(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Swap NwbSession._get_aind_data_schema_json to read local JSON files.
-
-    Scoped to this conftest's fixture (not a global pytest_configure patch) so it
-    only applies to tests under tests/integration/ and is reverted afterwards —
-    a session-wide setattr here previously leaked into unit tests collected
-    under tests/ whenever the full suite ran (testpaths includes tests/integration/
-    for collection even when `-m 'not integration'` deselects its test items).
-    """
-    from aind_behavior_vr_foraging_packaging.nwb_file import NwbSession, _AindDataSchemaJson
-
-    def _from_root(self: NwbSession) -> _AindDataSchemaJson:
-        return _AindDataSchemaJson.from_root_path(self.root_path)
-
-    monkeypatch.setattr(NwbSession, "_get_aind_data_schema_json", _from_root)
 
 
 @pytest.fixture(scope="session")
