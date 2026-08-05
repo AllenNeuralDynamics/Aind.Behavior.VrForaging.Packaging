@@ -58,7 +58,7 @@ class EventsProcessor(AbstractProcessor):
         return result
 
     def nwbize(self, nwb_file: t.Any) -> t.Any:
-        """Add the derived events to *nwb_file* as an ndx-events ``EventsTable``.
+        """Add the derived events to *nwb_file* as an ``EventsTable``.
 
         The tall ``compute()`` frame maps one-to-one onto the table: the index becomes the required
         ``timestamp`` column, and ``event_name``/``data`` become columns. ``data`` is JSON-serialized
@@ -66,7 +66,7 @@ class EventsProcessor(AbstractProcessor):
         """
         import json
 
-        from ndx_events import EventsTable
+        from pynwb.event import EventsTable
 
         df = self.compute()
         if df.empty:
