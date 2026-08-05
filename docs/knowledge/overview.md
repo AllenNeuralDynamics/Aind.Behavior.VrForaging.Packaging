@@ -32,7 +32,7 @@ contraqctor Dataset  ◄── aind_behavior_vr_foraging.data_contract.dataset(p
       │        ├─► proc.compute()  ──► pandas DataFrame (+ provenance in df.attrs)
       │        │        └─► run_session(...) writes one <output_name>.parquet each
       │        │
-      │        └─► proc.nwbize(nwb) ─► writes into an NdxEventsNWBFile
+      │        └─► proc.nwbize(nwb) ─► writes into the NWBFile
       │
       └─► NwbSession(path).run(*processors) ─► NWB (Zarr) file
 ```
@@ -42,8 +42,8 @@ Two output targets share the same processors:
 - **Parquet** — [pipeline.run_session](architecture/pipeline.md) calls
   `compute()` on each processor and writes a parquet per processor, stamping
   provenance metadata into the parquet schema.
-- **NWB** — [NwbSession](architecture/nwb-packaging.md) builds an
-  `NdxEventsNWBFile` from AIND metadata, then calls each processor's
+- **NWB** — [NwbSession](architecture/nwb-packaging.md) builds a base `NWBFile`
+  via `aind_nwb_utils.utils.create_base_nwb_file`, then calls each processor's
   `nwbize()` to populate it.
 
 # Core vocabulary
@@ -68,8 +68,8 @@ parent, and "by type") — see the [site table](architecture/site-table.md).
 - `aind-behavior-vr-foraging` — defines the behavioral **data contract**
   (schema) and provides `data_contract.dataset(...)`; its version is the
   "parser version".
-- `aind-data-schema` / `aind-nwb-utils` / `pynwb` / `hdmf-zarr` / `ndx-events`
-  — metadata models and the NWB/Zarr writing stack.
+- `aind-nwb-utils` / `pynwb` / `hdmf-zarr` / `ndx-events` — base NWB file
+  construction from the session's metadata jsons, and the NWB/Zarr writing stack.
 - `semver` — every version comparison (legacy dispatch, provenance) is semver.
 
 # Where to go next

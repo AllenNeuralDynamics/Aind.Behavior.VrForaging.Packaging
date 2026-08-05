@@ -1,15 +1,15 @@
 ---
 type: Component
 title: NwbSession — building and writing the NWB file
-description: NwbSession constructs an NdxEventsNWBFile from AIND metadata and drives each processor's nwbize(), then writes NWB-Zarr.
+description: NwbSession builds a base NWBFile via aind-nwb-utils and drives each processor's nwbize(), then writes NWB-Zarr.
 resource: src/aind_behavior_vr_foraging_packaging/nwb_file/__init__.py
-tags: [architecture, nwb, zarr, aind-data-schema, metadata]
-timestamp: 2026-07-03T00:00:00Z
+tags: [architecture, nwb, zarr, metadata]
+timestamp: 2026-08-04T00:00:00Z
 ---
 
 `NwbSession` (`nwb_file/__init__.py`) is the NWB counterpart to
 [`run_session`](pipeline.md). Where the pipeline writes parquet, `NwbSession`
-builds a single `NdxEventsNWBFile` and lets each processor contribute.
+builds a single `NWBFile` and lets each processor contribute.
 
 # Lifecycle
 
@@ -23,32 +23,23 @@ nwb = session.run(*create_processors(session.dataset))  # process() + nwbize() l
 session.write_nwb_zarr(Path("/path/to/out.nwb.zarr"))
 ```
 
-- `__init__(root_path, *, dataset=None, use_local_schema=False)` — loads the
-  dataset (via `aind_behavior_vr_foraging.data_contract.dataset` if not given)
-  and the AIND metadata (see below).
-- `process()` — lazily creates the `NdxEventsNWBFile` (idempotent) from AIND
-  metadata: `session_id`, `session_description` (dataset version),
-  `session_start_time` (acquisition start), `identifier` (subject id), and a
-  subject object via `aind_nwb_utils.get_subject_nwb_object`.
+- `__init__(root_path, *, dataset=None)` — loads the dataset (via
+  `aind_behavior_vr_foraging.data_contract.dataset` if not given).
+- `process()` — lazily creates the `NWBFile` (idempotent) by delegating to
+  `aind_nwb_utils.utils.create_base_nwb_file(root_path)`.
 - `run(*processors)` — calls `process()`, then `processor.nwbize(nwb)` for each
   processor in order.
 - `write_nwb_zarr(output)` — writes with `hdmf_zarr.NWBZarrIO`.
 
-# Metadata source: `_AindDataSchemaJson`
+# Metadata source
 
-The NWB file's identity comes from four AIND metadata records —
-`acquisition`, `instrument`, `subject`, `data_description` — bundled in the
-`_AindDataSchemaJson` dataclass. Two loaders:
-
-- `from_root_path(root_path)` — reads local `*acquisition*.json`,
-  `*data_description*.json`, `*subject*.json`, `*instrument*.json` (asserts
-  exactly one of each). Selected when `use_local_schema=True`.
-- `from_doc_db(session_id)` — queries the AIND DocumentDB
-  (`api.allenneuraldynamics.org`, v2) by `name`. The default.
-
-Integration tests force the local loader via a `monkeypatch` fixture so they
-run without DocDB access — see
-[testing/integration-tests.md](../testing/integration-tests.md).
+File identity is not assembled here. `create_base_nwb_file` reads the AIND
+metadata jsons sitting in the session root — `data_description.json`,
+`subject.json`, `procedures.json`, `processing.json`, and one of
+`acquisition.json` / `session.json` — and derives `session_id`,
+`session_description`, `session_start_time`, `institution`, `lab`, and the
+`Subject` object from them. All five files must be present locally; there is no
+network/DocDB lookup.
 
 # Relationship to processors
 

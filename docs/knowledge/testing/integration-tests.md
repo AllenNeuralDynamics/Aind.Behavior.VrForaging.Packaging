@@ -18,7 +18,7 @@ suite is unaffected.
 |------|------|
 | `datasets.yml` | The **manifest**: one entry per dataset (see [schema](#schema)). |
 | `model.py` | Pydantic models (`DatasetManifest`, `DatasetEntry`, `ExpectedInvariants`) with `extra="forbid"` so typos in the YAML fail loudly. |
-| `conftest.py` | S3 download + ETag caching; a fixture that patches `NwbSession` to use local metadata JSON (no DocDB). |
+| `conftest.py` | S3 download + ETag caching. |
 | `test_datasets.py` | One parametrized test per manifest entry; parses and asserts invariants. |
 
 # The test
