@@ -21,8 +21,8 @@ DURATION_S = 5.0
 
 
 class _InMemoryStream(DataStream):
-    def _reader(self, frame: pd.DataFrame) -> pd.DataFrame:
-        return frame
+    def _reader(self, params: pd.DataFrame) -> pd.DataFrame:
+        return params
 
 
 def _sine_dataset() -> Dataset:
