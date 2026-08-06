@@ -20,9 +20,11 @@ class NwbSession:
         root_path: Path,
         *,
         dataset: Optional[data_contract.Dataset] = None,
+        base_nwb_file: Optional[NWBFile] = None,
     ) -> None:
         self._root_path = root_path
         self._dataset = dataset if dataset else aind_behavior_vr_foraging.data_contract.dataset(root_path)
+        self._base_nwb_file = base_nwb_file
         self._nwb_file: Optional[NWBFile] = None
 
     @property
@@ -57,7 +59,7 @@ class NwbSession:
         return nwb
 
     def _create_nwb_file(self) -> NWBFile:
-        nwb_file = create_base_nwb_file(self.root_path)
+        nwb_file = self._base_nwb_file if self._base_nwb_file is not None else create_base_nwb_file(self.root_path)
         # Provenance otherwise only reaches the parquet outputs (df.attrs), and
         # session_description is read-only in pynwb, so record the version in notes.
         nwb_file.notes = f"Dataset version: {self.dataset_version}."
