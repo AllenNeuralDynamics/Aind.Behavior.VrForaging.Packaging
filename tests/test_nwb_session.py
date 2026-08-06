@@ -14,7 +14,7 @@ from pynwb import NWBFile
 
 from aind_behavior_vr_foraging_packaging.nwb_file import NwbSession
 
-SESSION_NAME = "vr-foraging_123456_2026-01-15_10-30-00"
+SESSION_NAME = "vrforaging_123456_2026-0115T103000"
 SUBJECT_ID = "123456"
 CREATION_TIME = "2026-01-15T10:30:00"
 
