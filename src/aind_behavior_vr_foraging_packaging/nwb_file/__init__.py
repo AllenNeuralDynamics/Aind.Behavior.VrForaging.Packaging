@@ -57,7 +57,11 @@ class NwbSession:
         return nwb
 
     def _create_nwb_file(self) -> NWBFile:
-        return create_base_nwb_file(self.root_path)
+        nwb_file = create_base_nwb_file(self.root_path)
+        # Provenance otherwise only reaches the parquet outputs (df.attrs), and
+        # session_description is read-only in pynwb, so record the version in notes.
+        nwb_file.notes = f"Dataset version: {self.dataset_version}."
+        return nwb_file
 
     def write_nwb_zarr(self, output: Path) -> None:
         if self._nwb_file is None:

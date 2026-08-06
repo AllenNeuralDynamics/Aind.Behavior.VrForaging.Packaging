@@ -71,6 +71,8 @@ def test_nwb_session(tmp_path: Path) -> None:
     assert nwb.session_start_time.tzinfo is not None
     assert nwb.subject is not None
     assert nwb.subject.subject_id == SUBJECT_ID
+    # the dataset version is the only provenance the NWB file carries
+    assert "Dataset version: 0.0.0" in nwb.notes
     # the file is built once and cached, not rebuilt per call
     assert session.process() is nwb
     assert session.nwb_file is nwb
