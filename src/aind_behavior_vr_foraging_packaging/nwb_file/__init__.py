@@ -1,7 +1,9 @@
 import logging
+from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import Optional
 
+import aind_behavior_vr_foraging
 import aind_behavior_vr_foraging.data_contract
 import contraqctor.contract as data_contract
 import semver
@@ -10,6 +12,7 @@ from hdmf_zarr import NWBZarrIO
 from pynwb import NWBFile
 
 from .._base import AbstractProcessor
+from ._provenance import add_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -58,12 +61,25 @@ class NwbSession:
             nwb = processor.nwbize(nwb)
         return nwb
 
+    @property
+    def data_contract_version(self) -> semver.Version:
+        return semver.Version.parse(aind_behavior_vr_foraging.__semver__)
+
+    @property
+    def packaging_version(self) -> str:
+        return _pkg_version("aind-behavior-vr-foraging-packaging")
+
     def _create_nwb_file(self) -> NWBFile:
         nwb_file = self._base_nwb_file if self._base_nwb_file is not None else create_base_nwb_file(self.root_path)
-        # Provenance otherwise only reaches the parquet outputs (df.attrs), and
-        # session_description is read-only in pynwb, so record the version in notes.
-        nwb_file.notes = f"Dataset version: {self.dataset_version}."
-        return nwb_file
+        # Provenance otherwise only reaches the parquet outputs (df.attrs). The same
+        # keys land here, so the two outputs of a session can be checked against
+        # each other.
+        return add_provenance(
+            nwb_file,
+            dataset_version=str(self.dataset_version),
+            packaging_version=self.packaging_version,
+            data_contract_version=str(self.data_contract_version),
+        )
 
     def write_nwb_zarr(self, output: Path) -> None:
         if self._nwb_file is None:

@@ -1,6 +1,6 @@
 """Tests for ``NwbSession``.
 
-These cover what the session itself owns — provenance stamping and caching — over a
+These cover what the session itself owns — provenance and caching — over a
 base file handed in directly. Deriving that base file from the AIND metadata jsons
 belongs to ``aind_nwb_utils.create_base_nwb_file``; a synthetic copy of those jsons
 here could only drift from the schema, so the real ones are exercised against real
@@ -11,10 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from contraqctor.contract import Dataset
+from hdmf_zarr import NWBZarrIO
 from pynwb import NWBFile
 from pynwb.file import Subject
 
 from aind_behavior_vr_foraging_packaging.nwb_file import NwbSession
+from aind_behavior_vr_foraging_packaging.nwb_file._provenance import LAB_META_DATA_KEY
 
 SESSION_NAME = "vrforaging_123456_2026-01-15T103000"
 SUBJECT_ID = "123456"
@@ -53,8 +55,31 @@ def test_nwb_session(tmp_path: Path) -> None:
     assert nwb.session_start_time.tzinfo is not None
     assert nwb.subject is not None
     assert nwb.subject.subject_id == SUBJECT_ID
-    # the dataset version is the only provenance the NWB file carries
-    assert "Dataset version: 0.0.0" in nwb.notes
     # the file is built once and cached, not rebuilt per call
     assert session.process() is nwb
     assert session.nwb_file is nwb
+
+
+def test_provenance_survives_round_trip(tmp_path: Path) -> None:
+    """Provenance lands as spec'd lab_meta_data, and is still there after a write/read.
+
+    Asserting on the read-back file is the point: hdmf writes a LabMetaData subclass
+    whose attributes have no spec and drops them silently, which an in-memory-only
+    assertion would sail straight past.
+    """
+    session = _session(tmp_path)
+    nwb = session.process()
+
+    provenance = nwb.lab_meta_data[LAB_META_DATA_KEY]
+    assert provenance.dataset_version == "0.0.0"
+    assert provenance.packaging_version == session.packaging_version
+    assert provenance.data_contract_version == str(session.data_contract_version)
+
+    out = tmp_path / "session.nwb.zarr"
+    session.write_nwb_zarr(out)
+
+    with NWBZarrIO(out.as_posix(), "r") as io:
+        round_tripped = io.read().lab_meta_data[LAB_META_DATA_KEY]
+        assert round_tripped.dataset_version == provenance.dataset_version
+        assert round_tripped.packaging_version == provenance.packaging_version
+        assert round_tripped.data_contract_version == provenance.data_contract_version
