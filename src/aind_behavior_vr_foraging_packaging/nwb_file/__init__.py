@@ -61,20 +61,24 @@ class NwbSession:
             nwb = processor.nwbize(nwb)
         return nwb
 
-
     @property
     def packaging_version(self) -> str:
         return _pkg_version("aind-behavior-vr-foraging-packaging")
 
+    @property
+    def parser_version(self) -> semver.Version:
+        return semver.Version.parse(aind_behavior_vr_foraging.__semver__)
+
     def _create_nwb_file(self) -> NWBFile:
         nwb_file = self._base_nwb_file if self._base_nwb_file is not None else create_base_nwb_file(self.root_path)
         # Provenance otherwise only reaches the parquet outputs (df.attrs). The same
-        # keys land here, so the two outputs of a session can be checked against
+        # versions land here, so the two outputs of a session can be checked against
         # each other.
         return add_provenance(
             nwb_file,
             dataset_version=str(self.dataset_version),
             packaging_version=self.packaging_version,
+            parser_version=str(self.parser_version),
         )
 
     def write_nwb_zarr(self, output: Path) -> None:

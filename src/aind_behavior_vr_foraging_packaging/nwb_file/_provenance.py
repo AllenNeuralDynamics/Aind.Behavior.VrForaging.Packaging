@@ -18,7 +18,6 @@ from typing import Any
 from hdmf.spec import AttributeSpec, GroupSpec, NamespaceBuilder
 from pynwb import NWBFile, get_class, load_namespaces
 
-
 NAMESPACE = "vr-foraging-packaging"
 NAMESPACE_VERSION = "0.1.0"
 NEURODATA_TYPE = "PackagingProvenance"
@@ -30,6 +29,7 @@ LAB_META_DATA_KEY = "provenance"
 FIELDS = {
     "dataset_version": "Version of dataset.",
     "packaging_version": "Version of aind-behavior-vr-foraging-packaging that wrote this file.",
+    "parser_version": "Version of aind-behavior-vr-foraging used to parse the session.",
 }
 
 
@@ -56,12 +56,13 @@ def provenance_type() -> type[Any]:
     extensions_name = f"{NAMESPACE}.extensions.yaml"
     builder.add_spec(extensions_name, spec)
 
-    # NamespaceBuilder only exports to disk, and load_namespaces only reads from
-    # disk; the yamls are a means of registration, not an artifact worth keeping.
-    outdir = Path(tempfile.mkdtemp(prefix="abvfp-spec-"))
+    # NamespaceBuilder only exports to disk and load_namespaces only reads from disk,
+    # so the yamls are a means of registration rather than an artifact worth keeping.
+    # load_namespaces parses them into the type map eagerly, so the directory can go.
     namespace_name = f"{NAMESPACE}.namespace.yaml"
-    builder.export(namespace_name, outdir=str(outdir))
-    load_namespaces(str(outdir / namespace_name))
+    with tempfile.TemporaryDirectory(prefix=f"{NAMESPACE}-spec-") as outdir:
+        builder.export(namespace_name, outdir=outdir)
+        load_namespaces(str(Path(outdir) / namespace_name))
 
     return get_class(NEURODATA_TYPE, NAMESPACE)
 
@@ -71,6 +72,7 @@ def add_provenance(
     *,
     dataset_version: str,
     packaging_version: str,
+    parser_version: str,
 ) -> NWBFile:
     """Attach provenance to *nwb_file* under ``lab_meta_data[LAB_META_DATA_KEY]`` and return it."""
     nwb_file.add_lab_meta_data(
@@ -78,6 +80,7 @@ def add_provenance(
             name=LAB_META_DATA_KEY,
             dataset_version=dataset_version,
             packaging_version=packaging_version,
+            parser_version=parser_version,
         )
     )
     return nwb_file
