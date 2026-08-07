@@ -29,7 +29,7 @@ LAB_META_DATA_KEY = "provenance"
 FIELDS = {
     "dataset_version": "Version of dataset.",
     "packaging_version": "Version of aind-behavior-vr-foraging-packaging that wrote this file.",
-    "parser_version": "Version of aind-behavior-vr-foraging used to parse the session.",
+    "data_contract_version": "Version of aind-behavior-vr-foraging used to parse the session.",
 }
 
 
@@ -72,7 +72,7 @@ def add_provenance(
     *,
     dataset_version: str,
     packaging_version: str,
-    parser_version: str,
+    data_contract_version: str,
 ) -> NWBFile:
     """Attach provenance to *nwb_file* under ``lab_meta_data[LAB_META_DATA_KEY]`` and return it."""
     nwb_file.add_lab_meta_data(
@@ -80,7 +80,7 @@ def add_provenance(
             name=LAB_META_DATA_KEY,
             dataset_version=dataset_version,
             packaging_version=packaging_version,
-            parser_version=parser_version,
+            data_contract_version=data_contract_version,
         )
     )
     return nwb_file

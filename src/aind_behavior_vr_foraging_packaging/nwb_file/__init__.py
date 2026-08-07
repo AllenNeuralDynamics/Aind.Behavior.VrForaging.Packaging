@@ -78,7 +78,7 @@ class NwbSession:
             nwb_file,
             dataset_version=str(self.dataset_version),
             packaging_version=self.packaging_version,
-            parser_version=str(self.parser_version),
+            data_contract_version=str(self.parser_version),
         )
 
     def write_nwb_zarr(self, output: Path) -> None:

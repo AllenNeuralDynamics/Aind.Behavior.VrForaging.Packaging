@@ -121,44 +121,27 @@ def test_sites_table(entry, request):
 
 @pytest.mark.parametrize("entry", _entries, ids=_ids)
 def test_full_pipeline(entry, request, tmp_path):
-    """Smoke-test the full parquet pipeline: all 6 processors must run without crashing.
+    """Smoke-test the full pipeline, parquet and NWB: all 6 processors must run without crashing.
 
-    Exercises ``run_session`` end-to-end. Parquet files are written to
+    Exercises ``run_session`` and then ``NwbSession.run`` over the same loaded
+    dataset — both drive the same processors, so they share one load instead of
+    paying for the site-table computation twice. Parquet files are written to
     ``tmp_path`` (auto-cleaned by pytest). Only the ``sites`` output is
     asserted non-empty; other streams may legitimately be empty for some
     sessions.
+
+    The NWB base file comes from ``aind_nwb_utils.create_base_nwb_file``, so this
+    is what exercises the real ``data_description``/``subject``/``acquisition``
+    jsons in each cached session — synthetic unit-test fixtures cannot catch an
+    upstream metadata key rename. The manifest's site-table invariants are
+    checked against ``nwb.trials`` as well as the parquet table: the two are
+    computed independently (``nwbize`` calls ``compute()`` itself), so matching
+    metrics are what say the outputs have not drifted apart.
 
     Uses ``run_session``'s default ``raise_on_error=False``: the pipeline runs
     every processor, and some sessions legitimately lack optional SoftwareEvents
     streams (e.g. ForceGiveReward, PatchRewardAmount). An absent optional stream
     should not fail this smoke test.
-    """
-    if entry.xfail:
-        request.applymarker(
-            pytest.mark.xfail(
-                strict=True,
-                reason=entry.xfail_reason or "marked xfail in manifest",
-            )
-        )
-
-    try:
-        ds = _load_dataset(entry)
-        outputs = run_session(ds, tmp_path)
-        assert not outputs["sites"].empty, f"{entry.id}: sites table is unexpectedly empty"
-
-    except Exception as e:
-        pytest.fail(f"Dataset {entry.id} failed full pipeline test.\nRationale: {entry.rationale}\nError: {e}")
-
-
-@pytest.mark.parametrize("entry", _entries, ids=_ids)
-def test_nwb_session(entry, request, tmp_path):
-    """Smoke-test the NWB path end-to-end: build, nwbize with all processors, write zarr, read back.
-
-    Complements ``test_full_pipeline`` (which only covers the parquet path). The
-    base file comes from ``aind_nwb_utils.create_base_nwb_file``, so this is what
-    exercises the real ``data_description``/``subject``/``acquisition`` jsons in
-    each cached session — synthetic unit-test fixtures cannot catch an upstream
-    metadata key rename.
 
     Set ``expected.nwb_validates: true`` on a manifest entry to additionally
     require the written file to pass ``pynwb.validate``.
@@ -177,6 +160,9 @@ def test_nwb_session(entry, request, tmp_path):
 
     try:
         ds = _load_dataset(entry)
+        outputs = run_session(ds, tmp_path)
+        assert not outputs["sites"].empty, f"{entry.id}: sites table is unexpectedly empty"
+
         session = NwbSession(_session_path(entry), dataset=ds)
 
         nwb = session.run(*create_processors(ds))
@@ -189,9 +175,17 @@ def test_nwb_session(entry, request, tmp_path):
         assert nwb.subject is not None, f"{entry.id}: subject was not populated"
         assert nwb.subject.subject_id, f"{entry.id}: subject_id is empty"
 
-        # At minimum the trial table must have landed as a trials table.
+        # At minimum the site table must have landed as a trials table.
         assert nwb.trials is not None, f"{entry.id}: no trials table on the NWB file"
         assert len(nwb.trials) > 0, f"{entry.id}: trials table is unexpectedly empty"
+
+        # The same invariants the parquet table is held to, so the two cannot drift.
+        nwb_sites = nwb.trials.to_dataframe()
+        assert len(nwb_sites) == len(outputs["sites"]), (
+            f"{entry.id}: NWB has {len(nwb_sites)} sites, parquet has {len(outputs['sites'])}"
+        )
+        if entry.expected is not None:
+            _assert_sites_table_invariants(nwb_sites, entry)
 
         out = tmp_path / "session.nwb.zarr"
         session.write_nwb_zarr(out)
@@ -202,6 +196,21 @@ def test_nwb_session(entry, request, tmp_path):
             assert round_tripped.session_id == nwb.session_id
             assert len(round_tripped.trials) == len(nwb.trials)
 
+            # Everything asserted in memory has to survive the write: the site
+            # table's invariants, and the provenance, which was_generated_by only
+            # accepts before the file is written.
+            if entry.expected is not None:
+                _assert_sites_table_invariants(round_tripped.trials.to_dataframe(), entry)
+
+            # Superset, not equality: was_generated_by also carries aind-nwb-utils'
+            # own entry, which is not ours to assert on. `>=` on the set-like items
+            # views means every key/value the session recorded came back unchanged.
+            provenance = {key: value for key, value in round_tripped.was_generated_by[:]}
+            assert provenance.items() >= session.provenance.items(), (
+                f"{entry.id}: provenance did not survive the write: {provenance} is missing "
+                f"entries from {session.provenance}"
+            )
+
             if entry.expected is not None and entry.expected.nwb_validates:
                 import pynwb
 
@@ -211,4 +220,4 @@ def test_nwb_session(entry, request, tmp_path):
                 )
 
     except Exception as e:
-        pytest.fail(f"Dataset {entry.id} failed NWB session test.\nRationale: {entry.rationale}\nError: {e}")
+        pytest.fail(f"Dataset {entry.id} failed full pipeline test.\nRationale: {entry.rationale}\nError: {e}")

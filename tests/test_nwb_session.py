@@ -73,7 +73,7 @@ def test_provenance_survives_round_trip(tmp_path: Path) -> None:
     provenance = nwb.lab_meta_data[LAB_META_DATA_KEY]
     assert provenance.dataset_version == "0.0.0"
     assert provenance.packaging_version == session.packaging_version
-    assert provenance.parser_version == str(session.parser_version)
+    assert provenance.data_contract_version == str(session.parser_version)
 
     out = tmp_path / "session.nwb.zarr"
     session.write_nwb_zarr(out)
