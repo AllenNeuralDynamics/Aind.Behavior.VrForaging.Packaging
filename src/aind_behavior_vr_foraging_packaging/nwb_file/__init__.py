@@ -61,9 +61,6 @@ class NwbSession:
             nwb = processor.nwbize(nwb)
         return nwb
 
-    @property
-    def data_contract_version(self) -> semver.Version:
-        return semver.Version.parse(aind_behavior_vr_foraging.__semver__)
 
     @property
     def packaging_version(self) -> str:
@@ -78,8 +75,7 @@ class NwbSession:
             nwb_file,
             dataset_version=str(self.dataset_version),
             packaging_version=self.packaging_version,
-            data_contract_version=str(self.data_contract_version),
-        )
+        )    )
 
     def write_nwb_zarr(self, output: Path) -> None:
         if self._nwb_file is None:
