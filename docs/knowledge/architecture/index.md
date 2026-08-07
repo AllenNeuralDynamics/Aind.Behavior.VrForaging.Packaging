@@ -11,7 +11,7 @@ Read in this order:
 - [pipeline.md](pipeline.md) — `create_processors`, `run_session`, and the per-processor getters; version dispatch and parquet writing.
 - [site-table.md](site-table.md) — `SiteTableProcessor` and the `Site` model — the most complex processor and the core scientific output.
 - [continuous-and-event-streams.md](continuous-and-event-streams.md) — Position/velocity, licks, sniffing, and software events processors.
-- [nwb-packaging.md](nwb-packaging.md) — `NwbSession`: building the base `NWBFile` and driving `nwbize()`.
+- [nwb-packaging.md](nwb-packaging.md) — `NwbSession`: building the base `NWBFile`, stamping provenance, and driving `nwbize()`.
 - [data-contract-and-versioning.md](data-contract-and-versioning.md) — The `contraqctor` dataset, Harp streams, AIND metadata, and the three versions the code tracks.
 
 ## Package layout

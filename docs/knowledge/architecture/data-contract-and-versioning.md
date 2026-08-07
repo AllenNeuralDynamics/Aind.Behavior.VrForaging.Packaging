@@ -1,10 +1,10 @@
 ---
 type: Reference
 title: Data contract, Harp streams, and the three versions
-description: How the library reads sessions via contraqctor/aind-behavior-vr-foraging, and the three semver versions it tracks and dispatches on.
+description: How the library reads sessions via contraqctor/aind-behavior-vr-foraging, the three semver versions it tracks and dispatches on, and where each lands in the parquet and NWB outputs.
 resource: src/aind_behavior_vr_foraging_packaging/_base.py
-tags: [architecture, data-contract, contraqctor, harp, semver, versioning]
-timestamp: 2026-07-03T00:00:00Z
+tags: [architecture, data-contract, contraqctor, harp, semver, versioning, provenance]
+timestamp: 2026-08-07T00:00:00Z
 ---
 
 Processors never touch raw files directly. They read through a **data
@@ -48,6 +48,30 @@ dispatch and provenance:
 
 A mismatch between `dataset_version` and `parser_version` is logged as a
 warning (`SiteTableProcessor.__init__`), not an error.
+
+## Where the versions land in the outputs
+
+Both outputs of a session carry the same three keys under the same names, so a
+consumer can compare them and the integration suite can assert they agree:
+
+| Output | Location | Written by |
+|--------|----------|------------|
+| Parquet | `df.attrs`, plus the same keys as top-level parquet schema metadata (readable from DuckDB, Polars, R arrow — no pandas needed) | `AbstractProcessor.compute` stamps the attrs; `pipeline._write_parquet` promotes them |
+| NWB | `nwb.lab_meta_data["provenance"]`, a `PackagingProvenance` container | `nwb_file._provenance.add_provenance` |
+
+Keys are `packaging_version`, `data_contract_version`, and `dataset_version`
+(parquet additionally carries `processor`). Note the name split that exists on
+both sides: the *property* is `parser_version`, the *key* is
+`data_contract_version`.
+
+Reading them back from nwb:
+
+```python
+nwb.lab_meta_data["provenance"].fields      # plain dict of str
+```
+
+How that container is defined, and why it needs a spec of its own, is covered in
+[nwb-packaging.md](nwb-packaging.md).
 
 ## PEP 440 → SemVer
 
