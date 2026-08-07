@@ -75,7 +75,7 @@ class NwbSession:
             nwb_file,
             dataset_version=str(self.dataset_version),
             packaging_version=self.packaging_version,
-        )    )
+        )
 
     def write_nwb_zarr(self, output: Path) -> None:
         if self._nwb_file is None:

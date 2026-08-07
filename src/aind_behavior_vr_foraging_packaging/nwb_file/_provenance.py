@@ -18,10 +18,7 @@ from typing import Any
 from hdmf.spec import AttributeSpec, GroupSpec, NamespaceBuilder
 from pynwb import NWBFile, get_class, load_namespaces
 
-# Kept shorter than the distribution name deliberately: the cached-spec path inside
-# a written zarr embeds this name twice, and zarr's atomic writes add a ~40-char
-# .partial suffix on top. The full 35-char distribution name pushed that past
-# Windows' 260-char MAX_PATH for sessions written to nested directories.
+
 NAMESPACE = "vr-foraging-packaging"
 NAMESPACE_VERSION = "0.1.0"
 NEURODATA_TYPE = "PackagingProvenance"
@@ -31,9 +28,8 @@ LAB_META_DATA_KEY = "provenance"
 
 #: Attribute name → doc. Mirrors ``AbstractProcessor.compute``'s ``df.attrs`` keys.
 FIELDS = {
-    "dataset_version": "Version recorded in the session's tasklogic_input.json.",
+    "dataset_version": "Version of dataset.",
     "packaging_version": "Version of aind-behavior-vr-foraging-packaging that wrote this file.",
-    "data_contract_version": "Version of aind-behavior-vr-foraging, which defines the behavioral data schema.",
 }
 
 
@@ -75,7 +71,6 @@ def add_provenance(
     *,
     dataset_version: str,
     packaging_version: str,
-    data_contract_version: str,
 ) -> NWBFile:
     """Attach provenance to *nwb_file* under ``lab_meta_data[LAB_META_DATA_KEY]`` and return it."""
     nwb_file.add_lab_meta_data(
@@ -83,7 +78,6 @@ def add_provenance(
             name=LAB_META_DATA_KEY,
             dataset_version=dataset_version,
             packaging_version=packaging_version,
-            data_contract_version=data_contract_version,
         )
     )
     return nwb_file
