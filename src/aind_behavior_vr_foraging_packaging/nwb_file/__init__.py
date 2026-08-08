@@ -5,7 +5,6 @@ from typing import Optional
 
 import aind_behavior_vr_foraging.data_contract
 import contraqctor.contract as data_contract
-import semver
 from aind_data_schema.core.acquisition import Acquisition
 from aind_data_schema.core.data_description import DataDescription
 from aind_data_schema.core.instrument import Instrument
@@ -36,10 +35,6 @@ class NwbSession:
     @property
     def dataset(self) -> data_contract.Dataset:
         return self._dataset
-
-    @property
-    def dataset_version(self) -> semver.Version:
-        return semver.Version.parse(str(self._dataset.version))
 
     @property
     def aind_data_schema(self) -> "_AindDataSchemaJson":
@@ -77,15 +72,19 @@ class NwbSession:
         return jsons
 
     def _create_nwb_file(self) -> NdxEventsNWBFile:
+        from .._provenance import PackagingProvenance
+
+        prov = PackagingProvenance.build(self._dataset)
         nwb_file = NdxEventsNWBFile(
             session_id=self.aind_data_schema.data_description.name,
-            session_description=f"Dataset version: {self.dataset_version}",
+            session_description=f"Dataset version: {prov.dataset_version}",
             session_start_time=self.aind_data_schema.acquisition.acquisition_start_time,
             identifier=self.aind_data_schema.data_description.subject_id,
             subject=get_subject_nwb_object(
                 self.aind_data_schema.data_description.model_dump(mode="json"),
                 self.aind_data_schema.subject.model_dump(mode="json"),
             ),
+            notes=prov.model_dump_json(),
         )
         return nwb_file
 
