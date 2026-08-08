@@ -16,7 +16,6 @@ from pynwb import NWBFile
 from pynwb.file import Subject
 
 from aind_behavior_vr_foraging_packaging.nwb_file import NwbSession
-from aind_behavior_vr_foraging_packaging.nwb_file._provenance import LAB_META_DATA_KEY
 
 SESSION_NAME = "vrforaging_123456_2026-01-15T103000"
 SUBJECT_ID = "123456"
@@ -61,23 +60,24 @@ def test_nwb_session(tmp_path: Path) -> None:
 
 
 def test_provenance_survives_round_trip(tmp_path: Path) -> None:
-    """Provenance lands as spec'd lab_meta_data, and is still there after a write/read.
+    """Provenance lands in was_generated_by and is still there after a write/read.
 
-    Asserting on the read-back file is the point: hdmf writes a LabMetaData subclass
-    whose attributes have no spec and drops them silently, which an in-memory-only
-    assertion would sail straight past.
+    Asserting on the read-back file matters because ``was_generated_by`` is
+    write-once: the entries have to be appended before the write, and there is no
+    second chance to correct them afterwards.
     """
     session = _session(tmp_path)
     nwb = session.process()
 
-    provenance = nwb.lab_meta_data[LAB_META_DATA_KEY]
-    assert provenance.dataset_version == "0.0.0"
-    assert provenance.packaging_version == session.packaging_version
-    assert provenance.data_contract_version == str(session.parser_version)
+    assert dict(nwb.was_generated_by) == {
+        "packaging_version": session.packaging_version,
+        "data_contract_version": str(session.parser_version),
+        "dataset_version": "0.0.0",
+    }
 
     out = tmp_path / "session.nwb.zarr"
     session.write_nwb_zarr(out)
 
     with NWBZarrIO(out.as_posix(), "r") as io:
-        round_tripped = io.read().lab_meta_data[LAB_META_DATA_KEY]
-        assert round_tripped.fields == provenance.fields
+        round_tripped = io.read().was_generated_by
+        assert {key: value for key, value in round_tripped[:]} == session.provenance

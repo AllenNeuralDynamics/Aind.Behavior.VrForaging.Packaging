@@ -12,7 +12,6 @@ from hdmf_zarr import NWBZarrIO
 from pynwb import NWBFile
 
 from .._base import AbstractProcessor
-from ._provenance import add_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -69,17 +68,27 @@ class NwbSession:
     def parser_version(self) -> semver.Version:
         return semver.Version.parse(aind_behavior_vr_foraging.__semver__)
 
+    @property
+    def provenance(self) -> dict[str, str]:
+        """Versions describing how this file was produced, keyed as in ``df.attrs``."""
+        return {
+            "packaging_version": self.packaging_version,
+            "data_contract_version": str(self.parser_version),
+            "dataset_version": str(self.dataset_version),
+        }
+
     def _create_nwb_file(self) -> NWBFile:
         nwb_file = self._base_nwb_file if self._base_nwb_file is not None else create_base_nwb_file(self.root_path)
         # Provenance otherwise only reaches the parquet outputs (df.attrs). The same
         # versions land here, so the two outputs of a session can be checked against
-        # each other.
-        return add_provenance(
-            nwb_file,
-            dataset_version=str(self.dataset_version),
-            packaging_version=self.packaging_version,
-            data_contract_version=str(self.parser_version),
-        )
+        # each other. was_generated_by is write-once, and create_base_nwb_file has
+        # already set it to aind-nwb-utils' own entry, so extend it in place.
+        entries = [[key, value] for key, value in self.provenance.items()]
+        if nwb_file.was_generated_by is None:
+            nwb_file.was_generated_by = entries
+        else:
+            nwb_file.was_generated_by.extend(entries)
+        return nwb_file
 
     def write_nwb_zarr(self, output: Path) -> None:
         if self._nwb_file is None:
