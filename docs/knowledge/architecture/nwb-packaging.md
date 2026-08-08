@@ -48,49 +48,40 @@ network/DocDB lookup.
 
 # Provenance
 
-`_create_nwb_file` attaches a `PackagingProvenance` container
-(`nwb_file/_provenance.py`) carrying `dataset_version`, `packaging_version`, and
-`data_contract_version` — the same keys the parquet outputs carry in `df.attrs`,
-so the two can be compared (see
-[data-contract-and-versioning.md](data-contract-and-versioning.md)):
+`_create_nwb_file` appends the session's versions to `NWBFile.was_generated_by`,
+the core NWB field for recording what produced a file. `create_base_nwb_file`
+has already put its own entry there, so ours extend it:
 
 ```python
-nwb.lab_meta_data["provenance"].dataset_version   # '0.6.1'
-nwb.lab_meta_data["provenance"].fields            # plain dict of str
+dict(nwb.was_generated_by[:])
+# {'aind-nwb-utils': '0.2.8',
+#  'packaging_version': '0.0.4',
+#  'data_contract_version': '1.2.1',
+#  'dataset_version': '0.6.1'}
 ```
 
-## Why it needs a spec
+The keys are the ones `AbstractProcessor.compute` stamps into `df.attrs`, so the
+parquet and NWB outputs of a session can be compared directly (see
+[data-contract-and-versioning.md](data-contract-and-versioning.md)).
+`NwbSession.provenance` returns that dict, and is what the tests assert against.
 
-`add_lab_meta_data` accepts a plain `LabMetaData` subclass carrying extra
-attributes and writes it **without error** — but hdmf drops any attribute it has
-no spec for, so the values vanish on read-back with nothing signalling the loss.
-An in-memory assertion cannot catch this; only re-reading the written file can.
-`provenance_type()` therefore builds a `GroupSpec` at runtime and registers it as
-the `vr-foraging-packaging` namespace.
-
-No `ndx-*` package is involved, and no namespace yamls are shipped: they are
-exported to a temp dir purely because `NamespaceBuilder` only writes to disk and
-`load_namespaces` only reads from disk, then discarded once the spec is parsed
-into the type map.
-
-pynwb caches the spec into every file written — visible as
-`specifications/vr-foraging-packaging` inside the zarr, alongside `core` and
-`hdmf-common` — so a reader with only `pynwb` and `hdmf-zarr` installed gets the
-attributes back. The container class is generated from the cached spec, so it
-supports attribute access but cannot be `isinstance`-checked against ours.
+The field is nominally software name/version pairs — `aind-nwb-utils`'s entry
+uses that convention — but nothing constrains the first element, so
+`dataset_version` (a data schema version, not a package) rides along as a plain
+key. That mild stretch buys a lot: no extension, no namespace to name or version,
+and no dependency for readers.
 
 Two constraints to respect when changing this:
 
-- It depends on `cache_spec` staying enabled at write time (pynwb's default, not
-  overridden by `write_nwb_zarr`). The integration suite re-reads provenance from
-  disk rather than trusting the in-memory object, so a regression fails a test
-  instead of silently shipping stripped files.
-- `NAMESPACE` is kept short deliberately. The cached-spec path embeds it twice and
-  zarr's atomic writes append a ~40-char `.partial` suffix; the full distribution
-  name pushed that past Windows' 260-char `MAX_PATH`.
+- `was_generated_by` is **write-once**. Reassigning it after
+  `create_base_nwb_file` raises `AttributeError`; only `extend`/`append` on the
+  existing list works, and only before the file is written. Once read back it is a
+  read-only array.
+- Nothing can be added after the write, so the integration suite re-reads
+  provenance from disk rather than trusting the in-memory object.
 
-`notes` is not an alternative home for any of this: pynwb fields are write-once,
-so a version string recorded there cannot be appended to.
+`notes` is not an alternative home either: pynwb fields are write-once, so a
+version string recorded there cannot be appended to.
 
 # Relationship to processors
 

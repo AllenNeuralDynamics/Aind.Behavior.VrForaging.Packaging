@@ -57,7 +57,7 @@ consumer can compare them and the integration suite can assert they agree:
 | Output | Location | Written by |
 |--------|----------|------------|
 | Parquet | `df.attrs`, plus the same keys as top-level parquet schema metadata (readable from DuckDB, Polars, R arrow — no pandas needed) | `AbstractProcessor.compute` stamps the attrs; `pipeline._write_parquet` promotes them |
-| NWB | `nwb.lab_meta_data["provenance"]`, a `PackagingProvenance` container | `nwb_file._provenance.add_provenance` |
+| NWB | `nwb.was_generated_by`, appended to the entry `create_base_nwb_file` already wrote | `NwbSession._create_nwb_file` |
 
 Keys are `packaging_version`, `data_contract_version`, and `dataset_version`
 (parquet additionally carries `processor`). Note the name split that exists on
@@ -67,11 +67,11 @@ both sides: the *property* is `parser_version`, the *key* is
 Reading them back from nwb:
 
 ```python
-nwb.lab_meta_data["provenance"].fields      # plain dict of str
+dict(nwb.was_generated_by[:])   # includes aind-nwb-utils' own entry alongside ours
 ```
 
-How that container is defined, and why it needs a spec of its own, is covered in
-[nwb-packaging.md](nwb-packaging.md).
+Why they live in `was_generated_by`, and the write-once constraint that comes
+with it, is covered in [nwb-packaging.md](nwb-packaging.md).
 
 ## PEP 440 → SemVer
 
