@@ -32,6 +32,7 @@ DuckDB examples require the optional ``db`` extra::
 
 Run from the project root::
 
+    uv run aind-vr-export --input-dir /data/raw --output-dir ./export ` --log-file   ./export/run.log --workers 4
     uv run python examples/query_export.py
 """
 
