@@ -81,6 +81,71 @@ based on the dataset's schema version. To produce every table at once, use
 `run_session(ds, "output_dir")` instead — it writes `sites.parquet`,
 `position_velocity.parquet`, and the rest, and returns them keyed by name.
 
+## Exporting a dataset collection
+
+Install the CLI with [uvx](https://docs.astral.sh/uv/guides/tools/):
+
+```bash
+uvx install "git+https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging.git"
+```
+
+Then run the export pipeline across a folder of raw session directories
+(`--input-dir` must contain one subdirectory per session):
+
+```bash
+uvx run aind-vr-export --input-dir /data/raw --output-dir /data/export
+```
+
+`--output-dir` receives the results:
+
+```text
+/data/export/
+├── session.parquet          # session catalogue (one row per session)
+├── sites.parquet            # aggregated sites table (all sessions)
+└── sessions/
+    └── <session_id>/
+        ├── sites.parquet
+        ├── position_velocity.parquet
+        └── ...
+```
+
+### Common flags
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--workers N` | `1` | Parallel threads for Phase 1 (per-session processing) |
+| `--exclude-processors a b` | *(none)* | Skip named processors, e.g. `sniffing software_events` |
+| `--include-processors a b` | *(all)* | Run only the listed processors |
+| `--dataset-tables a b` | `sites` | Tables to flatten across sessions in Phase 2 |
+| `--skip-processing` | `false` | Jump straight to Phase 2 (sessions/ already written) |
+| `--skip-aggregation` | `false` | Write only per-session parquets |
+| `--log-file path` | *(none)* | Append a structured log to this path |
+| `--raise-on-error` | `false` | Abort on the first failure instead of logging and continuing |
+
+### Example: fast parallel run, skip sniffing
+
+```bash
+uvx run aind-vr-export \
+    --input-dir /data/raw \
+    --output-dir /data/export \
+    --workers 8 \
+    --exclude-processors sniffing software_events \
+    --log-file /data/export/run.log
+```
+
+### Example: re-aggregate only
+
+Per-session parquets already written in `sessions/`:
+
+```bash
+uvx run aind-vr-export \
+    --input-dir /data/raw \
+    --output-dir /data/export \
+    --skip-processing
+```
+
+See `uvx run aind-vr-export --help` for the full flag reference.
+
 ## Contributors
 
 Contributions to this repository are welcome! However, please ensure that your code adheres to the recommended DevOps practices below:
