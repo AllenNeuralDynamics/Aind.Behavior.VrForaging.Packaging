@@ -5,7 +5,7 @@ Predicate pushdown and Parquet column pruning keep network I/O minimal.
 
 Remote layout (mirrors the local export structure)::
 
-    s3://aind-scratch-data/vr-foraging/test/
+    s3://aind-scratch-data/vr-foraging/demo/
     ├── session.parquet            # flat catalogue, one row per session
     ├── sites.parquet              # flat sites table, all sessions
     └── sessions/
@@ -31,7 +31,7 @@ import boto3
 import duckdb
 
 # ── Configure these ───────────────────────────────────────────────────────────
-S3_ROOT = "s3://aind-scratch-data/vr-foraging/test"
+S3_ROOT = "s3://aind-scratch-data/vr-foraging/demo"
 AWS_PROFILE = "aind-scientist"
 # ─────────────────────────────────────────────────────────────────────────────
 

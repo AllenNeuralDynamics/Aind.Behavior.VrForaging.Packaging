@@ -1,28 +1,44 @@
 # ============================================================
-# Upload a local folder to s3://aind-scratch-data/vr-foraging/
+# Process, aggregate, and upload to s3://aind-scratch-data/vr-foraging/
+#
+# 1. Runs aind-vr-export (clean + full pipeline) against the integration cache.
+# 2. Uploads the output to a timestamped S3 prefix.
 # ============================================================
 
 # --- EDIT THIS VALUE ---
 $ProfileName  = "aind-scientist"               # your AWS SSO profile name
 # -----------------------
 
-$LocalFolder  = "$PSScriptRoot\..\scratch\export"  # contents uploaded into S3 subfolder
-$SubFolder    = "test"                             # destination subfolder inside vr-foraging/
+$RepoRoot     = "$PSScriptRoot\.."
+$InputDir     = "$RepoRoot\tests\integration\.cache\aind-open-data"   # S3 download cache (sessions are bucket-namespaced)
+$OutputDir    = "$RepoRoot\scratch\export"             # pipeline writes here (cleaned on each run)
+$SubFolder    = "demo"
 $Destination  = "s3://aind-scratch-data/vr-foraging/$SubFolder"
 
-# Check AWS CLI is installed
+# --- Pre-flight checks ---
+
+if (-not (Test-Path $InputDir)) {
+    Write-Host "Integration cache not found: $InputDir" -ForegroundColor Red
+    Write-Host "Run the integration test suite first to populate the cache." -ForegroundColor Yellow
+    exit 1
+}
+
 if (-not (Get-Command aws -ErrorAction SilentlyContinue)) {
     Write-Host "AWS CLI not found. Install it from https://aws.amazon.com/cli/ and try again." -ForegroundColor Red
     exit 1
 }
 
-# Check local folder exists
-if (-not (Test-Path $LocalFolder)) {
-    Write-Host "Local folder not found: $LocalFolder" -ForegroundColor Red
+# --- Phase 1 + 2: process and aggregate ---
+
+Write-Host "Running export pipeline: $InputDir -> $OutputDir ..."
+uv run aind-vr-export --input-dir $InputDir --output-dir $OutputDir
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Pipeline failed. Aborting upload." -ForegroundColor Red
     exit 1
 }
 
-# Check / refresh SSO session
+# --- Authenticate ---
+
 Write-Host "Checking AWS SSO session for profile '$ProfileName'..."
 aws sts get-caller-identity --profile $ProfileName *> $null
 if ($LASTEXITCODE -ne 0) {
@@ -34,12 +50,13 @@ if ($LASTEXITCODE -ne 0) {
     }
 }
 
-# Sync the folder
-Write-Host "Uploading '$LocalFolder' to '$Destination' ..."
-aws s3 sync $LocalFolder $Destination --profile $ProfileName
+# --- Upload ---
+
+Write-Host "Uploading '$OutputDir' to '$Destination' ..."
+aws s3 sync $OutputDir $Destination --profile $ProfileName
 
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "Upload complete." -ForegroundColor Green
+    Write-Host "Upload complete: $Destination" -ForegroundColor Green
 } else {
     Write-Host "Upload finished with errors. Check the output above." -ForegroundColor Yellow
 }
