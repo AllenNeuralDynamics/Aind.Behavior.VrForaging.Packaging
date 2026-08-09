@@ -33,9 +33,6 @@ dependencies = [
     "aind-nwb-utils",
 ]
 
-[project.optional-dependencies]
-db = ["duckdb>=1.0", "boto3>=1.26"]
-
 [project.urls]
 Documentation = "https://allenneuraldynamics.github.io/Aind.Behavior.VrForaging.Packaging/"
 Repository = "https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging/"
@@ -50,7 +47,7 @@ dev = [
     'pytest-cov',
     'codespell',
     'ty',
-    'aind-behavior-vr-foraging-packaging[db]',
+    'boto3>=1.26',
 ]
 
 [tool.uv]
