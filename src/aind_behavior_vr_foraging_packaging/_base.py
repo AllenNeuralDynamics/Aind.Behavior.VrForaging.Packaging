@@ -2,9 +2,7 @@ import abc
 import re
 import typing as ty
 
-import aind_behavior_vr_foraging
 import pandas as pd
-import semver
 from contraqctor.contract import Dataset
 
 
@@ -35,20 +33,6 @@ class AbstractProcessor(abc.ABC):
     def dataset(self) -> Dataset:
         return self._dataset
 
-    @property
-    def dataset_version(self) -> semver.Version:
-        return self._parse_version(self.dataset.version)
-
-    @property
-    def parser_version(self) -> semver.Version:
-        return semver.Version.parse(aind_behavior_vr_foraging.__semver__)
-
-    @staticmethod
-    def _parse_version(value: str | semver.Version) -> semver.Version:
-        if isinstance(value, semver.Version):
-            return value
-        return semver.Version.parse(value)
-
     @abc.abstractmethod
     def _compute(self) -> pd.DataFrame:
         """Compute this processor's output as a DataFrame.
@@ -61,22 +45,18 @@ class AbstractProcessor(abc.ABC):
     def compute(self) -> pd.DataFrame:
         """Return the processor's output DataFrame with provenance metadata in attrs.
 
-        Calls :meth:`_compute`, then stamps ``df.attrs`` with:
-
-        - ``packaging_version``: version of this package (``aind-behavior-vr-foraging-packaging``)
-        - ``data_contract_version``: version of ``aind-behavior-vr-foraging`` (defines the behavioral data schema)
-        - ``dataset_version``: actual version recorded in the session's ``tasklogic_input.json``
-        - ``processor``: this processor's class name
+        Calls :meth:`_compute`, then stamps ``df.attrs`` with the session-level
+        provenance keys from :func:`~aind_behavior_vr_foraging_packaging._provenance.packaging_provenance`
+        plus a processor-specific ``processor`` key (this class's name).
 
         Attrs already set by ``_compute`` (e.g. ``sampling_rate_hz`` from
         :class:`SniffingProcessor`) are preserved via ``setdefault``.
         """
-        from importlib.metadata import version as _pkg_version
+        from ._provenance import PackagingProvenance
 
         df = self._compute()
-        df.attrs.setdefault("packaging_version", _pkg_version("aind-behavior-vr-foraging-packaging"))
-        df.attrs.setdefault("data_contract_version", str(self.parser_version))
-        df.attrs.setdefault("dataset_version", str(self.dataset_version))
+        for k, v in PackagingProvenance.build(self._dataset).model_dump().items():
+            df.attrs.setdefault(k, v)
         df.attrs.setdefault("processor", type(self).__name__)
         return df
 
