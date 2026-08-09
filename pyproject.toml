@@ -53,6 +53,7 @@ dev = [
     'pytest-cov',
     'codespell',
     'ty',
+    'aind-behavior-vr-foraging-packaging[db]',
 ]
 
 [tool.uv]

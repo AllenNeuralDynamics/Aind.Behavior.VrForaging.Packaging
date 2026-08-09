@@ -90,6 +90,7 @@ db = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "aind-behavior-vr-foraging-packaging", extra = ["db"] },
     { name = "codespell" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -120,6 +121,7 @@ provides-extras = ["db"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "aind-behavior-vr-foraging-packaging", extras = ["db"] },
     { name = "codespell" },
     { name = "pytest" },
     { name = "pytest-cov" },
