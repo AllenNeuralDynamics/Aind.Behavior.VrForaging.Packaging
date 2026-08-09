@@ -37,7 +37,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-db = ["duckdb>=1.0"]
+db = ["duckdb>=1.0", "boto3>=1.26"]
 
 [project.urls]
 Documentation = "https://allenneuraldynamics.github.io/Aind.Behavior.VrForaging.Packaging/"
