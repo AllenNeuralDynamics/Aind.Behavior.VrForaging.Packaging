@@ -171,6 +171,22 @@ uv run pytest -m integration
 
 The first run downloads datasets (~100 MB per dataset) to `tests/integration/.cache/`. Subsequent runs reuse the cache when the S3 ETag matches. The cache directory is gitignored.
 
+> [!IMPORTANT]
+> **On Windows, enable long paths first.** `test_full_pipeline` writes an NWB-Zarr
+> file whose chunk paths exceed the legacy 260-character `MAX_PATH` limit, and it
+> fails with `FileNotFoundError: ... .zarray.<hash>.partial` — which looks like a
+> parsing bug but is not. Enable long paths once, in an elevated PowerShell, then
+> restart your shell:
+>
+> ```powershell
+> New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
+>   -Name LongPathsEnabled -Value 1 -PropertyType DWORD -Force
+> ```
+>
+> If you cannot elevate, `uv run pytest -m integration --basetemp=C:\t` works
+> around it by shortening the temp path. Linux and macOS are unaffected, as is CI
+> (the integration job runs on `ubuntu-latest`).
+
 **Trigger on a PR:**
 
 Integration tests do not run on every PR. To run them for a specific PR, add the `run-integration` label via the GitHub UI (open the PR, click **Labels** in the right-hand sidebar, and select `run-integration`) or with:
