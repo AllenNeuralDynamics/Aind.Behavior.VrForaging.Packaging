@@ -19,7 +19,7 @@ from aind_behavior_vr_foraging_packaging.nwb_file import NwbSession
 from aind_behavior_vr_foraging_packaging.pipeline import create_processors
 
 session = NwbSession(Path("/path/to/session"))
-nwb = session.run(*create_processors(session.dataset))   # process() + nwbize() loop
+nwb = session.run(*create_processors(session.dataset))  # process() + nwbize() loop
 session.write_nwb_zarr(Path("/path/to/out.nwb.zarr"))
 ```
 

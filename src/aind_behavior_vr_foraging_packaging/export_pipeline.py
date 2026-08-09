@@ -5,10 +5,10 @@ Phase 2 — :func:`aggregate`: read per-session parquets → hive-partitioned da
 """
 
 import logging
+from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
 
 import pandas as pd
 
@@ -87,8 +87,8 @@ def _process_one_session(
 
     try:
         ds = load_dataset(raw_path)
-    except Exception as exc:
-        logger.error("[%s] Failed to load dataset: %s", session_id, exc, exc_info=True)
+    except Exception:
+        logger.exception("[%s] Failed to load dataset", session_id)
         if raise_on_error:
             raise
         return None

@@ -56,7 +56,7 @@ class SniffingProcessor(AbstractProcessor):
         )
         return nwb_file
 
-    def compute_sniff_signal(self, dataset: contraqctor.contract.Dataset) -> ty.Tuple[pd.Series, float]:
+    def compute_sniff_signal(self, dataset: contraqctor.contract.Dataset) -> tuple[pd.Series, float]:
         """Computes the filtered breathing/sniff signal from the sniff detector raw voltage.
 
         The raw voltage is resampled onto a uniform time grid and then passed

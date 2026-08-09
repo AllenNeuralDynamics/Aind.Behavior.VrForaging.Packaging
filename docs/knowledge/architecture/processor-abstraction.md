@@ -53,6 +53,7 @@ Adding a new processor is intentionally small:
 from ._base import AbstractProcessor
 import pandas as pd
 
+
 class RewardRateProcessor(AbstractProcessor):
     __output_name__ = "reward_rate"
 
@@ -60,7 +61,7 @@ class RewardRateProcessor(AbstractProcessor):
         # ...read streams via self.dataset, build a DataFrame...
         return df
 
-    def nwbize(self, nwb_file):          # optional
+    def nwbize(self, nwb_file):  # optional
         # ...add a TimeSeries / table...
         return nwb_file
 ```

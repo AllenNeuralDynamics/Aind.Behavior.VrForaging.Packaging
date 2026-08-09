@@ -69,10 +69,10 @@ Then load a session and compute the sites table (one row per *site*):
 from aind_behavior_vr_foraging.data_contract import dataset
 from aind_behavior_vr_foraging_packaging.session_pipeline import get_site_table_processor
 
-ds = dataset("path/to/session")           # load the raw session
+ds = dataset("path/to/session")  # load the raw session
 sites_df = get_site_table_processor(ds).compute()
 
-sites_df.to_parquet("sites.parquet")      # optional: persist to disk
+sites_df.to_parquet("sites.parquet")  # optional: persist to disk
 print(f"{len(sites_df)} sites, {sites_df['has_reward'].sum()} rewarded")
 ```
 

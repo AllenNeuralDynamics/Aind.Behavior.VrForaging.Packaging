@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List, Optional
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -15,27 +14,27 @@ class ExpectedInvariants(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    n_sites: Optional[int] = Field(
+    n_sites: int | None = Field(
         default=None,
         description="Expected total number of sites in the parsed session. Asserted against the trial table row count.",
     )
-    n_choices: Optional[int] = Field(
+    n_choices: int | None = Field(
         default=None,
         description="Expected number of sites where has_choice is true.",
     )
-    n_rewards: Optional[int] = Field(
+    n_rewards: int | None = Field(
         default=None,
         description="Expected number of sites where has_reward is true.",
     )
-    n_blocks: Optional[int] = Field(
+    n_blocks: int | None = Field(
         default=None,
         description="Expected number of blocks in the session.",
     )
-    n_patches: Optional[int] = Field(
+    n_patches: int | None = Field(
         default=None,
         description="Expected number of patches in the session.",
     )
-    nwb_validates: Optional[bool] = Field(
+    nwb_validates: bool | None = Field(
         default=None,
         description="If true, the generated NWB file must pass pynwb validation. If false or omitted, validation is skipped.",
     )
@@ -55,11 +54,11 @@ class DatasetEntry(BaseModel):
     rationale: str = Field(
         description="Free-form note explaining why this dataset is in the suite — what it tests, what bug it caught, what edge case it represents. Printed alongside any failure to make triage fast.",
     )
-    exclude: List[str] = Field(
+    exclude: list[str] = Field(
         default_factory=list,
         description="Glob patterns (pathlib.PurePosixPath.match semantics, case-insensitive) matched against each S3 key relative to the dataset prefix. Any match excludes the object from download. Examples: 'videos/**', '**/*.avi', 'raw/calibration_*.bin'.",
     )
-    expected: Optional[ExpectedInvariants] = Field(
+    expected: ExpectedInvariants | None = Field(
         default=None,
         description="Optional scalar invariants to assert after parsing. If omitted, the dataset only gets the smoke test (parser must not crash).",
     )
@@ -82,7 +81,7 @@ class DatasetManifest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    datasets: List[DatasetEntry] = Field(
+    datasets: list[DatasetEntry] = Field(
         description="Ordered list of dataset entries. Order has no semantic meaning beyond display.",
     )
 

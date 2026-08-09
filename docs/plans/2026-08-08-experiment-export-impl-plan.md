@@ -108,9 +108,7 @@ import pandas as pd
 
 from .._base import AbstractProcessor
 
-_AIND_NAME_RE = re.compile(
-    r"^(?:behavior_)?(\d+)_(\d{4}-\d{2}-\d{2})_\d{2}-\d{2}-\d{2}$"
-)
+_AIND_NAME_RE = re.compile(r"^(?:behavior_)?(\d+)_(\d{4}-\d{2}-\d{2})_\d{2}-\d{2}-\d{2}$")
 
 
 def _parse_aind_session_name(folder_name: str) -> tuple[str, str]:
@@ -214,6 +212,7 @@ git commit -m "feat: add SessionMetadataProcessor for session-level identity met
 ```python
 # tests/test_experiment.py
 """Unit tests for _experiment.py — no real dataset I/O required."""
+
 from pathlib import Path
 
 import pandas as pd
@@ -556,9 +555,7 @@ def aggregate(
         )
         return
 
-    session_to_group: dict[str, str] = dict(
-        zip(sessions_df["session_id"], sessions_df[group_col].astype(str))
-    )
+    session_to_group: dict[str, str] = dict(zip(sessions_df["session_id"], sessions_df[group_col].astype(str)))
 
     # --- Apply each rule ---
     for rule in aggregator.rules:
@@ -604,9 +601,7 @@ def _apply_rule(
             dest = output_dir / "subjects" / group / f"{rule.table}.parquet"
             dest.parent.mkdir(parents=True, exist_ok=True)
             _write_parquet(combined, dest)
-            logger.info(
-                "  %s (subject=%s) → %d rows → %s", rule.table, group, len(combined), dest
-            )
+            logger.info("  %s (subject=%s) → %d rows → %s", rule.table, group, len(combined), dest)
 
 
 # ---------------------------------------------------------------------------
@@ -663,6 +658,7 @@ git commit -m "feat: add _experiment.py with process_sessions/aggregate/Aggregat
 ```python
 # tests/test_cli.py
 """Unit tests for cli.py — no real I/O, patch process_sessions / aggregate."""
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -688,10 +684,12 @@ def test_cli_calls_both_phases(tmp_path):
         patch("aind_behavior_vr_foraging_packaging.cli.process_sessions") as mock_ps,
         patch("aind_behavior_vr_foraging_packaging.cli.aggregate") as mock_agg,
     ):
-        _run_cli([
-            f"--input-dir={input_dir}",
-            f"--output-dir={output_dir}",
-        ])
+        _run_cli(
+            [
+                f"--input-dir={input_dir}",
+                f"--output-dir={output_dir}",
+            ]
+        )
 
     mock_ps.assert_called_once()
     mock_agg.assert_called_once()
@@ -706,11 +704,13 @@ def test_cli_skip_processing(tmp_path):
         patch("aind_behavior_vr_foraging_packaging.cli.process_sessions") as mock_ps,
         patch("aind_behavior_vr_foraging_packaging.cli.aggregate") as mock_agg,
     ):
-        _run_cli([
-            f"--input-dir={input_dir}",
-            f"--output-dir={tmp_path / 'out'}",
-            "--skip-processing",
-        ])
+        _run_cli(
+            [
+                f"--input-dir={input_dir}",
+                f"--output-dir={tmp_path / 'out'}",
+                "--skip-processing",
+            ]
+        )
 
     mock_ps.assert_not_called()
     mock_agg.assert_called_once()
@@ -725,11 +725,13 @@ def test_cli_skip_aggregation(tmp_path):
         patch("aind_behavior_vr_foraging_packaging.cli.process_sessions") as mock_ps,
         patch("aind_behavior_vr_foraging_packaging.cli.aggregate") as mock_agg,
     ):
-        _run_cli([
-            f"--input-dir={input_dir}",
-            f"--output-dir={tmp_path / 'out'}",
-            "--skip-aggregation",
-        ])
+        _run_cli(
+            [
+                f"--input-dir={input_dir}",
+                f"--output-dir={tmp_path / 'out'}",
+                "--skip-aggregation",
+            ]
+        )
 
     mock_ps.assert_called_once()
     mock_agg.assert_not_called()
@@ -744,11 +746,15 @@ def test_cli_exclude_processors_forwarded(tmp_path):
         patch("aind_behavior_vr_foraging_packaging.cli.process_sessions") as mock_ps,
         patch("aind_behavior_vr_foraging_packaging.cli.aggregate"),
     ):
-        _run_cli([
-            f"--input-dir={input_dir}",
-            f"--output-dir={tmp_path / 'out'}",
-            "--exclude-processors", "sniffing", "software_events",
-        ])
+        _run_cli(
+            [
+                f"--input-dir={input_dir}",
+                f"--output-dir={tmp_path / 'out'}",
+                "--exclude-processors",
+                "sniffing",
+                "software_events",
+            ]
+        )
 
     _, kwargs = mock_ps.call_args
     assert set(kwargs.get("exclude_processors", [])) == {"sniffing", "software_events"}
@@ -764,11 +770,13 @@ def test_cli_log_file_created(tmp_path):
         patch("aind_behavior_vr_foraging_packaging.cli.process_sessions"),
         patch("aind_behavior_vr_foraging_packaging.cli.aggregate"),
     ):
-        _run_cli([
-            f"--input-dir={input_dir}",
-            f"--output-dir={tmp_path / 'out'}",
-            f"--log-file={log_file}",
-        ])
+        _run_cli(
+            [
+                f"--input-dir={input_dir}",
+                f"--output-dir={tmp_path / 'out'}",
+                f"--log-file={log_file}",
+            ]
+        )
 
     assert log_file.exists()
 ```
@@ -907,9 +915,7 @@ class ExportSettings(BaseSettings):
         logger.info("  input_dir  : %s", self.input_dir)
         logger.info("  output_dir : %s", self.output_dir)
 
-        dataset_paths = sorted(
-            p for p in self.input_dir.iterdir() if p.is_dir()
-        )
+        dataset_paths = sorted(p for p in self.input_dir.iterdir() if p.is_dir())
         if not dataset_paths:
             logger.warning("No subdirectories found under %s — nothing to do.", self.input_dir)
             return
@@ -1073,9 +1079,7 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
 
     # Every session folder must contain trials.parquet
     for session_path in written:
-        assert (session_path / "trials.parquet").exists(), (
-            f"Missing trials.parquet in {session_path}"
-        )
+        assert (session_path / "trials.parquet").exists(), f"Missing trials.parquet in {session_path}"
         assert (session_path / "session_metadata.parquet").exists(), (
             f"Missing session_metadata.parquet in {session_path}"
         )
@@ -1103,21 +1107,16 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
     subject_dirs = [d for d in subjects_dir.iterdir() if d.is_dir()]
     assert len(subject_dirs) > 0
     for sub_dir in subject_dirs:
-        assert (sub_dir / "licks.parquet").exists(), (
-            f"Missing licks.parquet for subject {sub_dir.name}"
-        )
+        assert (sub_dir / "licks.parquet").exists(), f"Missing licks.parquet for subject {sub_dir.name}"
 
     # row-count consistency: sum of per-session trials == dataset-level trials
     per_session_counts = sum(
-        len(pd.read_parquet(sessions_dir / sid / "trials.parquet"))
-        for sid in sessions["session_id"]
+        len(pd.read_parquet(sessions_dir / sid / "trials.parquet")) for sid in sessions["session_id"]
     )
     assert len(all_trials) == per_session_counts
 
 
-def test_skip_aggregation_writes_only_sessions(
-    all_cached_session_paths: list[Path], tmp_path: Path
-) -> None:
+def test_skip_aggregation_writes_only_sessions(all_cached_session_paths: list[Path], tmp_path: Path) -> None:
     """--skip-aggregation equivalent: only sessions/ is written."""
     if not all_cached_session_paths:
         pytest.skip("No cached session data available")
@@ -1145,9 +1144,7 @@ def test_exclude_processor(all_cached_session_paths: list[Path], tmp_path: Path)
 
     sessions_dir = output_dir / "sessions"
     for session_path in sessions_dir.iterdir():
-        assert not (session_path / "sniffing.parquet").exists(), (
-            f"sniffing.parquet should not exist in {session_path}"
-        )
+        assert not (session_path / "sniffing.parquet").exists(), f"sniffing.parquet should not exist in {session_path}"
 ```
 
 ### Step 3: Run the integration test

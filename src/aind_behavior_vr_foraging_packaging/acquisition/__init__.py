@@ -86,7 +86,7 @@ class AcquisitionProcessor(AbstractProcessor):
                         )
                     )
                 else:
-                    raise ValueError(f"Stream {stream.name} has unsupported type {type(stream)}")
+                    raise TypeError(f"Stream {stream.name} has unsupported type {type(stream)}")
             except Exception as exc:
                 if self._raise_on_error:
                     raise

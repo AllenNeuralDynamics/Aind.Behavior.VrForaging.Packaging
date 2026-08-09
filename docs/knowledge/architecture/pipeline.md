@@ -64,8 +64,8 @@ from aind_behavior_vr_foraging.data_contract import dataset
 from aind_behavior_vr_foraging_packaging.pipeline import run_session
 
 ds = dataset("/path/to/session")
-data = run_session(ds, "/path/to/out")   # writes 6 parquet files
-sites = data["sites"]                    # also returned in-memory
+data = run_session(ds, "/path/to/out")  # writes 6 parquet files
+sites = data["sites"]  # also returned in-memory
 ```
 
 See `scripts/example_parquet_pipeline.py` for all-at-once, single-stream, and

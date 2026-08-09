@@ -34,6 +34,7 @@ Create `tests/test_provenance.py`:
 
 ```python
 """Tests for PackagingProvenance — the central provenance metadata object."""
+
 import dataclasses
 import json
 
@@ -44,10 +45,12 @@ from aind_behavior_vr_foraging_packaging._provenance import PackagingProvenance
 
 class _FakeDataset:
     """Minimal stand-in for contraqctor.contract.Dataset."""
+
     version = "0.7.1"
 
 
 # ── build ────────────────────────────────────────────────────────────────────
+
 
 def test_build_returns_provenance_instance():
     prov = PackagingProvenance.build(_FakeDataset())
@@ -77,6 +80,7 @@ def test_provenance_is_immutable():
 
 # ── as_dict ──────────────────────────────────────────────────────────────────
 
+
 def test_as_dict_contains_all_three_keys():
     prov = PackagingProvenance.build(_FakeDataset())
     d = prov.as_dict()
@@ -91,8 +95,10 @@ def test_as_dict_values_are_all_strings():
 
 # ── stamp_df_attrs ────────────────────────────────────────────────────────────
 
+
 def test_stamp_df_attrs_sets_provenance_keys():
     import pandas as pd
+
     prov = PackagingProvenance.build(_FakeDataset())
     df = pd.DataFrame({"x": [1, 2]})
     prov.stamp_df_attrs(df)
@@ -102,6 +108,7 @@ def test_stamp_df_attrs_sets_provenance_keys():
 
 def test_stamp_df_attrs_does_not_overwrite_existing():
     import pandas as pd
+
     prov = PackagingProvenance.build(_FakeDataset())
     df = pd.DataFrame()
     df.attrs["packaging_version"] = "pinned"
@@ -111,6 +118,7 @@ def test_stamp_df_attrs_does_not_overwrite_existing():
 
 def test_stamp_df_attrs_with_processor_name():
     import pandas as pd
+
     prov = PackagingProvenance.build(_FakeDataset())
     df = pd.DataFrame()
     prov.stamp_df_attrs(df, processor_name="MyProcessor")
@@ -119,6 +127,7 @@ def test_stamp_df_attrs_with_processor_name():
 
 def test_stamp_df_attrs_without_processor_name_leaves_key_absent():
     import pandas as pd
+
     prov = PackagingProvenance.build(_FakeDataset())
     df = pd.DataFrame()
     prov.stamp_df_attrs(df)
@@ -126,6 +135,7 @@ def test_stamp_df_attrs_without_processor_name_leaves_key_absent():
 
 
 # ── to_nwb_notes ─────────────────────────────────────────────────────────────
+
 
 def test_to_nwb_notes_is_valid_json():
     prov = PackagingProvenance.build(_FakeDataset())
@@ -165,6 +175,7 @@ Create `src/aind_behavior_vr_foraging_packaging/_provenance.py`:
 written to every output format (parquet attrs and NWB). Add a new field here
 and both outputs pick it up with no further changes.
 """
+
 from __future__ import annotations
 
 import dataclasses

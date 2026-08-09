@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class PositionAndVelocityProcessor(AbstractProcessor):
     __output_name__ = "position_velocity"
 
-    def __init__(self, dataset: contraqctor.contract.Dataset, *, sampling_rate_hz: ty.Optional[float] = None, **kwargs):
+    def __init__(self, dataset: contraqctor.contract.Dataset, *, sampling_rate_hz: float | None = None, **kwargs):
         super().__init__(dataset=dataset, **kwargs)
         self._sampling_rate_hz = sampling_rate_hz
 
@@ -55,7 +55,7 @@ class PositionAndVelocityProcessor(AbstractProcessor):
         return nwb_file
 
     def compute_position_and_velocity(
-        self, dataset: contraqctor.contract.Dataset, *, downsample_to_hz: ty.Optional[float]
+        self, dataset: contraqctor.contract.Dataset, *, downsample_to_hz: float | None
     ) -> pd.DataFrame:
         """Computes position and velocity from treadmill encoder data"""
         dataset.at("Behavior").at("InputSchemas").load_all()

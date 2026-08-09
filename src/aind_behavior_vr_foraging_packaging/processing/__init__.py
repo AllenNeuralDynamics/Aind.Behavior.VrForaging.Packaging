@@ -9,14 +9,14 @@ from ._sniffing import SniffingProcessor
 from ._software_events import SoftwareEventsProcessor
 
 __all__ = [
-    "SiteTableProcessor",
-    "LegacySiteTableProcessor",
     "DatasetProcessorError",
-    "PositionAndVelocityProcessor",
-    "LegacyPositionAndVelocityProcessor",
-    "SessionMetadataProcessor",
-    "SniffingProcessor",
-    "LicksProcessor",
-    "SoftwareEventsProcessor",
     "EventsProcessor",
+    "LegacyPositionAndVelocityProcessor",
+    "LegacySiteTableProcessor",
+    "LicksProcessor",
+    "PositionAndVelocityProcessor",
+    "SessionMetadataProcessor",
+    "SiteTableProcessor",
+    "SniffingProcessor",
+    "SoftwareEventsProcessor",
 ]

@@ -96,6 +96,6 @@ from aind_behavior_vr_foraging_packaging.processing import SiteTableProcessor
 import pandas as pd
 
 ds = dataset("session_path")
-sites = SiteTableProcessor(ds).process_to_sites()   # list[Site]
+sites = SiteTableProcessor(ds).process_to_sites()  # list[Site]
 df = pd.DataFrame([s.model_dump() for s in sites])
 ```

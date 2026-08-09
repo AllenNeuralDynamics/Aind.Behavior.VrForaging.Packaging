@@ -64,7 +64,7 @@ target-version = 'py311'
 
 [tool.ruff.lint]
 extend-select = ['Q', 'RUF100', 'C90', 'I']
-extend-ignore = []
+extend-ignore = ["BLE001"]
 mccabe = { max-complexity = 14 }
 pydocstyle = { convention = 'google' }
 

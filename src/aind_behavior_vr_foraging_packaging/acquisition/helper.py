@@ -1,7 +1,8 @@
 import json
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -30,7 +31,7 @@ def clean_dataframe_for_nwb(data: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
-_NestedStructureType = Union[dict, list, Any]
+_NestedStructureType = dict | list | Any
 
 
 def convert_values_in_nested_structure(

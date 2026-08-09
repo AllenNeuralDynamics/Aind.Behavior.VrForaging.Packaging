@@ -94,28 +94,32 @@ AIND name parser handles both formats:
 
 ```python
 class AggregationLevel(str, Enum):
-    SUBJECT = "subject"   # concat per subject_id column
-    DATASET = "dataset"   # concat all sessions flat
+    SUBJECT = "subject"  # concat per subject_id column
+    DATASET = "dataset"  # concat all sessions flat
+
 
 @dataclass
 class AggregationRule:
     table: str
     level: AggregationLevel
 
+
 @dataclass
 class Aggregator:
     rules: list[AggregationRule]
-    group_by: str = "subject_id"       # column from session_metadata
+    group_by: str = "subject_id"  # column from session_metadata
+
 
 def process_sessions(
     dataset_paths: Iterable[Path],
     output_dir: Path,
     *,
-    include_processors: Sequence[str] = (),   # empty = all
+    include_processors: Sequence[str] = (),  # empty = all
     exclude_processors: Sequence[str] = (),
     raise_on_error: bool = False,
     sampling_rate_hz: float | None = 250.0,
-) -> list[Path]: ...   # returns list of written session dirs
+) -> list[Path]: ...  # returns list of written session dirs
+
 
 def aggregate(
     sessions_dir: Path,
@@ -126,13 +130,15 @@ def aggregate(
 
 Default `Aggregator` (used by CLI when no overrides given):
 ```python
-DEFAULT_AGGREGATOR = Aggregator(rules=[
-    AggregationRule("trials",             AggregationLevel.DATASET),
-    AggregationRule("licks",              AggregationLevel.SUBJECT),
-    AggregationRule("position_velocity",  AggregationLevel.SUBJECT),
-    AggregationRule("sniffing",           AggregationLevel.SUBJECT),
-    AggregationRule("events",             AggregationLevel.SUBJECT),
-])
+DEFAULT_AGGREGATOR = Aggregator(
+    rules=[
+        AggregationRule("trials", AggregationLevel.DATASET),
+        AggregationRule("licks", AggregationLevel.SUBJECT),
+        AggregationRule("position_velocity", AggregationLevel.SUBJECT),
+        AggregationRule("sniffing", AggregationLevel.SUBJECT),
+        AggregationRule("events", AggregationLevel.SUBJECT),
+    ]
+)
 ```
 
 ---
@@ -146,14 +152,14 @@ class ExportSettings(BaseSettings):
     model_config = SettingsConfigDict(cli_parse_args=True)
 
     # Required
-    input_dir:  Path   # folder whose subdirectories are raw session roots
-    output_dir: Path   # destination root
+    input_dir: Path  # folder whose subdirectories are raw session roots
+    output_dir: Path  # destination root
 
     # Logging
-    log_file: Path | None = None   # appended to if it already exists
+    log_file: Path | None = None  # appended to if it already exists
 
     # Processor filter (by output_name, e.g. "sniffing", "licks")
-    include_processors: list[str] = []   # empty → include all
+    include_processors: list[str] = []  # empty → include all
     exclude_processors: list[str] = []
 
     # Aggregation (table names → level)
@@ -161,12 +167,13 @@ class ExportSettings(BaseSettings):
     subject_tables: list[str] = ["licks", "position_velocity", "sniffing", "events"]
 
     # Phase control
-    skip_processing:  bool = False
+    skip_processing: bool = False
     skip_aggregation: bool = False
 
     raise_on_error: bool = False
 
     def cli_cmd(self) -> None: ...
+
 
 def main() -> None:
     CliApp.run(ExportSettings)
