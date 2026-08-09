@@ -14,7 +14,11 @@ from urllib.parse import urlparse
 import pandas as pd
 import pytest
 
-from aind_behavior_vr_foraging_packaging.session_pipeline import create_processors, get_site_table_processor, run_session
+from aind_behavior_vr_foraging_packaging.session_pipeline import (
+    create_processors,
+    get_site_table_processor,
+    run_session,
+)
 
 from .conftest import CACHE_ROOT, _manifest
 from .model import DatasetEntry
