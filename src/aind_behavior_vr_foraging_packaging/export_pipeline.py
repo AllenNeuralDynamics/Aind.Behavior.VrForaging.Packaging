@@ -102,8 +102,8 @@ def _process_one_session(
     ran = 0
     for proc in all_processors:
         name = proc.output_name
-        # session_metadata is never filtered out
-        if name != "session_metadata":
+        # session is never filtered out
+        if name != "session":
             if include_set and name not in include_set:
                 logger.debug("[%s] skip %s (not in include list)", session_id, name)
                 continue
@@ -145,7 +145,7 @@ def process_sessions(
         ``output_dir/sessions/{session_id}/``.
     include_processors:
         If non-empty, only processors whose ``output_name`` is in this list run.
-        ``session_metadata`` is always included regardless of this filter.
+        ``session`` is always included regardless of this filter.
     exclude_processors:
         Processors whose ``output_name`` is in this list are skipped.
     raise_on_error:
@@ -194,8 +194,8 @@ def aggregate(
 ) -> None:
     """Concatenate per-session parquets into flat aggregate files.
 
-    Always writes ``output_dir/sessions.parquet`` from the per-session
-    ``session_metadata.parquet`` files, regardless of *aggregator* rules.
+    Always writes ``output_dir/session.parquet`` from the per-session
+    ``session.parquet`` files, regardless of *aggregator* rules.
 
     Each rule in *aggregator* writes a single flat ``output_dir/{table}.parquet``
     containing all sessions, with a ``session_id`` column added for joins.
@@ -220,22 +220,22 @@ def aggregate(
         logger.warning("No session directories found under %s", sessions_dir)
         return
 
-    # --- Build sessions.parquet (always) ---
+    # --- Build session.parquet (always) ---
     meta_frames = []
     for sd in session_dirs:
-        p = sd / "session_metadata.parquet"
+        p = sd / "session.parquet"
         if p.exists():
             meta_frames.append(pd.read_parquet(p))
         else:
-            logger.warning("  Missing session_metadata.parquet in %s", sd.name)
+            logger.warning("  Missing session.parquet in %s", sd.name)
 
     if not meta_frames:
-        logger.error("No session_metadata.parquet files found; sessions.parquet not written.")
+        logger.error("No session.parquet files found; session.parquet not written.")
         return
 
     sessions_df = pd.concat(meta_frames, ignore_index=True)
-    _write_parquet(sessions_df, output_dir / "sessions.parquet")
-    logger.info("sessions.parquet → %d rows", len(sessions_df))
+    _write_parquet(sessions_df, output_dir / "session.parquet")
+    logger.info("session.parquet → %d rows", len(sessions_df))
 
     # --- Apply each rule ---
     for rule in aggregator.rules:

@@ -148,4 +148,4 @@ def test_stream_unavailable_and_json_missing_raises(tmp_path):
 
 def test_output_name():
     proc = SessionMetadataProcessor(_make_dataset(), session_path=_SESSION_PATH)
-    assert proc.output_name == "session_metadata"
+    assert proc.output_name == "session"

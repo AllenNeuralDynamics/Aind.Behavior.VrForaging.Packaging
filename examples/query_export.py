@@ -2,7 +2,7 @@
 
 The export pipeline writes two kinds of output:
 
-  sessions.parquet          — flat catalogue, one row per session
+  session.parquet          — flat catalogue, one row per session
   {table}.parquet           — flat file, all sessions concatenated (small cross-session tables)
   sessions/{session_id}/    — per-session directory (large per-session tables)
       position_position_velocity.parquet
@@ -53,7 +53,7 @@ if not EXPORT_DIR.exists():
 # 1. Session catalogue
 # ─────────────────────────────────────────────────────────────────────────────
 
-sessions = pd.read_parquet(EXPORT_DIR / "sessions.parquet")
+sessions = pd.read_parquet(EXPORT_DIR / "session.parquet")
 print("=== sessions catalogue ===")
 print(sessions[["session_id", "subject_id", "date"]].to_string(index=False))
 
@@ -120,7 +120,7 @@ except ImportError:
 con = duckdb.connect()
 
 # Register flat tables as views — single-file scan, full predicate pushdown
-con.execute(f"CREATE VIEW sessions AS SELECT * FROM read_parquet('{EXPORT_DIR / 'sessions.parquet'}')")
+con.execute(f"CREATE VIEW session AS SELECT * FROM read_parquet('{EXPORT_DIR / 'session.parquet'}')")
 con.execute(f"CREATE VIEW sites  AS SELECT * FROM read_parquet('{EXPORT_DIR / 'sites.parquet'}')")
 
 print("\n=== DuckDB: site counts per session ===")
@@ -136,7 +136,7 @@ print(f"\n=== DuckDB: sites for '{first_animal}' (join with catalogue) ===")
 result = con.execute(f"""
     SELECT t.*, s.date
     FROM sites t
-    JOIN sessions s USING (session_id)
+    JOIN session s USING (session_id)
     WHERE s.subject_id = '{first_animal}'
     ORDER BY s.date
 """).df()
