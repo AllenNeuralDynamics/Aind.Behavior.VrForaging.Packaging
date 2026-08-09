@@ -15,7 +15,7 @@ def _class_name_to_snake(name: str) -> str:
 
 
 class AbstractProcessor(abc.ABC):
-    #: Override in subclasses to set a canonical parquet filename stem (e.g. ``"trials"``).
+    #: Override in subclasses to set a canonical parquet filename stem (e.g. ``"sites"``).
     #: When ``None`` (the default), ``output_name`` falls back to a snake_case of the class name.
     __output_name__: ty.ClassVar[str | None] = None
 

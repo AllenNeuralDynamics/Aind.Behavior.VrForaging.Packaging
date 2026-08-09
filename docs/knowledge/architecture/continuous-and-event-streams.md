@@ -1,13 +1,13 @@
 ---
 type: Component
 title: Continuous and event stream processors
-description: Position/velocity, licks, sniffing, software-events, and events processors — the non-trial outputs and their NWB representations.
+description: Position/velocity, licks, sniffing, software-events, and events processors — the non-site outputs and their NWB representations.
 resource: src/aind_behavior_vr_foraging_packaging/processing/
 tags: [architecture, processor, position, velocity, licks, sniffing, software-events, events]
 timestamp: 2026-07-08T00:00:00Z
 ---
 
-Beyond the [trial table](trial-table.md), five processors produce continuous
+Beyond the [site table](site-table.md), five processors produce continuous
 or event-level outputs. All subclass [`AbstractProcessor`](processor-abstraction.md)
 and follow the same `_compute`/`nwbize` contract.
 
@@ -23,7 +23,7 @@ and follow the same `_compute`/`nwbize` contract.
   set, the series is resampled with `resample(...).mean()` and the index is
   converted back to harp seconds.
 - `compute_position_and_velocity_from_treadmill(dataset, rig_config)` is a
-  `@staticmethod` reused by the trial table to derive velocity.
+  `@staticmethod` reused by the site table to derive velocity.
 - `nwbize()` adds a `Position`/`SpatialSeries` and a velocity `TimeSeries` to
   the `behavior` processing module.
 
@@ -87,20 +87,20 @@ passthrough of a single raw stream.
   nearest valve open first; each `ForceGiveReward` is then matched to its
   nearest remaining one via `_helper.nearest_positions`.
   `_helper.parse_manual_water_delivery` is the **single source of truth** for
-  forced rewards: `TrialTableProcessor.Site.has_forced_rewards` (see
-  [trial-table.md](trial-table.md)) derives its per-site boolean by
-  `slice_by_index`-ing these same de-conflicted hardware times, so the trial
+  forced rewards: `SiteTableProcessor.Site.has_forced_rewards` (see
+  [site-table.md](site-table.md)) derives its per-site boolean by
+  `slice_by_index`-ing these same de-conflicted hardware times, so the site
   table and the events table can never disagree.
 - `nwbize()` writes the tall `compute()` frame into an ndx-events `EventsTable`
   (named `"events"`) on the `NdxEventsNWBFile`: the index becomes the required
   `timestamp` column, and `event_name`/`data` become columns (`data`
   JSON-serialized). No table is added when there are no derived events. This is
-  the NWB home for the exact forced-reward times, so the trial table needs only
+  the NWB home for the exact forced-reward times, so the site table needs only
   a boolean and stays free of ragged columns.
 
 # Legacy variants
 
-`LegacyPositionAndVelocityProcessor` and `LegacyTrialTableProcessor` handle
+`LegacyPositionAndVelocityProcessor` and `LegacySiteTableProcessor` handle
 datasets with schema version `< 0.6.0` (different odor-specification format,
 block-stream fallback, optional `PatchStateAtReward`, absent
 `IsStopped`/velocity). The [pipeline](pipeline.md) selects them automatically;

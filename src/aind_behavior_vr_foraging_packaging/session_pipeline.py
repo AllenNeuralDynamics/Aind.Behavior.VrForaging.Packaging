@@ -18,13 +18,13 @@ from ._base import AbstractProcessor
 from .processing import (
     EventsProcessor,
     LegacyPositionAndVelocityProcessor,
-    LegacyTrialTableProcessor,
+    LegacySiteTableProcessor,
     LicksProcessor,
     PositionAndVelocityProcessor,
     SessionMetadataProcessor,
     SniffingProcessor,
     SoftwareEventsProcessor,
-    TrialTableProcessor,
+    SiteTableProcessor,
 )
 
 logger = logging.getLogger(__name__)
@@ -63,18 +63,18 @@ def create_processors(
 
     if is_legacy:
         logger.info("Dataset version %s < %s — using legacy processors.", version, _LEGACY_VERSION_CUTOFF)
-        trial_table_cls = LegacyTrialTableProcessor
+        site_table_cls = LegacySiteTableProcessor
         pos_vel_cls = LegacyPositionAndVelocityProcessor
     else:
         logger.info("Dataset version %s — using current processors.", version)
-        trial_table_cls = TrialTableProcessor
+        site_table_cls = SiteTableProcessor
         pos_vel_cls = PositionAndVelocityProcessor
 
     procs: list[AbstractProcessor] = []
     if session_path is not None:
         procs.append(SessionMetadataProcessor(dataset, session_path=session_path, raise_on_error=raise_on_error))
     procs += [
-        trial_table_cls(dataset, raise_on_error=raise_on_error),
+        site_table_cls(dataset, raise_on_error=raise_on_error),
         pos_vel_cls(dataset, raise_on_error=raise_on_error),
         LicksProcessor(dataset, raise_on_error=raise_on_error),
         SniffingProcessor(dataset, raise_on_error=raise_on_error),
@@ -84,14 +84,14 @@ def create_processors(
     return procs
 
 
-def get_trial_table_processor(
+def get_site_table_processor(
     dataset: Dataset,
     *,
     raise_on_error: bool = False,
-) -> TrialTableProcessor | LegacyTrialTableProcessor:
-    """Return the correct trial-table processor for *dataset*'s version."""
+) -> SiteTableProcessor | LegacySiteTableProcessor:
+    """Return the correct site-table processor for *dataset*'s version."""
     version = semver.Version.parse(str(dataset.version))
-    cls = LegacyTrialTableProcessor if version < _LEGACY_VERSION_CUTOFF else TrialTableProcessor
+    cls = LegacySiteTableProcessor if version < _LEGACY_VERSION_CUTOFF else SiteTableProcessor
     return cls(dataset, raise_on_error=raise_on_error)
 
 
@@ -117,7 +117,7 @@ def run_session(
     """Run all processors and save their outputs as parquet files.
 
     Each processor's ``output_name`` attribute determines its parquet filename,
-    e.g. ``trials.parquet``, ``position_velocity.parquet``, etc.
+    e.g. ``sites.parquet``, ``position_velocity.parquet``, etc.
 
     Parameters
     ----------

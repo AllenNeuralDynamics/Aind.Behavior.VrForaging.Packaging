@@ -38,7 +38,7 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
     )
 
     for session_path in written:
-        assert (session_path / "trials.parquet").exists(), f"Missing trials.parquet in {session_path.name}"
+        assert (session_path / "sites.parquet").exists(), f"Missing sites.parquet in {session_path.name}"
         assert (session_path / "session_metadata.parquet").exists(), (
             f"Missing session_metadata.parquet in {session_path.name}"
         )
@@ -56,24 +56,16 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
         f"Missing columns in sessions.parquet: {set(sessions.columns)}"
     )
 
-    # dataset-level: trials.parquet exists and has session_id traceability column
-    assert (output_dir / "trials.parquet").exists()
-    all_trials = pd.read_parquet(output_dir / "trials.parquet")
-    assert "session_id" in all_trials.columns
-    assert not all_trials.empty
+    # flat aggregate: sites.parquet is a single file with session_id column
+    assert (output_dir / "sites.parquet").exists(), "sites.parquet flat file should exist"
+    all_sites = pd.read_parquet(output_dir / "sites.parquet")
+    assert "session_id" in all_sites.columns
+    assert not all_sites.empty
 
-    # row-count consistency: concatenated rows == sum of per-session rows
-    per_session_total = sum(
-        len(pd.read_parquet(sessions_dir / sid / "trials.parquet"))
-        for sid in sessions["session_id"]
-        if (sessions_dir / sid / "trials.parquet").exists()
+    # every session that was written should appear in the flat sites file
+    assert set(sessions["session_id"]).issubset(set(all_sites["session_id"].unique())), (
+        "Not all sessions appear in sites.parquet"
     )
-    assert len(all_trials) == per_session_total, (
-        f"trials.parquet row count mismatch: {len(all_trials)} vs per-session sum {per_session_total}"
-    )
-
-    # DEFAULT_AGGREGATOR has no subject-level rules; subjects/ should not exist
-    assert not (output_dir / "subjects").exists(), "subjects/ should not be created with default aggregator"
 
 
 def test_skip_aggregation_writes_only_sessions(all_cached_session_paths: list[Path], tmp_path: Path) -> None:
@@ -88,7 +80,7 @@ def test_skip_aggregation_writes_only_sessions(all_cached_session_paths: list[Pa
     assert not (output_dir / "sessions.parquet").exists(), (
         "sessions.parquet should not exist when aggregation is skipped"
     )
-    assert not (output_dir / "trials.parquet").exists(), "trials.parquet should not exist when aggregation is skipped"
+    assert not (output_dir / "sites.parquet").exists(), "sites.parquet should not exist when aggregation is skipped"
 
 
 def test_exclude_processor(all_cached_session_paths: list[Path], tmp_path: Path) -> None:

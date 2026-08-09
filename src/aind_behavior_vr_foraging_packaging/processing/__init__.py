@@ -1,16 +1,16 @@
 from ._events import EventsProcessor
 from ._legacy_position_and_velocity import LegacyPositionAndVelocityProcessor
-from ._legacy_trial_table import LegacyTrialTableProcessor
+from ._legacy_site_table import LegacySiteTableProcessor
 from ._licks import LicksProcessor
 from ._position_and_velocity import PositionAndVelocityProcessor
 from ._session_metadata import SessionMetadataProcessor
 from ._sniffing import SniffingProcessor
 from ._software_events import SoftwareEventsProcessor
-from ._trial_table import DatasetProcessorError, TrialTableProcessor
+from ._site_table import DatasetProcessorError, SiteTableProcessor
 
 __all__ = [
-    "TrialTableProcessor",
-    "LegacyTrialTableProcessor",
+    "SiteTableProcessor",
+    "LegacySiteTableProcessor",
     "DatasetProcessorError",
     "PositionAndVelocityProcessor",
     "LegacyPositionAndVelocityProcessor",

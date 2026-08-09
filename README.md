@@ -21,7 +21,7 @@ raw session dir
       │
       ▼
   create_processors(dataset)          # picks processor variants by dataset version
-      │   [TrialTable, PositionAndVelocity, Licks, Sniffing, SoftwareEvents, Events]
+      │   [SiteTable, PositionAndVelocity, Licks, Sniffing, SoftwareEvents, Events]
       │
       ├─► proc.compute()  ──► pandas DataFrame  ──► one <name>.parquet   (run_session)
       │                        (provenance stamped into df.attrs / parquet schema)
@@ -34,7 +34,7 @@ raw session dir
   stamps provenance (`packaging_version`, `data_contract_version`,
   `dataset_version`, `processor`) into the DataFrame's `attrs`.
 - **DataFrame** — the common in-memory representation. One row per unit of the
-  output (e.g. one trial-table row = one *site*).
+  output (e.g. one site-table row = one *site*).
 - **Parquet** — `pipeline.run_session()` calls `compute()` on each processor and
   writes a parquet per processor, promoting `df.attrs` to first-class parquet
   metadata (readable from DuckDB, Polars, R arrow, Spark, …).
@@ -51,7 +51,7 @@ legacy processor variants.
 - The NWB workflow: [docs/knowledge/architecture/nwb-packaging.md](docs/knowledge/architecture/nwb-packaging.md)
 - Full architecture docs: [docs/knowledge/](docs/knowledge/) (start at [overview.md](docs/knowledge/overview.md))
 
-### Get a trials table
+### Get a sites table
 
 Install straight from GitHub with [uv](https://docs.astral.sh/uv/):
 
@@ -63,22 +63,22 @@ uv add "git+https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Pack
 uv pip install "git+https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging.git"
 ```
 
-Then load a session and compute the trials table (one row per *site*):
+Then load a session and compute the sites table (one row per *site*):
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-from aind_behavior_vr_foraging_packaging.pipeline import get_trial_table_processor
+from aind_behavior_vr_foraging_packaging.session_pipeline import get_site_table_processor
 
 ds = dataset("path/to/session")           # load the raw session
-trials_df = get_trial_table_processor(ds).compute()
+sites_df = get_site_table_processor(ds).compute()
 
-trials_df.to_parquet("trials.parquet")    # optional: persist to disk
-print(f"{len(trials_df)} sites, {trials_df['has_reward'].sum()} rewarded")
+sites_df.to_parquet("sites.parquet")      # optional: persist to disk
+print(f"{len(sites_df)} sites, {sites_df['has_reward'].sum()} rewarded")
 ```
 
-`get_trial_table_processor` automatically picks the current or legacy variant
+`get_site_table_processor` automatically picks the current or legacy variant
 based on the dataset's schema version. To produce every table at once, use
-`run_session(ds, "output_dir")` instead — it writes `trials.parquet`,
+`run_session(ds, "output_dir")` instead — it writes `sites.parquet`,
 `position_velocity.parquet`, and the rest, and returns them keyed by name.
 
 ## Contributors

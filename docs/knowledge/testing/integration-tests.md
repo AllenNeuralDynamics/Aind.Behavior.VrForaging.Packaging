@@ -23,11 +23,11 @@ suite is unaffected.
 
 # The test
 
-`test_trials_table` is parametrized over `_manifest.datasets` (test id =
+`test_sites_table` is parametrized over `_manifest.datasets` (test id =
 entry `id`). For each dataset it: resolves the cached path, reads
 `tasklogic_input.json` to pick the loader version (normalizing `< 0.4.0`
 sessions to `0.4.0`), builds the version-correct processor via
-`get_trial_table_processor`, computes the sites DataFrame, and asserts the
+`get_site_table_processor`, computes the sites DataFrame, and asserts the
 declared invariants. `entry.xfail` marks known-broken datasets
 `pytest.xfail(strict=True)` — an unexpected pass forces removal of the marker.
 Every failure message includes the entry's `rationale` to speed triage.

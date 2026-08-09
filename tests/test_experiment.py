@@ -6,7 +6,6 @@ import pandas as pd
 
 from aind_behavior_vr_foraging_packaging.export_pipeline import (
     DEFAULT_AGGREGATOR,
-    AggregationLevel,
     AggregationRule,
     Aggregator,
     aggregate,
@@ -18,20 +17,14 @@ from aind_behavior_vr_foraging_packaging.export_pipeline import (
 
 
 def test_aggregation_rule_fields():
-    rule = AggregationRule(table="licks", level=AggregationLevel.SUBJECT)
+    rule = AggregationRule(table="licks")
     assert rule.table == "licks"
-    assert rule.level == AggregationLevel.SUBJECT
 
 
 def test_aggregator_default():
     tables = {r.table for r in DEFAULT_AGGREGATOR.rules}
-    assert "trials" in tables
-    assert "licks" not in tables  # subject-level rules are opt-in, not in the default
-
-
-def test_aggregation_level_values():
-    assert AggregationLevel.SUBJECT == "subject"
-    assert AggregationLevel.DATASET == "dataset"
+    assert "sites" in tables
+    assert "licks" not in tables
 
 
 # ---------------------------------------------------------------------------
@@ -44,11 +37,11 @@ def _write_fake_session(sessions_dir: Path, session_id: str, subject_id: str) ->
     d = sessions_dir / session_id
     d.mkdir(parents=True)
 
-    pd.DataFrame([{"session_id": session_id, "subject_id": subject_id, "date": "2025-01-01"}]).to_parquet(
-        d / "session_metadata.parquet", index=False
-    )
+    pd.DataFrame(
+        [{"session_id": session_id, "subject_id": subject_id, "date": "2025-01-01"}]
+    ).to_parquet(d / "session_metadata.parquet", index=False)
 
-    pd.DataFrame({"trial": [1, 2, 3]}).to_parquet(d / "trials.parquet", index=False)
+    pd.DataFrame({"site": [1, 2, 3]}).to_parquet(d / "sites.parquet", index=False)
     pd.DataFrame({"t": range(5)}).to_parquet(d / "licks.parquet", index=False)
 
 
@@ -70,37 +63,20 @@ def test_aggregate_sessions_parquet(tmp_path):
     assert set(sessions.columns) >= {"session_id", "subject_id", "date"}
 
 
-def test_aggregate_dataset_level(tmp_path):
-    """DATASET-level tables concatenate to output_dir/{table}.parquet with session_id column."""
+def test_aggregate_flat_table(tmp_path):
+    """Tables are written as a single flat parquet file at output_dir/{table}.parquet."""
     sessions_dir = tmp_path / "sessions"
     _write_fake_session(sessions_dir, "sess_A", "sub1")
     _write_fake_session(sessions_dir, "sess_B", "sub2")
 
-    agg = Aggregator(rules=[AggregationRule("trials", AggregationLevel.DATASET)])
+    agg = Aggregator(rules=[AggregationRule("sites")])
     aggregate(sessions_dir, tmp_path, agg)
 
-    df = pd.read_parquet(tmp_path / "trials.parquet")
+    assert (tmp_path / "sites.parquet").exists(), "sites.parquet should exist"
+    df = pd.read_parquet(tmp_path / "sites.parquet")
     assert len(df) == 6  # 3 rows × 2 sessions
     assert "session_id" in df.columns
     assert set(df["session_id"].unique()) == {"sess_A", "sess_B"}
-
-
-def test_aggregate_subject_level(tmp_path):
-    """SUBJECT-level tables go to output_dir/subjects/{subject_id}/{table}.parquet."""
-    sessions_dir = tmp_path / "sessions"
-    _write_fake_session(sessions_dir, "sess_A", "sub1")
-    _write_fake_session(sessions_dir, "sess_B", "sub1")
-    _write_fake_session(sessions_dir, "sess_C", "sub2")
-
-    agg = Aggregator(rules=[AggregationRule("licks", AggregationLevel.SUBJECT)])
-    aggregate(sessions_dir, tmp_path, agg)
-
-    sub1 = pd.read_parquet(tmp_path / "subjects" / "sub1" / "licks.parquet")
-    assert len(sub1) == 10  # 5 rows × 2 sessions
-    assert "session_id" in sub1.columns
-
-    sub2 = pd.read_parquet(tmp_path / "subjects" / "sub2" / "licks.parquet")
-    assert len(sub2) == 5
 
 
 def test_aggregate_missing_table_is_skipped(tmp_path):
@@ -110,33 +86,72 @@ def test_aggregate_missing_table_is_skipped(tmp_path):
     # sess_B intentionally has no licks.parquet
     d = sessions_dir / "sess_B"
     d.mkdir(parents=True)
-    pd.DataFrame([{"session_id": "sess_B", "subject_id": "sub1", "date": "2025-01-02"}]).to_parquet(
-        d / "session_metadata.parquet", index=False
-    )
+    pd.DataFrame(
+        [{"session_id": "sess_B", "subject_id": "sub1", "date": "2025-01-02"}]
+    ).to_parquet(d / "session_metadata.parquet", index=False)
 
-    agg = Aggregator(rules=[AggregationRule("licks", AggregationLevel.SUBJECT)])
+    agg = Aggregator(rules=[AggregationRule("licks")])
     aggregate(sessions_dir, tmp_path, agg)  # must not raise
 
-    sub1 = pd.read_parquet(tmp_path / "subjects" / "sub1" / "licks.parquet")
-    assert len(sub1) == 5  # only from sess_A
+    df = pd.read_parquet(tmp_path / "licks.parquet")
+    assert len(df) == 5  # only from sess_A
+    assert set(df["session_id"].unique()) == {"sess_A"}
 
 
 def test_aggregate_empty_sessions_dir(tmp_path):
     """aggregate() on an empty sessions/ dir logs a warning and returns cleanly."""
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
-    agg = Aggregator(rules=[AggregationRule("trials", AggregationLevel.DATASET)])
+    agg = Aggregator(rules=[AggregationRule("sites")])
     aggregate(sessions_dir, tmp_path, agg)  # must not raise
     assert not (tmp_path / "sessions.parquet").exists()
 
 
-def test_aggregate_session_id_column_prepended(tmp_path):
-    """session_id is the first column in every aggregated frame."""
+def test_aggregate_session_id_column_present(tmp_path):
+    """session_id is injected into every aggregated flat file."""
     sessions_dir = tmp_path / "sessions"
     _write_fake_session(sessions_dir, "sess_A", "sub1")
 
-    agg = Aggregator(rules=[AggregationRule("trials", AggregationLevel.DATASET)])
+    agg = Aggregator(rules=[AggregationRule("sites")])
     aggregate(sessions_dir, tmp_path, agg)
 
-    df = pd.read_parquet(tmp_path / "trials.parquet")
-    assert df.columns[0] == "session_id"
+    df = pd.read_parquet(tmp_path / "sites.parquet")
+    assert "session_id" in df.columns
+
+
+def test_aggregate_rerun_is_idempotent(tmp_path):
+    """Running aggregate() twice with cleanup=False overwrites the flat file, same row count."""
+    sessions_dir = tmp_path / "sessions"
+    _write_fake_session(sessions_dir, "sess_A", "sub1")
+
+    # cleanup=False keeps per-session files so a second run can read them
+    agg = Aggregator(rules=[AggregationRule("sites", cleanup=False)])
+    aggregate(sessions_dir, tmp_path, agg)
+    aggregate(sessions_dir, tmp_path, agg)  # second run — flat file is overwritten
+
+    df = pd.read_parquet(tmp_path / "sites.parquet")
+    assert len(df) == 3  # 3 rows, not 6
+
+
+def test_aggregate_cleanup_removes_per_session_files(tmp_path):
+    """cleanup=True deletes per-session parquet files after writing the flat file."""
+    sessions_dir = tmp_path / "sessions"
+    _write_fake_session(sessions_dir, "sess_A", "sub1")
+
+    agg = Aggregator(rules=[AggregationRule("sites", cleanup=True)])
+    aggregate(sessions_dir, tmp_path, agg)
+
+    assert (tmp_path / "sites.parquet").exists()
+    assert not (sessions_dir / "sess_A" / "sites.parquet").exists()
+
+
+def test_aggregate_no_cleanup_keeps_per_session_files(tmp_path):
+    """cleanup=False leaves per-session parquet files in place."""
+    sessions_dir = tmp_path / "sessions"
+    _write_fake_session(sessions_dir, "sess_A", "sub1")
+
+    agg = Aggregator(rules=[AggregationRule("sites", cleanup=False)])
+    aggregate(sessions_dir, tmp_path, agg)
+
+    assert (tmp_path / "sites.parquet").exists()
+    assert (sessions_dir / "sess_A" / "sites.parquet").exists()
