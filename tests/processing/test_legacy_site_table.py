@@ -1,4 +1,4 @@
-"""Tests for LegacyTrialTableProcessor.
+"""Tests for LegacySiteTableProcessor.
 
 Pure-logic tests only — no contraqctor dataset required.
 Integration with a real legacy dataset is covered by tests/integration/datasets.yml.
@@ -6,16 +6,16 @@ Integration with a real legacy dataset is covered by tests/integration/datasets.
 
 import pytest
 
-from aind_behavior_vr_foraging_packaging.processing._legacy_trial_table import (
+from aind_behavior_vr_foraging_packaging.processing._legacy_site_table import (
     _LEGACY_OLFACTOMETER_CHANNEL_COUNT,
-    LegacyTrialTableProcessor,
+    LegacySiteTableProcessor,
 )
-from aind_behavior_vr_foraging_packaging.processing._trial_table import DatasetProcessorError
+from aind_behavior_vr_foraging_packaging.processing._site_table import DatasetProcessorError
 
 
-def _uninit_processor() -> LegacyTrialTableProcessor:
-    """Return a LegacyTrialTableProcessor without calling __init__ (avoids needing a real dataset)."""
-    return LegacyTrialTableProcessor.__new__(LegacyTrialTableProcessor)
+def _uninit_processor() -> LegacySiteTableProcessor:
+    """Return a LegacySiteTableProcessor without calling __init__ (avoids needing a real dataset)."""
+    return LegacySiteTableProcessor.__new__(LegacySiteTableProcessor)
 
 
 class TestLegacyOdorConcentration:
@@ -58,7 +58,7 @@ class TestLegacyIsStoppedAndVelocity:
     def test_parse_is_stopped_returns_none(self):
         from unittest.mock import MagicMock
 
-        assert LegacyTrialTableProcessor._parse_is_stopped(MagicMock()) is None
+        assert LegacySiteTableProcessor._parse_is_stopped(MagicMock()) is None
 
     def test_parse_velocity_returns_none(self):
         from unittest.mock import MagicMock
@@ -113,13 +113,13 @@ class TestLegacyLoadBlocksFallback:
 
     def test_uses_block_stream_when_available(self):
         ds = self._make_fake_dataset(has_block_stream=True)
-        result = LegacyTrialTableProcessor._load_blocks(ds)  # type: ignore[arg-type]
+        result = LegacySiteTableProcessor._load_blocks(ds)  # type: ignore[arg-type]
         assert "block_count" in result.columns
         assert list(result["block_count"]) == [0]
 
     def test_falls_back_to_active_patch_when_block_missing(self):
         ds = self._make_fake_dataset(has_block_stream=False)
-        result = LegacyTrialTableProcessor._load_blocks(ds)  # type: ignore[arg-type]
+        result = LegacySiteTableProcessor._load_blocks(ds)  # type: ignore[arg-type]
         assert "block_count" in result.columns
         # All patches collapse into block 0 — no block info means one block.
         assert list(result["block_count"]) == [0, 0]
@@ -133,13 +133,13 @@ class TestLegacyVersionCheck:
 
         mock_ds = MagicMock()
         mock_ds.version = "0.6.0"
-        with pytest.raises(DatasetProcessorError, match="LegacyTrialTableProcessor only supports datasets"):
-            LegacyTrialTableProcessor(mock_ds)
+        with pytest.raises(DatasetProcessorError, match="LegacySiteTableProcessor only supports datasets"):
+            LegacySiteTableProcessor(mock_ds)
 
     def test_rejects_newer_version(self):
         from unittest.mock import MagicMock
 
         mock_ds = MagicMock()
         mock_ds.version = "0.7.1"
-        with pytest.raises(DatasetProcessorError, match="LegacyTrialTableProcessor only supports datasets"):
-            LegacyTrialTableProcessor(mock_ds)
+        with pytest.raises(DatasetProcessorError, match="LegacySiteTableProcessor only supports datasets"):
+            LegacySiteTableProcessor(mock_ds)

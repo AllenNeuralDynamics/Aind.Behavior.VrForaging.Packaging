@@ -8,7 +8,7 @@ Add an entry here whenever you add, remove, or materially revise a concept.
 * **Initialization**: Created the OKF knowledge bundle. Added the root
   [index](index.md) and [overview](overview.md).
 * **Architecture**: Documented the [processor abstraction](architecture/processor-abstraction.md),
-  [pipeline](architecture/pipeline.md), [trial table](architecture/trial-table.md),
+  [pipeline](architecture/pipeline.md), [site table](architecture/site-table.md),
   [continuous & event streams](architecture/continuous-and-event-streams.md),
   [NWB packaging](architecture/nwb-packaging.md), and
   [data contract & versioning](architecture/data-contract-and-versioning.md).

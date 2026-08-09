@@ -27,8 +27,8 @@ class DatasetProcessorError(Exception):
     pass
 
 
-class TrialTableProcessor(AbstractProcessor):
-    __output_name__ = "trials"
+class SiteTableProcessor(AbstractProcessor):
+    __output_name__ = "sites"
 
     def __init__(self, dataset: contraqctor.contract.Dataset, *, raise_on_error: bool = False) -> None:
         super().__init__(dataset, raise_on_error=raise_on_error)
@@ -181,7 +181,7 @@ class TrialTableProcessor(AbstractProcessor):
         is_stopped = self._parse_is_stopped(dataset)
         velocity = self._parse_velocity(dataset)
 
-        # Precompute all trial indices
+        # Precompute all site indices
         merged["site_label"] = merged["data"].apply(lambda d: d["label"])
         merged["patch_label"] = merged["patch_data"].apply(lambda d: d["label"])
 
@@ -379,12 +379,12 @@ class TrialTableProcessor(AbstractProcessor):
         return sites
 
     def _compute(self) -> pd.DataFrame:
-        """Returns trial table as a DataFrame with one row per site."""
+        """Returns site table as a DataFrame with one row per site."""
         sites = self.process_to_sites()
         return pd.DataFrame([s.model_dump() for s in sites])
 
     def nwbize(self, nwb_file: t.Any) -> t.Any:
-        """Add trials to *nwb_file* from compute() output."""
+        """Add sites to *nwb_file* from compute() output."""
         df = self.compute()
         for col in df.columns:
             if col in ("start_time", "stop_time"):

@@ -1,9 +1,9 @@
 ---
 type: Test Suite
 title: Unit tests — data-free alignment logic
-description: Fast pytest tests that replicate the trial-table merge/index logic on synthetic frames, catching regressions without any real dataset.
-resource: tests/processing/test_trial_table.py
-tags: [testing, unit, pytest, trial-table, regression]
+description: Fast pytest tests that replicate the site-table merge/index logic on synthetic frames, catching regressions without any real dataset.
+resource: tests/processing/test_site_table.py
+tags: [testing, unit, pytest, site-table, regression]
 timestamp: 2026-07-03T00:00:00Z
 ---
 
@@ -14,9 +14,9 @@ pandas operations used by the production code.
 
 # Approach
 
-`tests/processing/test_trial_table.py` defines `_build_merged(...)`, which
+`tests/processing/test_site_table.py` defines `_build_merged(...)`, which
 **mirrors** the merge + `groupby().cumcount()` index precomputation from
-`TrialTableProcessor.process_to_sites`. Tests then assert the resulting index
+`SiteTableProcessor.process_to_sites`. Tests then assert the resulting index
 columns against hand-computed expectations for several session layouts:
 
 - `TestMergeAssignment` — `merge_asof` assigns each site to the correct
@@ -27,7 +27,7 @@ columns against hand-computed expectations for several session layouts:
 - `TestSimultaneousBlockAndPatchChange` — the **regression test** for the bug
   the vectorized rewrite fixed: when a block and patch boundary coincide, the
   old imperative counter produced `-1`. See
-  [architecture/trial-table.md](../architecture/trial-table.md).
+  [architecture/site-table.md](../architecture/site-table.md).
 - `TestManyPatchTypesInBlock` — alternating patch types within one block.
 
 # Conventions

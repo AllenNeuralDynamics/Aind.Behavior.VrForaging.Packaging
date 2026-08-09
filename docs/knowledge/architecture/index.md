@@ -9,7 +9,7 @@ Read in this order:
 
 - [processor-abstraction.md](processor-abstraction.md) — `AbstractProcessor`: the contract every processor implements (`_compute`/`compute`, `nwbize`, `output_name`, provenance stamping).
 - [pipeline.md](pipeline.md) — `create_processors`, `run_session`, and the per-processor getters; version dispatch and parquet writing.
-- [trial-table.md](trial-table.md) — `TrialTableProcessor` and the `Site` model — the most complex processor and the core scientific output.
+- [site-table.md](site-table.md) — `SiteTableProcessor` and the `Site` model — the most complex processor and the core scientific output.
 - [continuous-and-event-streams.md](continuous-and-event-streams.md) — Position/velocity, licks, sniffing, and software events processors.
 - [nwb-packaging.md](nwb-packaging.md) — `NwbSession`: building an `NdxEventsNWBFile` and driving `nwbize()`.
 - [data-contract-and-versioning.md](data-contract-and-versioning.md) — The `contraqctor` dataset, Harp streams, AIND metadata, and the three versions the code tracks.
@@ -20,7 +20,7 @@ Read in this order:
 src/aind_behavior_vr_foraging_packaging/
 ├── __init__.py          # __version__, __semver__ (pep440_to_semver)
 ├── _base.py             # AbstractProcessor
-├── models.py            # Site (pydantic) — trial table row schema
+├── models.py            # Site (pydantic) — site table row schema
 ├── pipeline.py          # create_processors, run_session, getters, parquet writer
 ├── cli.py               # `curriculum` entry point (currently a stub)
 ├── acquisition/
@@ -28,8 +28,8 @@ src/aind_behavior_vr_foraging_packaging/
 ├── nwb_file/
 │   └── __init__.py      # NwbSession, _AindDataSchemaJson
 └── processing/
-    ├── _trial_table.py                  # TrialTableProcessor + DatasetProcessorError
-    ├── _legacy_trial_table.py           # LegacyTrialTableProcessor (schema < 0.6.0)
+    ├── _site_table.py                  # SiteTableProcessor + DatasetProcessorError
+    ├── _legacy_site_table.py           # LegacySiteTableProcessor (schema < 0.6.0)
     ├── _position_and_velocity.py        # PositionAndVelocityProcessor
     ├── _legacy_position_and_velocity.py # LegacyPositionAndVelocityProcessor
     ├── _licks.py                        # LicksProcessor

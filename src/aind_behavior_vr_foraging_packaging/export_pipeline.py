@@ -1,14 +1,12 @@
 """Multi-session export pipeline (two phases).
 
 Phase 1 — :func:`process_sessions`: iterate raw session directories → per-session parquets.
-Phase 2 — :func:`aggregate`: read per-session parquets → subject- and dataset-level outputs.
+Phase 2 — :func:`aggregate`: read per-session parquets → hive-partitioned dataset outputs.
 """
 
 import logging
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -23,19 +21,22 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-class AggregationLevel(str, Enum):
-    """Granularity at which a table is concatenated during Phase 2."""
-
-    SUBJECT = "subject"
-    DATASET = "dataset"
-
-
 @dataclass
 class AggregationRule:
-    """Maps one table name to its aggregation level."""
+    """One table to concatenate into a flat parquet file during Phase 2.
+
+    Parameters
+    ----------
+    table:
+        Name of the per-session parquet file (without extension) to aggregate.
+    cleanup:
+        When ``True`` (default), delete the per-session ``{table}.parquet``
+        files after writing the flat aggregate — avoids storing the same data
+        in two places. Set to ``False`` to keep the per-session copies.
+    """
 
     table: str
-    level: AggregationLevel
+    cleanup: bool = True
 
 
 @dataclass
@@ -45,19 +46,16 @@ class Aggregator:
     Parameters
     ----------
     rules:
-        One :class:`AggregationRule` per table to aggregate.
-    group_by:
-        Column in ``session_metadata`` used to group sessions for
-        :attr:`AggregationLevel.SUBJECT` rules. Defaults to ``"subject_id"``.
+        One :class:`AggregationRule` per table to write as a
+        hive-partitioned dataset partitioned by ``session_id``.
     """
 
     rules: list[AggregationRule]
-    group_by: str = "subject_id"
 
 
 DEFAULT_AGGREGATOR = Aggregator(
     rules=[
-        AggregationRule("trials", AggregationLevel.DATASET),
+        AggregationRule("sites"),
     ]
 )
 
@@ -194,10 +192,15 @@ def aggregate(
     output_dir: Path,
     aggregator: Aggregator,
 ) -> None:
-    """Concatenate per-session parquets into subject- and dataset-level outputs.
+    """Concatenate per-session parquets into flat aggregate files.
 
     Always writes ``output_dir/sessions.parquet`` from the per-session
     ``session_metadata.parquet`` files, regardless of *aggregator* rules.
+
+    Each rule in *aggregator* writes a single flat ``output_dir/{table}.parquet``
+    containing all sessions, with a ``session_id`` column added for joins.
+    When ``rule.cleanup`` is ``True`` the per-session source files are removed
+    after aggregation to avoid storing the same data twice.
 
     Parameters
     ----------
@@ -207,7 +210,7 @@ def aggregate(
     output_dir:
         Root output directory where aggregated files are written.
     aggregator:
-        Config object describing which tables to aggregate and at what level.
+        Config object listing which tables to aggregate.
     """
     sessions_dir = Path(sessions_dir)
     output_dir = Path(output_dir)
@@ -234,30 +237,19 @@ def aggregate(
     _write_parquet(sessions_df, output_dir / "sessions.parquet")
     logger.info("sessions.parquet → %d rows", len(sessions_df))
 
-    # --- Build session_id → group_by-value mapping ---
-    group_col = aggregator.group_by
-    if group_col not in sessions_df.columns:
-        logger.error(
-            "Column '%s' not found in session_metadata (columns: %s); skipping aggregation.",
-            group_col,
-            list(sessions_df.columns),
-        )
-        return
-
-    session_to_group: dict[str, str] = dict(zip(sessions_df["session_id"], sessions_df[group_col].astype(str)))
-
     # --- Apply each rule ---
     for rule in aggregator.rules:
-        _apply_rule(rule, session_dirs, session_to_group, output_dir)
+        _apply_rule(rule, session_dirs, output_dir)
 
 
 def _apply_rule(
     rule: AggregationRule,
     session_dirs: list[Path],
-    session_to_group: dict[str, str],
     output_dir: Path,
 ) -> None:
-    frames: list[tuple[str, pd.DataFrame]] = []
+    frames: list[pd.DataFrame] = []
+    source_files: list[Path] = []
+
     for sd in session_dirs:
         p = sd / f"{rule.table}.parquet"
         if not p.exists():
@@ -265,27 +257,19 @@ def _apply_rule(
             continue
         df = pd.read_parquet(p)
         df.insert(0, "session_id", sd.name)
-        frames.append((sd.name, df))
+        frames.append(df)
+        source_files.append(p)
 
     if not frames:
         logger.warning("  %s: no parquet files found across any session — skipped.", rule.table)
         return
 
-    if rule.level == AggregationLevel.DATASET:
-        combined = pd.concat([df for _, df in frames], ignore_index=True)
-        dest = output_dir / f"{rule.table}.parquet"
-        _write_parquet(combined, dest)
-        logger.info("  %s (dataset) → %d rows → %s", rule.table, len(combined), dest)
+    combined = pd.concat(frames, ignore_index=True)
+    dest = output_dir / f"{rule.table}.parquet"
+    combined.to_parquet(dest, index=False)
+    logger.info("  %s → %d rows → %s", rule.table, len(combined), dest.name)
 
-    elif rule.level == AggregationLevel.SUBJECT:
-        by_group: dict[str, list[pd.DataFrame]] = defaultdict(list)
-        for session_id, df in frames:
-            group = session_to_group.get(session_id, "unknown")
-            by_group[group].append(df)
-
-        for group, dfs in by_group.items():
-            combined = pd.concat(dfs, ignore_index=True)
-            dest = output_dir / "subjects" / group / f"{rule.table}.parquet"
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            _write_parquet(combined, dest)
-            logger.info("  %s (subject=%s) → %d rows → %s", rule.table, group, len(combined), dest)
+    if rule.cleanup:
+        for p in source_files:
+            p.unlink()
+            logger.debug("  removed per-session copy %s", p)

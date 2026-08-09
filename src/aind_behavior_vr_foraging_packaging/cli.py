@@ -27,7 +27,6 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, CliApp, SettingsConfigDict
 
 from .export_pipeline import (
-    AggregationLevel,
     AggregationRule,
     Aggregator,
     aggregate,
@@ -92,15 +91,13 @@ class ExportSettings(BaseSettings):
 
     # ---- Processor filter (by output_name) ----
     include_processors: list[str] = []
-    """Processor output names to run (empty = all). E.g. ``trials licks``."""
+    """Processor output names to run (empty = all). E.g. ``sites licks``."""
     exclude_processors: list[str] = []
     """Processor output names to skip. E.g. ``sniffing software_events``."""
 
     # ---- Aggregation ----
-    dataset_tables: list[str] = ["trials"]
-    """Table names to concatenate across all sessions (dataset level)."""
-    subject_tables: list[str] = []
-    """Table names to concatenate per subject (subject level). Empty by default."""
+    dataset_tables: list[str] = ["sites"]
+    """Table names to write as flat aggregate parquet files (one file per table, all sessions)."""
 
     # ---- Phase control ----
     skip_processing: bool = False
@@ -117,9 +114,7 @@ class ExportSettings(BaseSettings):
     # ------------------------------------------------------------------ #
 
     def _build_aggregator(self) -> Aggregator:
-        rules = [AggregationRule(t, AggregationLevel.DATASET) for t in self.dataset_tables]
-        rules += [AggregationRule(t, AggregationLevel.SUBJECT) for t in self.subject_tables]
-        return Aggregator(rules=rules)
+        return Aggregator(rules=[AggregationRule(t) for t in self.dataset_tables])
 
     def cli_cmd(self) -> None:
         _setup_logging(self.log_file)

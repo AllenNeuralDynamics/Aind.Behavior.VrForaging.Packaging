@@ -107,12 +107,12 @@ def test_cli_include_processors_forwarded(tmp_path):
             [
                 f"--input-dir={input_dir}",
                 f"--output-dir={tmp_path / 'out'}",
-                "--include-processors=trials",
+                "--include-processors=sites",
             ]
         )
 
     _, kwargs = mock_ps.call_args
-    assert "trials" in kwargs.get("include_processors", [])
+    assert "sites" in kwargs.get("include_processors", [])
 
 
 def test_cli_log_file_created(tmp_path):

@@ -4,12 +4,12 @@ import pandas as pd
 from aind_behavior_vr_foraging.data_contract import dataset
 
 from aind_behavior_vr_foraging_packaging.processing import (
-    TrialTableProcessor,
+    SiteTableProcessor,
 )
 
 dataset_path = Path(r"C:\Users\bruno.cruz\Desktop\815103_2026-05-08T231548Z")
 ds = dataset(dataset_path)
-ttp = TrialTableProcessor(ds, raise_on_error=True)
+ttp = SiteTableProcessor(ds, raise_on_error=True)
 sites = ttp.process_to_sites()
 sites_df = pd.DataFrame([s.model_dump() for s in sites])
 

@@ -25,6 +25,7 @@ dependencies = [
     "hdmf-zarr",
     "numpy>=2",
     "pandas",
+    "pyarrow>=14.0.0",
     "pydantic-settings>=2.10.1",
     "pydantic>=2.10",
     "pynwb",
@@ -34,6 +35,9 @@ dependencies = [
     "ndx-events",
     "aind-data-access-api>=1.9.2",
 ]
+
+[project.optional-dependencies]
+db = ["duckdb>=1.0"]
 
 [project.urls]
 Documentation = "https://allenneuraldynamics.github.io/Aind.Behavior.VrForaging.Packaging/"
@@ -49,7 +53,6 @@ dev = [
     'pytest-cov',
     'codespell',
     'ty',
-    "pyarrow>=24.0.0",
 ]
 
 [tool.uv]
