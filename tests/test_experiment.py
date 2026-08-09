@@ -26,7 +26,7 @@ def test_aggregation_rule_fields():
 def test_aggregator_default():
     tables = {r.table for r in DEFAULT_AGGREGATOR.rules}
     assert "trials" in tables
-    assert "licks" in tables
+    assert "licks" not in tables  # subject-level rules are opt-in, not in the default
 
 
 def test_aggregation_level_values():

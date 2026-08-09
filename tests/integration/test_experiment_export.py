@@ -72,13 +72,8 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
         f"trials.parquet row count mismatch: {len(all_trials)} vs per-session sum {per_session_total}"
     )
 
-    # subject-level: at least one subjects/ subfolder with licks.parquet
-    subjects_dir = output_dir / "subjects"
-    assert subjects_dir.exists()
-    subject_dirs = [d for d in subjects_dir.iterdir() if d.is_dir()]
-    assert len(subject_dirs) > 0, "No subject directories created under subjects/"
-    for sub_dir in subject_dirs:
-        assert (sub_dir / "licks.parquet").exists(), f"Missing licks.parquet for subject {sub_dir.name}"
+    # DEFAULT_AGGREGATOR has no subject-level rules; subjects/ should not exist
+    assert not (output_dir / "subjects").exists(), "subjects/ should not be created with default aggregator"
 
 
 def test_skip_aggregation_writes_only_sessions(all_cached_session_paths: list[Path], tmp_path: Path) -> None:

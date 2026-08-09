@@ -99,8 +99,8 @@ class ExportSettings(BaseSettings):
     # ---- Aggregation ----
     dataset_tables: list[str] = ["trials"]
     """Table names to concatenate across all sessions (dataset level)."""
-    subject_tables: list[str] = ["licks", "position_velocity", "sniffing", "events"]
-    """Table names to concatenate per subject (subject level)."""
+    subject_tables: list[str] = []
+    """Table names to concatenate per subject (subject level). Empty by default."""
 
     # ---- Phase control ----
     skip_processing: bool = False
