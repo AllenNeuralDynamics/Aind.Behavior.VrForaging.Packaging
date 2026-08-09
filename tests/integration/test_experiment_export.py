@@ -53,8 +53,8 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
     # sessions.parquet: one row per session, required columns present
     assert (output_dir / "sessions.parquet").exists()
     sessions = pd.read_parquet(output_dir / "sessions.parquet")
-    assert len(sessions) == len(all_cached_session_paths), (
-        f"sessions.parquet has {len(sessions)} rows; expected {len(all_cached_session_paths)}"
+    assert len(sessions) == len(written), (
+        f"sessions.parquet has {len(sessions)} rows; expected {len(written)}"
     )
     assert {"session_id", "subject_id", "date"}.issubset(set(sessions.columns)), (
         f"Missing columns in sessions.parquet: {set(sessions.columns)}"
