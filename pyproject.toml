@@ -82,4 +82,4 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 
 [project.scripts]
-curriculum = "aind_behavior_vr_foraging_packaging.cli:main"
+aind-vr-export = "aind_behavior_vr_foraging_packaging.cli:main"

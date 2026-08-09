@@ -1,3 +1,4 @@
+import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
@@ -82,3 +83,15 @@ class Site(BaseModel):
     patch_index_in_block_by_type: int = Field(
         description="Same as patch_in_block_index but only counting patches of the same label"
     )
+
+
+class SessionMetadata(BaseModel):
+    """One-row model capturing session-level identity metadata.
+
+    Used by :class:`~aind_behavior_vr_foraging_packaging.processing.SessionMetadataProcessor`
+    to type-check and document the ``session_metadata.parquet`` output.
+    """
+
+    session_id: str = Field(description="Session folder name (AIND naming convention).")
+    subject_id: Optional[str] = Field(default=None, description="Subject identifier parsed from the session folder name. None when the name cannot be parsed.")
+    date: Optional[datetime.date] = Field(default=None, description="Session date parsed from the session folder name. None when the name cannot be parsed.")

@@ -34,18 +34,20 @@ class LegacyTrialTableProcessor(TrialTableProcessor):
     """
 
     def __init__(self, dataset: contraqctor.contract.Dataset, *, raise_on_error: bool = False) -> None:
+
         # Bypass TrialTableProcessor.__init__ — InputSchemas/Rig is not present in legacy datasets.
         AbstractProcessor.__init__(self, dataset, raise_on_error=raise_on_error)
-        if self.dataset_version >= semver.Version(major=0, minor=6, patch=0):
+        if self.provenance.dataset_semver >= semver.Version(major=0, minor=6, patch=0):
             raise DatasetProcessorError(
-                f"LegacyTrialTableProcessor only supports datasets < 0.6.0, got {self.dataset_version}. "
+                f"LegacyTrialTableProcessor only supports datasets < 0.6.0, "
+                f"got {self.provenance.dataset_semver}. "
                 "Use TrialTableProcessor for current datasets."
             )
-        if self.dataset_version != self.parser_version:
+        if self.provenance.dataset_semver != self.provenance.data_contract_semver:
             logger.warning(
                 "Dataset version %s does not match parser version %s",
-                self.dataset_version,
-                self.parser_version,
+                self.provenance.dataset_semver,
+                self.provenance.data_contract_semver,
             )
 
     @staticmethod
