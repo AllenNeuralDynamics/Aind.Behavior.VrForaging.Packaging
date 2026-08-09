@@ -1,8 +1,8 @@
 """Unit tests for export_pipeline.py — no real dataset I/O required."""
+
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 from aind_behavior_vr_foraging_packaging.export_pipeline import (
     DEFAULT_AGGREGATOR,
@@ -11,7 +11,6 @@ from aind_behavior_vr_foraging_packaging.export_pipeline import (
     Aggregator,
     aggregate,
 )
-
 
 # ---------------------------------------------------------------------------
 # AggregationRule / Aggregator
@@ -45,9 +44,9 @@ def _write_fake_session(sessions_dir: Path, session_id: str, subject_id: str) ->
     d = sessions_dir / session_id
     d.mkdir(parents=True)
 
-    pd.DataFrame(
-        [{"session_id": session_id, "subject_id": subject_id, "date": "2025-01-01"}]
-    ).to_parquet(d / "session_metadata.parquet", index=False)
+    pd.DataFrame([{"session_id": session_id, "subject_id": subject_id, "date": "2025-01-01"}]).to_parquet(
+        d / "session_metadata.parquet", index=False
+    )
 
     pd.DataFrame({"trial": [1, 2, 3]}).to_parquet(d / "trials.parquet", index=False)
     pd.DataFrame({"t": range(5)}).to_parquet(d / "licks.parquet", index=False)
@@ -111,9 +110,9 @@ def test_aggregate_missing_table_is_skipped(tmp_path):
     # sess_B intentionally has no licks.parquet
     d = sessions_dir / "sess_B"
     d.mkdir(parents=True)
-    pd.DataFrame(
-        [{"session_id": "sess_B", "subject_id": "sub1", "date": "2025-01-02"}]
-    ).to_parquet(d / "session_metadata.parquet", index=False)
+    pd.DataFrame([{"session_id": "sess_B", "subject_id": "sub1", "date": "2025-01-02"}]).to_parquet(
+        d / "session_metadata.parquet", index=False
+    )
 
     agg = Aggregator(rules=[AggregationRule("licks", AggregationLevel.SUBJECT)])
     aggregate(sessions_dir, tmp_path, agg)  # must not raise

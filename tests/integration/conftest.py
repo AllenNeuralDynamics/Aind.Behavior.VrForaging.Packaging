@@ -221,7 +221,7 @@ def download_dataset(s3: BaseClient, entry: DatasetEntry, cache_root: Path) -> P
 
 
 @pytest.fixture(scope="session")
-def all_cached_session_paths(ensure_datasets_cached) -> list[Path]:  # noqa: ARG001
+def all_cached_session_paths(ensure_datasets_cached) -> list[Path]:
     """Return all session directories present on disk in the local cache.
 
     Depends on ``ensure_datasets_cached`` (which downloads from S3 before this

@@ -173,9 +173,7 @@ def process_sessions(
     exclude_set = frozenset(exclude_processors)
 
     def _submit(raw_path: Path) -> Path | None:
-        return _process_one_session(
-            raw_path, sessions_dir, include_set, exclude_set, raise_on_error
-        )
+        return _process_one_session(raw_path, sessions_dir, include_set, exclude_set, raise_on_error)
 
     if max_workers == 1:
         return [r for p in paths if (r := _submit(p)) is not None]
@@ -250,9 +248,7 @@ def aggregate(
         )
         return
 
-    session_to_group: dict[str, str] = dict(
-        zip(sessions_df["session_id"], sessions_df[group_col].astype(str))
-    )
+    session_to_group: dict[str, str] = dict(zip(sessions_df["session_id"], sessions_df[group_col].astype(str)))
 
     # --- Apply each rule ---
     for rule in aggregator.rules:
@@ -269,27 +265,21 @@ def _apply_rule(
     for sd in session_dirs:
         p = sd / f"{rule.table}.parquet"
         if not p.exists():
-            logger.debug(
-                "  %s: no %s.parquet in %s — skipping", rule.table, rule.table, sd.name
-            )
+            logger.debug("  %s: no %s.parquet in %s — skipping", rule.table, rule.table, sd.name)
             continue
         df = pd.read_parquet(p)
         df.insert(0, "session_id", sd.name)
         frames.append((sd.name, df))
 
     if not frames:
-        logger.warning(
-            "  %s: no parquet files found across any session — skipped.", rule.table
-        )
+        logger.warning("  %s: no parquet files found across any session — skipped.", rule.table)
         return
 
     if rule.level == AggregationLevel.DATASET:
         combined = pd.concat([df for _, df in frames], ignore_index=True)
         dest = output_dir / f"{rule.table}.parquet"
         _write_parquet(combined, dest)
-        logger.info(
-            "  %s (dataset) → %d rows → %s", rule.table, len(combined), dest
-        )
+        logger.info("  %s (dataset) → %d rows → %s", rule.table, len(combined), dest)
 
     elif rule.level == AggregationLevel.SUBJECT:
         by_group: dict[str, list[pd.DataFrame]] = defaultdict(list)
@@ -302,6 +292,4 @@ def _apply_rule(
             dest = output_dir / "subjects" / group / f"{rule.table}.parquet"
             dest.parent.mkdir(parents=True, exist_ok=True)
             _write_parquet(combined, dest)
-            logger.info(
-                "  %s (subject=%s) → %d rows → %s", rule.table, group, len(combined), dest
-            )
+            logger.info("  %s (subject=%s) → %d rows → %s", rule.table, group, len(combined), dest)

@@ -93,5 +93,11 @@ class SessionMetadata(BaseModel):
     """
 
     session_id: str = Field(description="Session folder name (AIND naming convention).")
-    subject_id: Optional[str] = Field(default=None, description="Subject identifier parsed from the session folder name. None when the name cannot be parsed.")
-    date: Optional[datetime.date] = Field(default=None, description="Session date parsed from the session folder name. None when the name cannot be parsed.")
+    subject_id: Optional[str] = Field(
+        default=None,
+        description="Subject identifier parsed from the session folder name. None when the name cannot be parsed.",
+    )
+    date: Optional[datetime.date] = Field(
+        default=None,
+        description="Session date parsed from the session folder name. None when the name cannot be parsed.",
+    )

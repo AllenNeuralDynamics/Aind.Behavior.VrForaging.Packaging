@@ -129,9 +129,7 @@ class ExportSettings(BaseSettings):
 
         dataset_paths = sorted(p for p in self.input_dir.iterdir() if p.is_dir())
         if not dataset_paths:
-            logger.warning(
-                "No subdirectories found under %s — nothing to do.", self.input_dir
-            )
+            logger.warning("No subdirectories found under %s — nothing to do.", self.input_dir)
             return
 
         logger.info("  sessions found: %d", len(dataset_paths))

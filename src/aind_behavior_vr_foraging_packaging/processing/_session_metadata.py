@@ -30,9 +30,7 @@ class SessionMetadataProcessor(AbstractProcessor):
 
     __output_name__ = "session_metadata"
 
-    def __init__(
-        self, dataset, *, session_path: Path, raise_on_error: bool = False
-    ) -> None:
+    def __init__(self, dataset, *, session_path: Path, raise_on_error: bool = False) -> None:
         super().__init__(dataset, raise_on_error=raise_on_error)
         self._session_path = Path(session_path)
 
@@ -54,13 +52,7 @@ class SessionMetadataProcessor(AbstractProcessor):
     def _fetch_stream_raw(self) -> dict | None:
         """Return the raw dict from the contraqctor stream, or None if unavailable."""
         try:
-            return (
-                self._dataset.at("Behavior")
-                .at("InputSchemas")
-                .at("Session")
-                .load()
-                .data
-            )
+            return self._dataset.at("Behavior").at("InputSchemas").at("Session").load().data
         except Exception as exc:
             logger.debug("Contraqctor stream unavailable for %s: %s", self._session_path.name, exc)
             return None

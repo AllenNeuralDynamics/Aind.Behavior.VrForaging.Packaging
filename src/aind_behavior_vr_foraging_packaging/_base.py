@@ -6,6 +6,8 @@ from functools import cached_property
 import pandas as pd
 from contraqctor.contract import Dataset
 
+from ._provenance import PackagingProvenance
+
 
 def _class_name_to_snake(name: str) -> str:
     """Convert a CamelCase class name to snake_case, e.g. ``LicksProcessor`` → ``licks_processor``."""
@@ -35,14 +37,13 @@ class AbstractProcessor(abc.ABC):
         return self._dataset
 
     @cached_property
-    def provenance(self) -> "PackagingProvenance":
+    def provenance(self) -> PackagingProvenance:
         """Provenance snapshot for this processor's dataset.
 
         Cached so that :meth:`compute` and version-check code in subclasses
         share a single :class:`~aind_behavior_vr_foraging_packaging._provenance.PackagingProvenance`
         instance rather than rebuilding it on every call.
         """
-        from ._provenance import PackagingProvenance
 
         return PackagingProvenance.build(self._dataset)
 
