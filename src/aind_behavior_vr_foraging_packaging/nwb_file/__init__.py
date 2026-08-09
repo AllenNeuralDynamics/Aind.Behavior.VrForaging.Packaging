@@ -48,9 +48,9 @@ class NwbSession:
 
     def run(self, *processors: AbstractProcessor) -> NWBFile:
         nwb = self.process()
-        logging.info("Running %s processors on NWB file...", len(processors))
+        logger.info("Running %s processors on NWB file...", len(processors))
         for processor in processors:
-            logging.info("Running nwbize: %s", processor.__class__.__name__)
+            logger.info("Running nwbize: %s", processor.__class__.__name__)
             nwb = processor.nwbize(nwb)
         return nwb
 
