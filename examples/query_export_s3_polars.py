@@ -1,13 +1,12 @@
 # /// script
 # dependencies = [
-#     "duckdb>=1.0",
-#     "boto3>=1.26",
+#     "polars==1.43.2",
 # ]
 # requires-python = ">=3.11"
 # ///
-"""Querying the experiment export directly from S3 with DuckDB.
+"""Querying the experiment export directly from S3 with Polars.
 
-All reads hit S3 using DuckDB's native httpfs extension — no local copies needed.
+All reads hit S3 using Polars' lazy Parquet scanner — no local copies needed.
 Predicate pushdown and Parquet column pruning keep network I/O minimal.
 
 Remote layout (mirrors the local export structure)::
@@ -22,152 +21,136 @@ Remote layout (mirrors the local export structure)::
 
 Prerequisites
 -------------
-Configure your AWS SSO profile::
+Install Polars::
 
-    aws sso login --profile aind-scientist
+    pip install polars
 
-Dependencies are declared inline (PEP 723) — ``uv`` resolves them per-run, so this
-script needs no project install::
+Run from the project root::
 
-    uv run examples/query_export_s3.py
+    uv run --with polars python examples/query_export_s3_polars.py
 """
 
-import os
-
-import boto3
-import duckdb
+import polars as pl
 
 # ── Configure these ───────────────────────────────────────────────────────────
 S3_ROOT = "s3://aind-scratch-data/vr-foraging/demo"
-AWS_PROFILE = "aind-scientist"
+STORAGE_OPTIONS = {"skip_signature": "true"}  # no credentials required for public bucket
 # ─────────────────────────────────────────────────────────────────────────────
-
-# Resolve SSO / short-lived credentials via boto3, then hand them to DuckDB.
-# boto3 handles the full credential chain (SSO, assume-role, env vars, etc.)
-# so DuckDB never has to deal with profiles directly.
-_session = boto3.Session(profile_name=AWS_PROFILE)
-_creds = _session.get_credentials().get_frozen_credentials()
-_region = _session.region_name or "us-west-2"
-
-# Expose through env vars so DuckDB's CREDENTIAL_CHAIN picks them up cleanly.
-os.environ["AWS_ACCESS_KEY_ID"] = _creds.access_key
-os.environ["AWS_SECRET_ACCESS_KEY"] = _creds.secret_key
-os.environ["AWS_SESSION_TOKEN"] = _creds.token or ""
-os.environ["AWS_DEFAULT_REGION"] = _region
-
-con = duckdb.connect()
-con.execute("INSTALL httpfs; LOAD httpfs;")
-con.execute("""
-    CREATE SECRET s3_creds (
-        TYPE S3,
-        PROVIDER CREDENTIAL_CHAIN,
-        CHAIN 'env'
-    )
-""")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Session catalogue
-#    Single small file — DuckDB reads only the columns you SELECT.
+#    Single small file — Polars reads only the columns selected below.
 # ─────────────────────────────────────────────────────────────────────────────
 
-con.execute(f"CREATE VIEW session AS SELECT * FROM read_parquet('{S3_ROOT}/session.parquet')")
+session = pl.scan_parquet(f"{S3_ROOT}/session.parquet", storage_options=STORAGE_OPTIONS)
+print("\n=== session catalogue columns ===")
+print(session.collect_schema())  # schema is stored as metadata: doesn't require full read
 
-sessions = con.execute("SELECT session_id, subject_id, date FROM session ORDER BY date").df()
+sessions = (
+    session
+    # selecting only necessary if you want to use subset of columns, or transform data/change names
+    .select("session_id", "subject_id", "date")
+    .sort("date")
+    .collect()
+)
 print("=== session catalogue ===")
-print(sessions.to_string(index=False))
+print(sessions)
 
-first_animal = sessions["subject_id"].iloc[0]
-animal_session_ids = sessions[sessions["subject_id"] == first_animal]["session_id"].tolist()
+first_animal = sessions["subject_id"][0]
+animal_session_ids = sessions.filter(pl.col("subject_id") == first_animal)["session_id"].to_list()
 print(f"\nAnimal '{first_animal}' has {len(animal_session_ids)} session(s)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Cross-session flat table  (sites)
-#    Single file, full predicate pushdown — DuckDB streams only matching rows.
+#    Single file, full predicate pushdown — Polars streams only matching rows.
 # ─────────────────────────────────────────────────────────────────────────────
 
-con.execute(f"CREATE VIEW sites AS SELECT * FROM read_parquet('{S3_ROOT}/sites.parquet')")
-
-total_sites = con.execute("SELECT COUNT(*) AS n FROM sites").fetchone()[0]
-total_sessions = con.execute("SELECT COUNT(DISTINCT session_id) AS n FROM sites").fetchone()[0]
+sites = pl.scan_parquet(f"{S3_ROOT}/sites.parquet", storage_options=STORAGE_OPTIONS)
+total_sites = sites.select(pl.len()).collect().item()
+total_sessions = sites.select(pl.col("session_id").n_unique()).collect().item()
 print(f"\n=== all sites: {total_sites} rows across {total_sessions} sessions ===")
 
-animal_sites = con.execute(f"""
-    SELECT COUNT(*) AS n
-    FROM sites
-    WHERE session_id IN ({", ".join(f"'{s}'" for s in animal_session_ids)})
-""").fetchone()[0]
+animal_sites = sites.filter(pl.col("session_id").is_in(animal_session_ids)).select(pl.len()).collect().item()
 print(f"=== sites for '{first_animal}': {animal_sites} rows ===")
 
-print("\n=== DuckDB: site counts per session ===")
-counts = con.execute("""
-    SELECT session_id, COUNT(*) AS n_sites
-    FROM sites
-    GROUP BY session_id
-    ORDER BY session_id
-""").df()
-print(counts.to_string(index=False))
+print("\n=== Polars: site counts per session ===")
+counts = sites.group_by("session_id").agg(pl.len().alias("n_sites")).sort("session_id").collect()
+print(counts)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. Join catalogue + flat table
-#    DuckDB pushes the WHERE into the S3 scan — reads only matching row groups.
+#    The filter and projection are pushed into both lazy S3 scans.
 # ─────────────────────────────────────────────────────────────────────────────
 
 print(f"\n=== sites for '{first_animal}' joined with session catalogue ===")
-result = con.execute(f"""
-    SELECT t.*, s.date
-    FROM sites t
-    JOIN session s USING (session_id)
-    WHERE s.subject_id = '{first_animal}'
-    ORDER BY s.date
-""").df()
-print(f"  {len(result)} rows, {result['session_id'].nunique()} session(s)")
+result = (
+    sites.join(
+        other=(
+            session.select("session_id", "subject_id", "date")
+            # joins can be expensive for big tables, so filter first if poss
+            .filter(pl.col("subject_id") == first_animal)
+        ),
+        on="session_id",
+        how="inner",
+    )
+    .sort("date")
+    .collect()
+)
+print(f"  {len(result)} rows, {result['session_id'].n_unique()} session(s)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. Per-session large tables via S3 glob
-#    DuckDB resolves the glob against S3 and reads only the matching files —
-#    no directory listing round-trip per session.
+#    Polars resolves the glob against S3 and reads only matching files.
 # ─────────────────────────────────────────────────────────────────────────────
 
 POS_VEL_GLOB = f"{S3_ROOT}/sessions/*/position_velocity.parquet"
 
-# Check whether any position_velocity files exist before querying
 try:
-    n = con.execute(f"SELECT COUNT(*) FROM read_parquet('{POS_VEL_GLOB}')").fetchone()[0]
-except duckdb.IOException:
-    n = 0
-
-if n:
-    print(f"\n=== position_velocity for '{first_animal}' (glob scan across sessions) ===")
+    pos_vel = pl.scan_parquet(
+        POS_VEL_GLOB,
+        storage_options=STORAGE_OPTIONS,
+        include_file_paths="source_path",
+    )
+except pl.exceptions.ComputeError as exc:
+    if "expanded paths were empty" not in str(exc):
+        raise
+    result = None
+else:
     # session_id is not a column inside the parquet — extract it from the file path.
-    # filename=true adds a `filename` column; regexp_extract pulls the session folder name.
-    result = con.execute(f"""
-        WITH pv AS (
-            SELECT
-                regexp_extract(filename, '/sessions/([^/]+)/', 1) AS session_id,
-                * EXCLUDE (filename)
-            FROM read_parquet('{POS_VEL_GLOB}', filename=true)
+    # include_file_paths adds the source path to the lazy scan.
+    print(len(pos_vel.collect()))
+    print()
+    result = (
+        pos_vel.with_columns(pl.col("source_path").str.extract(r"/sessions/([^/]+)/", 1).alias("session_id"))
+        .drop("source_path")
+        .join(
+            session.select("session_id", "subject_id"),
+            on="session_id",
+            how="inner",
         )
-        SELECT pv.*
-        FROM pv
-        JOIN session s USING (session_id)
-        WHERE s.subject_id = '{first_animal}'
-    """).df()
-    print(f"  {len(result)} rows, {result['session_id'].nunique()} session(s)")
+        .filter(pl.col("subject_id") == first_animal)
+        .drop("subject_id")
+        .collect()
+    )
+
+if result is not None:
+    print(f"\n=== position_velocity for '{first_animal}' (glob scan across sessions) ===")
+    print(f"  {len(result)} rows, {result['session_id'].n_unique()} session(s)")
 else:
     print(f"\n(no position_velocity files found under {S3_ROOT}/sessions/ — skipping)")
 
+
 # ─────────────────────────────────────────────────────────────────────────────
-# 5. Download the entire sites table into a pandas DataFrame
+# 5. Download the entire sites table into memory
 # ─────────────────────────────────────────────────────────────────────────────
 
 print("\n=== downloading full sites table into memory ===")
-sites_df = con.execute(f"SELECT * FROM read_parquet('{S3_ROOT}/sites.parquet')").df()
+sites_df = sites.collect()
 print(f"{sites_df.shape[0]:,} rows × {sites_df.shape[1]} columns")
 print(sites_df.dtypes)
 
-con.close()
 print("\nDone.")

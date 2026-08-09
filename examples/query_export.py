@@ -1,3 +1,11 @@
+# /// script
+# dependencies = [
+#     "pandas",
+#     "pyarrow>=14.0.0",
+#     "duckdb>=1.0",
+# ]
+# requires-python = ">=3.11"
+# ///
 """Querying the experiment export with pandas and DuckDB.
 
 The export pipeline writes two kinds of output:
@@ -25,15 +33,13 @@ Or with the helper script (dev / scratch)::
 
 Dependencies
 ------------
-Core examples use only ``pandas`` (a runtime dependency).
-DuckDB examples require the optional ``db`` extra::
-
-    pip install "aind-behavior-vr-foraging-packaging[db]"
+Declared inline (PEP 723) — ``uv`` resolves them per-run, so this script needs no
+project install.
 
 Run from the project root::
 
     uv run aind-vr-export --input-dir /data/raw --output-dir ./export ` --log-file   ./export/run.log --workers 4
-    uv run python examples/query_export.py
+    uv run examples/query_export.py
 """
 
 from pathlib import Path
@@ -101,7 +107,7 @@ else:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4. DuckDB  (optional — install with: pip install "package[db]")
+# 4. DuckDB  (declared in this script's inline PEP 723 block)
 #
 # Flat parquet files work as first-class DuckDB sources.
 # For large per-session tables, build a file list from the catalogue and pass
@@ -111,10 +117,7 @@ else:
 try:
     import duckdb
 except ImportError:
-    print(
-        "\nDuckDB not installed — skipping section 4.\n"
-        'Install with: pip install "aind-behavior-vr-foraging-packaging[db]"'
-    )
+    print("\nDuckDB not installed — skipping section 4.\nRun this script with `uv run` to pick up its inline deps.")
     raise SystemExit(0)
 
 con = duckdb.connect()

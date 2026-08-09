@@ -5,6 +5,13 @@ Add an entry here whenever you add, remove, or materially revise a concept.
 
 ## 2026-08-09
 
+* **Conventions**: Removed the `[db]` extra from
+  [tooling-and-style.md](conventions/tooling-and-style.md) and added an
+  "Examples: PEP 723 inline scripts" section. Query backends (`duckdb`,
+  `polars`) are no longer distribution dependencies at all — each script in
+  `examples/` declares its own via an inline `# /// script` block. `boto3`
+  moved into the `dev` group because `tests/integration/conftest.py` imports it
+  at collection time. Supersedes the `[db]` entry further down this section.
 * **Architecture**: Renamed `pipeline.md` → [session-pipeline.md](architecture/session-pipeline.md)
   to track the `pipeline.py` → `session_pipeline.py` rename and to disambiguate
   it from the new export layer. Corrected the `create_processors` /
