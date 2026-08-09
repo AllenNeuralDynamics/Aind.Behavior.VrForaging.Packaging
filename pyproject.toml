@@ -21,19 +21,16 @@ readme = {file = "README.md", content-type = "text/markdown"}
 
 dependencies = [
     "aind-behavior-vr-foraging[data] >= 1.2.1",
-    "aind-data-schema>2.7",
     "hdmf-zarr",
     "numpy>=2",
     "pandas",
     "pyarrow>=14.0.0",
     "pydantic-settings>=2.10.1",
     "pydantic>=2.10",
-    "pynwb",
+    "pynwb>=4.1",
     "scipy",
     "pydantic-settings",
     "aind-nwb-utils",
-    "ndx-events",
-    "aind-data-access-api>=1.9.2",
 ]
 
 [project.optional-dependencies]

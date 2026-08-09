@@ -91,8 +91,8 @@ passthrough of a single raw stream.
   [site-table.md](site-table.md)) derives its per-site boolean by
   `slice_by_index`-ing these same de-conflicted hardware times, so the site
   table and the events table can never disagree.
-- `nwbize()` writes the tall `compute()` frame into an ndx-events `EventsTable`
-  (named `"events"`) on the `NdxEventsNWBFile`: the index becomes the required
+- `nwbize()` writes the tall `compute()` frame into a `pynwb.event.EventsTable`
+  (named `"events"`) via `NWBFile.add_events_table`: the index becomes the required
   `timestamp` column, and `event_name`/`data` become columns (`data`
   JSON-serialized). No table is added when there are no derived events. This is
   the NWB home for the exact forced-reward times, so the site table needs only
@@ -103,5 +103,5 @@ passthrough of a single raw stream.
 `LegacyPositionAndVelocityProcessor` and `LegacySiteTableProcessor` handle
 datasets with schema version `< 0.6.0` (different odor-specification format,
 block-stream fallback, optional `PatchStateAtReward`, absent
-`IsStopped`/velocity). The [pipeline](pipeline.md) selects them automatically;
+`IsStopped`/velocity). The [session pipeline](session-pipeline.md) selects them automatically;
 licks, sniffing, software events, and events have no legacy variant.

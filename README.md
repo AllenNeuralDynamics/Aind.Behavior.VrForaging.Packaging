@@ -26,7 +26,7 @@ raw session dir
       ├─► proc.compute()  ──► pandas DataFrame  ──► one <name>.parquet   (run_session)
       │                        (provenance stamped into df.attrs / parquet schema)
       │
-      └─► proc.nwbize(nwb) ──► populates an NdxEventsNWBFile ──► .nwb.zarr (NwbSession)
+      └─► proc.nwbize(nwb) ──► populates an NWBFile ──► .nwb.zarr (NwbSession)
 ```
 
 - **Processor** — every processor subclasses `AbstractProcessor`, implementing
@@ -35,10 +35,10 @@ raw session dir
   `dataset_version`, `processor`) into the DataFrame's `attrs`.
 - **DataFrame** — the common in-memory representation. One row per unit of the
   output (e.g. one site-table row = one *site*).
-- **Parquet** — `pipeline.run_session()` calls `compute()` on each processor and
+- **Parquet** — `session_pipeline.run_session()` calls `compute()` on each processor and
   writes a parquet per processor, promoting `df.attrs` to first-class parquet
   metadata (readable from DuckDB, Polars, R arrow, Spark, …).
-- **NWB** — `NwbSession` builds a single `NdxEventsNWBFile` from AIND metadata,
+- **NWB** — `NwbSession` builds a single `NWBFile` from AIND metadata,
   then calls each processor's `nwbize()` to fill it, and writes NWB-Zarr.
 
 Version dispatch is automatic: datasets with schema version `< 0.6.0` receive
@@ -170,6 +170,22 @@ uv run pytest -m integration
 ```
 
 The first run downloads datasets (~100 MB per dataset) to `tests/integration/.cache/`. Subsequent runs reuse the cache when the S3 ETag matches. The cache directory is gitignored.
+
+> [!IMPORTANT]
+> **On Windows, enable long paths first.** `test_full_pipeline` writes an NWB-Zarr
+> file whose chunk paths exceed the legacy 260-character `MAX_PATH` limit, and it
+> fails with `FileNotFoundError: ... .zarray.<hash>.partial` — which looks like a
+> parsing bug but is not. Enable long paths once, in an elevated PowerShell, then
+> restart your shell:
+>
+> ```powershell
+> New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
+>   -Name LongPathsEnabled -Value 1 -PropertyType DWORD -Force
+> ```
+>
+> If you cannot elevate, `uv run pytest -m integration --basetemp=C:\t` works
+> around it by shortening the temp path. Linux and macOS are unaffected, as is CI
+> (the integration job runs on `ubuntu-latest`).
 
 **Trigger on a PR:**
 

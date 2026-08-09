@@ -232,7 +232,7 @@ class TestEventsCompute:
 
 
 class TestEventsNwbize:
-    """nwbize() writes the tall compute() frame into an ndx-events EventsTable."""
+    """nwbize() writes the tall compute() frame into a pynwb.event EventsTable."""
 
     def test_writes_events_table(self, monkeypatch):
         proc = _make_processor()

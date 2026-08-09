@@ -1,14 +1,16 @@
 ---
 type: Component
-title: Pipeline — version dispatch, fan-out, and parquet output
-description: pipeline.py selects the correct processor set for a dataset version, runs them, and writes provenance-stamped parquet files.
-resource: src/aind_behavior_vr_foraging_packaging/pipeline.py
+title: Session pipeline — version dispatch, fan-out, and parquet output
+description: session_pipeline.py selects the correct processor set for a dataset version, runs them over one session, and writes provenance-stamped parquet files.
+resource: src/aind_behavior_vr_foraging_packaging/session_pipeline.py
 tags: [architecture, pipeline, parquet, version-dispatch]
-timestamp: 2026-07-03T00:00:00Z
+timestamp: 2026-08-09T00:00:00Z
 ---
 
-`pipeline.py` is the thin orchestration layer. It answers two questions:
-*which* processors apply to a given dataset, and *how* to run them to parquet.
+`session_pipeline.py` is the thin orchestration layer for **one** session. It
+answers two questions: *which* processors apply to a given dataset, and *how* to
+run them to parquet. Running many sessions and combining their outputs is a
+separate layer — see [export-pipeline.md](export-pipeline.md).
 
 # Version dispatch
 
@@ -18,8 +20,8 @@ The single source of truth for legacy behavior is:
 _LEGACY_VERSION_CUTOFF = semver.Version(major=0, minor=6, patch=0)
 ```
 
-`create_processors(dataset, *, raise_on_error=False, sampling_rate_hz=250.0)`
-parses `dataset.version` and, if it is `< 0.6.0`, swaps in the legacy variants:
+`create_processors(dataset, *, session_path=None, raise_on_error=False)` parses
+`dataset.version` and, if it is `< 0.6.0`, swaps in the legacy variants:
 
 | Concern | Current (`>= 0.6.0`) | Legacy (`< 0.6.0`) |
 |---------|----------------------|--------------------|
@@ -28,7 +30,13 @@ parses `dataset.version` and, if it is `< 0.6.0`, swaps in the legacy variants:
 | Licks / Sniffing / Software events / Events | (shared — no legacy variant) | (same) |
 
 The returned list is **ordered**: site table first, then position/velocity,
-then licks, sniffing, software events, and events.
+licks, sniffing, software events, and events.
+
+Passing `session_path` prepends a `SessionMetadataProcessor` (`output_name`
+`session`), which emits the one-row-per-session table used for dataset-level
+filtering. It needs the session root explicitly because it reads the metadata
+jsons, not the Harp streams, so `create_processors` cannot derive it from
+`dataset` alone. Omit `session_path` and you get the six stream processors only.
 
 Two convenience getters return a single version-correct processor without
 building the whole list:
@@ -38,7 +46,7 @@ building the whole list:
 
 # Running to parquet
 
-`run_session(dataset, output_dir, *, raise_on_error=False, sampling_rate_hz=250.0)`:
+`run_session(dataset, output_dir, *, session_path=None, raise_on_error=False)`:
 
 1. Creates `output_dir` if absent.
 2. For each processor from `create_processors`, calls `compute()` and writes
@@ -46,7 +54,8 @@ building the whole list:
 3. Returns `dict[str, pd.DataFrame]` keyed by `output_name`.
 
 Output filenames come straight from each processor's `output_name`:
-`sites`, `position_velocity`, `licks`, `sniffing`, `software_events`, `events`.
+`sites`, `position_velocity`, `licks`, `sniffing`, `software_events`, `events`,
+plus `session` when `session_path` was given.
 
 # Provenance in parquet
 
@@ -61,7 +70,7 @@ file without pandas.
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-from aind_behavior_vr_foraging_packaging.pipeline import run_session
+from aind_behavior_vr_foraging_packaging.session_pipeline import run_session
 
 ds = dataset("/path/to/session")
 data = run_session(ds, "/path/to/out")  # writes 6 parquet files

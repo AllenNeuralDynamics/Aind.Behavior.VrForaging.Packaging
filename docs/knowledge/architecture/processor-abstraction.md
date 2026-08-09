@@ -4,7 +4,7 @@ title: AbstractProcessor — the processor contract
 description: The abstract base class every processor implements; defines compute()/_compute(), nwbize(), output_name, and provenance stamping.
 resource: src/aind_behavior_vr_foraging_packaging/_base.py
 tags: [architecture, processor, base-class, contract, provenance]
-timestamp: 2026-07-03T00:00:00Z
+timestamp: 2026-08-09T00:00:00Z
 ---
 
 Every unit of parsing logic is a subclass of `AbstractProcessor`
@@ -23,7 +23,8 @@ The contract a subclass must satisfy and may extend:
 | `nwbize(self, nwb_file) -> nwb_file` | concrete (no-op default) | Write this processor's data into an NWB file. Override where an NWB representation exists. |
 | `__output_name__: ClassVar[str \| None]` | class attr | Canonical parquet filename stem (e.g. `"sites"`). |
 | `output_name` | property | `__output_name__` if set, else snake_case of the class name. |
-| `dataset` / `dataset_version` / `parser_version` | properties | The loaded dataset and the two semver versions (see [versioning](data-contract-and-versioning.md)). |
+| `dataset` | property | The loaded contraqctor Dataset. |
+| `provenance` | `cached_property` | A `PackagingProvenance` carrying all three versions; cached so `compute()` and any version checks share one instance (see [versioning](data-contract-and-versioning.md)). |
 | `raise_on_error` / `with_raise_errors(...)` | error policy | When `True`, parsing anomalies raise; when `False` (default), they log and continue. |
 
 Construction is uniform: `Processor(dataset, *, raise_on_error=False)`.
@@ -34,16 +35,20 @@ Subclasses add their own keyword-only options (e.g. `sampling_rate_hz`,
 
 `compute()` is the reason `_compute()` exists separately. After computing, it
 sets (via `setdefault`, so a processor that already set a key wins) four keys
-in `df.attrs`:
+in `df.attrs` — the three fields of `self.provenance.model_dump()` plus one of
+its own:
 
 - `packaging_version` — version of this package.
 - `data_contract_version` — version of `aind-behavior-vr-foraging` (the schema).
 - `dataset_version` — the version recorded in the session's `tasklogic_input.json`.
 - `processor` — the processor's class name.
 
+Only the last is defined here; the other three come from `_provenance.py`, so
+adding a provenance field never means editing this class.
+
 `run_session` later promotes `df.attrs` to first-class parquet metadata, so
 provenance survives a round-trip to disk and is readable from DuckDB, Polars,
-R arrow, Spark, etc. See [pipeline.md](pipeline.md).
+R arrow, Spark, etc. See [session-pipeline.md](session-pipeline.md).
 
 # Examples
 
@@ -66,7 +71,7 @@ class RewardRateProcessor(AbstractProcessor):
         return nwb_file
 ```
 
-Then register it in [pipeline.create_processors](pipeline.md) and export it
+Then register it in [session_pipeline.create_processors](session-pipeline.md) and export it
 from `processing/__init__.py`.
 
 # Design notes
@@ -75,5 +80,5 @@ from `processing/__init__.py`.
   `nwbize()` may call `compute()` internally, but neither depends on the other
   having run.
 - Keeping one output per processor is what makes the fan-out in
-  [pipeline.md](pipeline.md) trivial and makes each output independently
+  [session-pipeline.md](session-pipeline.md) trivial and makes each output independently
   testable.

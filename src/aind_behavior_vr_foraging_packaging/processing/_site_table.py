@@ -362,12 +362,12 @@ class SiteTableProcessor(AbstractProcessor):
                 reward_available=np.nan
                 if site_patch_state_at_reward.empty
                 else site_patch_state_at_reward.iloc[0]["Available"],
-                has_reward=np.isnan(reward_onset_time) == False,
+                has_reward=not np.isnan(reward_onset_time),
                 has_forced_rewards=not site_force_reward.empty,
                 choice_cue_time=choice_time,
                 has_choice=not site_choice_feedback.empty,
                 reward_delay_duration=reward_onset_time - choice_time
-                if reward_onset_time is not np.nan and choice_time is not None  # noqa: PLW0177
+                if reward_onset_time is not np.nan and choice_time is not None
                 else np.nan,
                 has_waited_reward_delay=has_waited_reward_delay,
                 last_stop_time=None if np.isnan(site_stop_time) else site_stop_time,

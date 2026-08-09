@@ -1,8 +1,8 @@
 """Provenance metadata for a packaging run.
 
 :class:`PackagingProvenance` is the single source of truth for the version keys
-written to every output (parquet ``df.attrs`` and NWB ``notes``).  Adding a new
-metadata field means editing only this file.
+written to every output (parquet ``df.attrs`` and NWB ``was_generated_by``).
+Adding a new metadata field means editing only this file.
 """
 
 import importlib.metadata
