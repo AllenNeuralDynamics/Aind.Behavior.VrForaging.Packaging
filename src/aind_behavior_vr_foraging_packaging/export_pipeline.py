@@ -65,6 +65,7 @@ DEFAULT_AGGREGATOR = Aggregator(
     ]
 )
 
+
 # ---------------------------------------------------------------------------
 # Phase 1
 # ---------------------------------------------------------------------------
@@ -88,12 +89,12 @@ def _process_one_session(
     session_id = raw_path.name
     session_out = sessions_dir / session_id
     session_out.mkdir(parents=True, exist_ok=True)
-    logger.info("=== Processing session: %s ===", session_id)
+    logger.info("[%s] Processing session", session_id)
 
     try:
         ds = load_dataset(raw_path)
     except Exception as exc:
-        logger.error("  Failed to load dataset %s: %s", session_id, exc)
+        logger.error("[%s] Failed to load dataset: %s", session_id, exc, exc_info=True)
         if raise_on_error:
             raise
         return None
@@ -110,23 +111,23 @@ def _process_one_session(
         # session_metadata is never filtered out
         if name != "session_metadata":
             if include_set and name not in include_set:
-                logger.debug("  skip %s (not in include list)", name)
+                logger.debug("[%s] skip %s (not in include list)", session_id, name)
                 continue
             if name in exclude_set:
-                logger.debug("  skip %s (excluded)", name)
+                logger.debug("[%s] skip %s (excluded)", session_id, name)
                 continue
 
         try:
             df = proc.compute()
             _write_parquet(df, session_out / f"{name}.parquet")
-            logger.info("  %s → %d rows", name, len(df))
+            logger.info("[%s] %s → %d rows", session_id, name, len(df))
             ran += 1
         except Exception as exc:
-            logger.warning("  %s FAILED: %s", name, exc)
+            logger.warning("[%s] %s FAILED: %s", session_id, name, exc, exc_info=True)
             if raise_on_error:
                 raise
 
-    logger.info("  session %s done (%d processors ran)", session_id, ran)
+    logger.info("[%s] done (%d processors ran)", session_id, ran)
     return session_out
 
 
