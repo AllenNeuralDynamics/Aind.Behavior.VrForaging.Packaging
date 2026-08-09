@@ -39,9 +39,7 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
 
     for session_path in written:
         assert (session_path / "sites.parquet").exists(), f"Missing sites.parquet in {session_path.name}"
-        assert (session_path / "session.parquet").exists(), (
-            f"Missing session.parquet in {session_path.name}"
-        )
+        assert (session_path / "session.parquet").exists(), f"Missing session.parquet in {session_path.name}"
 
     # ------------------------------------------------------------------ #
     # Phase 2
@@ -77,9 +75,7 @@ def test_skip_aggregation_writes_only_sessions(all_cached_session_paths: list[Pa
     process_sessions(all_cached_session_paths, output_dir, raise_on_error=False)
 
     assert (output_dir / "sessions").exists()
-    assert not (output_dir / "session.parquet").exists(), (
-        "session.parquet should not exist when aggregation is skipped"
-    )
+    assert not (output_dir / "session.parquet").exists(), "session.parquet should not exist when aggregation is skipped"
     assert not (output_dir / "sites.parquet").exists(), "sites.parquet should not exist when aggregation is skipped"
 
 

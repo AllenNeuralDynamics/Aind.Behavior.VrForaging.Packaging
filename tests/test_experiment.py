@@ -37,9 +37,9 @@ def _write_fake_session(sessions_dir: Path, session_id: str, subject_id: str) ->
     d = sessions_dir / session_id
     d.mkdir(parents=True)
 
-    pd.DataFrame(
-        [{"session_id": session_id, "subject_id": subject_id, "date": "2025-01-01"}]
-    ).to_parquet(d / "session.parquet", index=False)
+    pd.DataFrame([{"session_id": session_id, "subject_id": subject_id, "date": "2025-01-01"}]).to_parquet(
+        d / "session.parquet", index=False
+    )
 
     pd.DataFrame({"site": [1, 2, 3]}).to_parquet(d / "sites.parquet", index=False)
     pd.DataFrame({"t": range(5)}).to_parquet(d / "licks.parquet", index=False)
@@ -86,9 +86,9 @@ def test_aggregate_missing_table_is_skipped(tmp_path):
     # sess_B intentionally has no licks.parquet
     d = sessions_dir / "sess_B"
     d.mkdir(parents=True)
-    pd.DataFrame(
-        [{"session_id": "sess_B", "subject_id": "sub1", "date": "2025-01-02"}]
-    ).to_parquet(d / "session.parquet", index=False)
+    pd.DataFrame([{"session_id": "sess_B", "subject_id": "sub1", "date": "2025-01-02"}]).to_parquet(
+        d / "session.parquet", index=False
+    )
 
     agg = Aggregator(rules=[AggregationRule("licks")])
     aggregate(sessions_dir, tmp_path, agg)  # must not raise

@@ -46,8 +46,8 @@ def example_single_stream(session_path: Path, output_dir: Path) -> None:
     """Compute and save only the sniffing signal and trial table."""
     from aind_behavior_vr_foraging.data_contract import dataset
 
-    from aind_behavior_vr_foraging_packaging.session_pipeline import get_site_table_processor
     from aind_behavior_vr_foraging_packaging.processing import SniffingProcessor
+    from aind_behavior_vr_foraging_packaging.session_pipeline import get_site_table_processor
 
     ds = dataset(session_path)
     output_dir.mkdir(parents=True, exist_ok=True)

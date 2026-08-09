@@ -72,8 +72,7 @@ print(f"\nAnimal '{first_animal}' has {len(animal_session_ids)} session(s)")
 sites_path = EXPORT_DIR / "sites.parquet"
 if not sites_path.exists():
     raise SystemExit(
-        f"sites.parquet not found under {EXPORT_DIR}.\n"
-        "Re-run the export (aggregation phase) to generate it."
+        f"sites.parquet not found under {EXPORT_DIR}.\nRe-run the export (aggregation phase) to generate it."
     )
 
 all_sites = pd.read_parquet(sites_path)
@@ -113,7 +112,7 @@ try:
 except ImportError:
     print(
         "\nDuckDB not installed — skipping section 4.\n"
-        "Install with: pip install \"aind-behavior-vr-foraging-packaging[db]\""
+        'Install with: pip install "aind-behavior-vr-foraging-packaging[db]"'
     )
     raise SystemExit(0)
 
