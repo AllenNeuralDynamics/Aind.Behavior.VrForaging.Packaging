@@ -28,7 +28,7 @@ class SessionMetadataProcessor(AbstractProcessor):
     ``_process_one_session`` in :mod:`export_pipeline`).
     """
 
-    __output_name__ = "session_metadata"
+    __output_name__ = "session"
 
     def __init__(self, dataset, *, session_path: Path, raise_on_error: bool = False) -> None:
         super().__init__(dataset, raise_on_error=raise_on_error)

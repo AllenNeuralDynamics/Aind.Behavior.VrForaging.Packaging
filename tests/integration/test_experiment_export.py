@@ -39,8 +39,8 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
 
     for session_path in written:
         assert (session_path / "sites.parquet").exists(), f"Missing sites.parquet in {session_path.name}"
-        assert (session_path / "session_metadata.parquet").exists(), (
-            f"Missing session_metadata.parquet in {session_path.name}"
+        assert (session_path / "session.parquet").exists(), (
+            f"Missing session.parquet in {session_path.name}"
         )
 
     # ------------------------------------------------------------------ #
@@ -48,12 +48,12 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
     # ------------------------------------------------------------------ #
     aggregate(sessions_dir, output_dir, DEFAULT_AGGREGATOR)
 
-    # sessions.parquet: one row per session, required columns present
-    assert (output_dir / "sessions.parquet").exists()
-    sessions = pd.read_parquet(output_dir / "sessions.parquet")
-    assert len(sessions) == len(written), f"sessions.parquet has {len(sessions)} rows; expected {len(written)}"
+    # session.parquet: one row per session, required columns present
+    assert (output_dir / "session.parquet").exists()
+    sessions = pd.read_parquet(output_dir / "session.parquet")
+    assert len(sessions) == len(written), f"session.parquet has {len(sessions)} rows; expected {len(written)}"
     assert {"session_id", "subject_id", "date"}.issubset(set(sessions.columns)), (
-        f"Missing columns in sessions.parquet: {set(sessions.columns)}"
+        f"Missing columns in session.parquet: {set(sessions.columns)}"
     )
 
     # flat aggregate: sites.parquet is a single file with session_id column
@@ -77,8 +77,8 @@ def test_skip_aggregation_writes_only_sessions(all_cached_session_paths: list[Pa
     process_sessions(all_cached_session_paths, output_dir, raise_on_error=False)
 
     assert (output_dir / "sessions").exists()
-    assert not (output_dir / "sessions.parquet").exists(), (
-        "sessions.parquet should not exist when aggregation is skipped"
+    assert not (output_dir / "session.parquet").exists(), (
+        "session.parquet should not exist when aggregation is skipped"
     )
     assert not (output_dir / "sites.parquet").exists(), "sites.parquet should not exist when aggregation is skipped"
 
@@ -118,14 +118,14 @@ def test_rerun_aggregation_only(all_cached_session_paths: list[Path], tmp_path: 
 
     # Phase 2 — first run
     aggregate(sessions_dir, output_dir, DEFAULT_AGGREGATOR)
-    first_mtime = (output_dir / "sessions.parquet").stat().st_mtime
+    first_mtime = (output_dir / "session.parquet").stat().st_mtime
 
     # Phase 2 — second run (re-aggregate without re-processing)
     aggregate(sessions_dir, output_dir, DEFAULT_AGGREGATOR)
-    second_mtime = (output_dir / "sessions.parquet").stat().st_mtime
+    second_mtime = (output_dir / "session.parquet").stat().st_mtime
 
     # File was overwritten on the second run
     assert second_mtime >= first_mtime
 
-    sessions = pd.read_parquet(output_dir / "sessions.parquet")
+    sessions = pd.read_parquet(output_dir / "session.parquet")
     assert len(sessions) == len(all_cached_session_paths)

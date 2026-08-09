@@ -89,7 +89,7 @@ class SessionMetadata(BaseModel):
     """One-row model capturing session-level identity metadata.
 
     Used by :class:`~aind_behavior_vr_foraging_packaging.processing.SessionMetadataProcessor`
-    to type-check and document the ``session_metadata.parquet`` output.
+    to type-check and document the ``session.parquet`` output.
     """
 
     session_id: str = Field(description="Session folder name (AIND naming convention).")

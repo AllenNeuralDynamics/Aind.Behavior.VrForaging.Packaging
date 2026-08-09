@@ -56,7 +56,7 @@ def create_processors(
     -------
     list[AbstractProcessor]
         Processors in the order they must be applied. When *session_path* is
-        given, ``session_metadata`` is always first.
+        given, ``session`` is always first.
     """
     version = semver.Version.parse(str(dataset.version))
     is_legacy = version < _LEGACY_VERSION_CUTOFF
@@ -127,7 +127,7 @@ def run_session(
     output_dir:
         Directory where parquet files are written. Created if absent.
     session_path:
-        When provided, a ``session_metadata`` processor is prepended. Pass the
+        When provided, a ``session`` processor is prepended. Pass the
         session root directory (same value used to load *dataset*).
     raise_on_error:
         Passed to all processors.

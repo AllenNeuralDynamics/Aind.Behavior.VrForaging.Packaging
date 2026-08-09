@@ -39,7 +39,7 @@ def _write_fake_session(sessions_dir: Path, session_id: str, subject_id: str) ->
 
     pd.DataFrame(
         [{"session_id": session_id, "subject_id": subject_id, "date": "2025-01-01"}]
-    ).to_parquet(d / "session_metadata.parquet", index=False)
+    ).to_parquet(d / "session.parquet", index=False)
 
     pd.DataFrame({"site": [1, 2, 3]}).to_parquet(d / "sites.parquet", index=False)
     pd.DataFrame({"t": range(5)}).to_parquet(d / "licks.parquet", index=False)
@@ -50,15 +50,15 @@ def _write_fake_session(sessions_dir: Path, session_id: str, subject_id: str) ->
 # ---------------------------------------------------------------------------
 
 
-def test_aggregate_sessions_parquet(tmp_path):
-    """sessions.parquet is always created from session_metadata files."""
+def test_aggregate_session_parquet(tmp_path):
+    """session.parquet is always created from per-session session.parquet files."""
     sessions_dir = tmp_path / "sessions"
     _write_fake_session(sessions_dir, "sess_A", "sub1")
     _write_fake_session(sessions_dir, "sess_B", "sub1")
 
     aggregate(sessions_dir, tmp_path, DEFAULT_AGGREGATOR)
 
-    sessions = pd.read_parquet(tmp_path / "sessions.parquet")
+    sessions = pd.read_parquet(tmp_path / "session.parquet")
     assert len(sessions) == 2
     assert set(sessions.columns) >= {"session_id", "subject_id", "date"}
 
@@ -88,7 +88,7 @@ def test_aggregate_missing_table_is_skipped(tmp_path):
     d.mkdir(parents=True)
     pd.DataFrame(
         [{"session_id": "sess_B", "subject_id": "sub1", "date": "2025-01-02"}]
-    ).to_parquet(d / "session_metadata.parquet", index=False)
+    ).to_parquet(d / "session.parquet", index=False)
 
     agg = Aggregator(rules=[AggregationRule("licks")])
     aggregate(sessions_dir, tmp_path, agg)  # must not raise
@@ -104,7 +104,7 @@ def test_aggregate_empty_sessions_dir(tmp_path):
     sessions_dir.mkdir()
     agg = Aggregator(rules=[AggregationRule("sites")])
     aggregate(sessions_dir, tmp_path, agg)  # must not raise
-    assert not (tmp_path / "sessions.parquet").exists()
+    assert not (tmp_path / "session.parquet").exists()
 
 
 def test_aggregate_session_id_column_present(tmp_path):
