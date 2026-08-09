@@ -84,6 +84,7 @@ dependencies = [
 
 [package.optional-dependencies]
 db = [
+    { name = "boto3" },
     { name = "duckdb" },
 ]
 
@@ -102,6 +103,7 @@ requires-dist = [
     { name = "aind-data-access-api", specifier = ">=1.9.2" },
     { name = "aind-data-schema", specifier = ">2.7" },
     { name = "aind-nwb-utils" },
+    { name = "boto3", marker = "extra == 'db'", specifier = ">=1.26" },
     { name = "duckdb", marker = "extra == 'db'", specifier = ">=1.0" },
     { name = "hdmf-zarr" },
     { name = "ndx-events" },
