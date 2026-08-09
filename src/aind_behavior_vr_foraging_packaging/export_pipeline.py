@@ -5,6 +5,7 @@ Phase 2 — :func:`aggregate`: read per-session parquets → hive-partitioned da
 """
 
 import logging
+import shutil
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -133,6 +134,7 @@ def process_sessions(
     exclude_processors: Sequence[str] = (),
     raise_on_error: bool = False,
     max_workers: int = 1,
+    clean: bool = True,
 ) -> list[Path]:
     """Run all processors on every session directory and write per-session parquets.
 
@@ -155,6 +157,11 @@ def process_sessions(
         Number of parallel threads. ``1`` (default) runs sessions sequentially.
         Values ``> 1`` process up to *max_workers* sessions concurrently via
         :class:`~concurrent.futures.ThreadPoolExecutor`.
+    clean:
+        When ``True`` (default), delete *output_dir* entirely before writing
+        anything.  This guarantees that a re-run never mixes outputs from two
+        different invocations.  Set to ``False`` only when you intentionally
+        want to resume a partial run.
 
     Returns
     -------
@@ -162,7 +169,13 @@ def process_sessions(
         Paths to the written session directories (``output_dir/sessions/{session_id}``).
     """
     paths = [Path(p) for p in dataset_paths]
+    output_dir = Path(output_dir)
     sessions_dir = output_dir / "sessions"
+
+    if clean and output_dir.exists():
+        shutil.rmtree(output_dir)
+        logger.info("Cleared output directory for clean run: %s", output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
     include_set = frozenset(include_processors)
     exclude_set = frozenset(exclude_processors)
 
