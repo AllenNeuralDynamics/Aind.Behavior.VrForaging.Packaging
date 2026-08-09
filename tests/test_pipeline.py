@@ -21,13 +21,13 @@ def _make_mock_proc(name: str) -> MagicMock:
 
 def test_run_session_saves_parquet_per_processor(tmp_path):
     """run_session() saves one parquet per processor using proc.effective_output_name."""
-    from aind_behavior_vr_foraging_packaging.pipeline import run_session
+    from aind_behavior_vr_foraging_packaging.session_pipeline import run_session
 
     mock_dataset = MagicMock()
     mock_dataset.version = "0.6.1"
 
     with patch(
-        "aind_behavior_vr_foraging_packaging.pipeline.create_processors", return_value=[_make_mock_proc("trials")]
+        "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors", return_value=[_make_mock_proc("trials")]
     ):
         data = run_session(mock_dataset, tmp_path)
 
@@ -36,14 +36,14 @@ def test_run_session_saves_parquet_per_processor(tmp_path):
 
 
 def test_run_session_returns_all_dataframes(tmp_path):
-    from aind_behavior_vr_foraging_packaging.pipeline import run_session
+    from aind_behavior_vr_foraging_packaging.session_pipeline import run_session
 
     mock_dataset = MagicMock()
     mock_dataset.version = "0.6.1"
 
     procs = [_make_mock_proc("trials"), _make_mock_proc("position_velocity")]
 
-    with patch("aind_behavior_vr_foraging_packaging.pipeline.create_processors", return_value=procs):
+    with patch("aind_behavior_vr_foraging_packaging.session_pipeline.create_processors", return_value=procs):
         data = run_session(mock_dataset, tmp_path)
 
     assert set(data.keys()) == {"trials", "position_velocity"}
@@ -54,13 +54,13 @@ def test_parquet_metadata_written_to_schema(tmp_path):
     """run_session() embeds provenance in parquet schema metadata (not just pandas attrs)."""
     import pyarrow.parquet as pq
 
-    from aind_behavior_vr_foraging_packaging.pipeline import run_session
+    from aind_behavior_vr_foraging_packaging.session_pipeline import run_session
 
     mock_dataset = MagicMock()
     mock_dataset.version = "0.6.1"
 
     with patch(
-        "aind_behavior_vr_foraging_packaging.pipeline.create_processors", return_value=[_make_mock_proc("trials")]
+        "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors", return_value=[_make_mock_proc("trials")]
     ):
         run_session(mock_dataset, tmp_path)
 

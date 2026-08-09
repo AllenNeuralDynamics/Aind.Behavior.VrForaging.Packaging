@@ -1,6 +1,7 @@
 import abc
 import re
 import typing as ty
+from functools import cached_property
 
 import pandas as pd
 from contraqctor.contract import Dataset
@@ -33,6 +34,18 @@ class AbstractProcessor(abc.ABC):
     def dataset(self) -> Dataset:
         return self._dataset
 
+    @cached_property
+    def provenance(self) -> "PackagingProvenance":
+        """Provenance snapshot for this processor's dataset.
+
+        Cached so that :meth:`compute` and version-check code in subclasses
+        share a single :class:`~aind_behavior_vr_foraging_packaging._provenance.PackagingProvenance`
+        instance rather than rebuilding it on every call.
+        """
+        from ._provenance import PackagingProvenance
+
+        return PackagingProvenance.build(self._dataset)
+
     @abc.abstractmethod
     def _compute(self) -> pd.DataFrame:
         """Compute this processor's output as a DataFrame.
@@ -46,16 +59,14 @@ class AbstractProcessor(abc.ABC):
         """Return the processor's output DataFrame with provenance metadata in attrs.
 
         Calls :meth:`_compute`, then stamps ``df.attrs`` with the session-level
-        provenance keys from :func:`~aind_behavior_vr_foraging_packaging._provenance.packaging_provenance`
+        provenance keys from :class:`~aind_behavior_vr_foraging_packaging._provenance.PackagingProvenance`
         plus a processor-specific ``processor`` key (this class's name).
 
         Attrs already set by ``_compute`` (e.g. ``sampling_rate_hz`` from
         :class:`SniffingProcessor`) are preserved via ``setdefault``.
         """
-        from ._provenance import PackagingProvenance
-
         df = self._compute()
-        for k, v in PackagingProvenance.build(self._dataset).model_dump().items():
+        for k, v in self.provenance.model_dump().items():
             df.attrs.setdefault(k, v)
         df.attrs.setdefault("processor", type(self).__name__)
         return df

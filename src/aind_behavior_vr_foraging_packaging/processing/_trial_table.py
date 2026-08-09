@@ -33,9 +33,11 @@ class TrialTableProcessor(AbstractProcessor):
     def __init__(self, dataset: contraqctor.contract.Dataset, *, raise_on_error: bool = False) -> None:
         super().__init__(dataset, raise_on_error=raise_on_error)
 
-        if self.dataset_version != self.parser_version:
+        if self.provenance.dataset_semver != self.provenance.data_contract_semver:
             logger.warning(
-                "Dataset version %s does not match parser version %s", self.dataset_version, self.parser_version
+                "Dataset version %s does not match parser version %s",
+                self.provenance.dataset_semver,
+                self.provenance.data_contract_semver,
             )
         self.rig_configuration = self._ensure_json_not_pydantic(
             self.dataset["Behavior"]["InputSchemas"]["Rig"].load().data
@@ -69,7 +71,7 @@ class TrialTableProcessor(AbstractProcessor):
         return patches_state
 
     def _parse_patch_state_at_reward(self, dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
-        if self.dataset_version < semver.Version(major=0, minor=6, patch=0):
+        if self.provenance.dataset_semver < semver.Version(major=0, minor=6, patch=0):
             raise DatasetProcessorError("PatchStateAtReward is only available in dataset version 0.6.0 and above")
         # TODO this is likely something we want to overload for 0.5.x to work.
         patches_state_at_reward = dataset.at("Behavior").at("SoftwareEvents").at("PatchStateAtReward").load().data
