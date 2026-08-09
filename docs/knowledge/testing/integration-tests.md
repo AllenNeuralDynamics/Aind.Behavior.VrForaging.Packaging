@@ -1,10 +1,10 @@
 ---
 type: Test Suite
 title: Integration tests — end-to-end parsing against real S3 datasets
-description: Marker-gated pytest suite that downloads real sessions from public S3, parses them, and asserts scalar invariants declared in a validated YAML manifest.
+description: Marker-gated pytest suite that downloads real sessions from public S3, runs the parquet/NWB/export pipelines end-to-end, and asserts scalar invariants declared in a validated YAML manifest.
 resource: tests/integration/
-tags: [testing, integration, s3, manifest, pydantic, caching]
-timestamp: 2026-07-03T00:00:00Z
+tags: [testing, integration, s3, manifest, pydantic, caching, nwb, export]
+timestamp: 2026-08-09T00:00:00Z
 ---
 
 The integration tier (`tests/integration/`) runs the parser end-to-end against
@@ -18,19 +18,47 @@ suite is unaffected.
 |------|------|
 | `datasets.yml` | The **manifest**: one entry per dataset (see [schema](#schema)). |
 | `model.py` | Pydantic models (`DatasetManifest`, `DatasetEntry`, `ExpectedInvariants`) with `extra="forbid"` so typos in the YAML fail loudly. |
-| `conftest.py` | S3 download + ETag caching. |
-| `test_datasets.py` | One parametrized test per manifest entry; parses and asserts invariants. |
+| `conftest.py` | S3 download + ETag caching; the `all_cached_session_paths` fixture that hands the whole cache to the export test. |
+| `test_datasets.py` | Two parametrized tests per manifest entry: site table, and the full parquet + NWB pipeline. |
+| `test_experiment_export.py` | `test_full_export_pipeline` — runs Phase 1 then Phase 2 of the [export pipeline](../architecture/export-pipeline.md) across *all* cached sessions at once and asserts the output tree. Skips when the cache is empty. |
 
-# The test
+# The tests
 
-`test_sites_table` is parametrized over `_manifest.datasets` (test id =
-entry `id`). For each dataset it: resolves the cached path, reads
-`tasklogic_input.json` to pick the loader version (normalizing `< 0.4.0`
-sessions to `0.4.0`), builds the version-correct processor via
-`get_site_table_processor`, computes the sites DataFrame, and asserts the
-declared invariants. `entry.xfail` marks known-broken datasets
+Both tests in `test_datasets.py` are parametrized over `_manifest.datasets`
+(test id = entry `id`). `entry.xfail` marks known-broken datasets
 `pytest.xfail(strict=True)` — an unexpected pass forces removal of the marker.
 Every failure message includes the entry's `rationale` to speed triage.
+
+`test_sites_table` resolves the cached path, builds the version-correct
+processor via `get_site_table_processor`, computes the sites DataFrame, and
+asserts the declared invariants.
+
+`test_full_pipeline` runs both output targets over **one** loaded dataset, so
+the expensive site-table computation is not paid for twice. It calls
+`run_session` for parquet, then `NwbSession.run(*create_processors(ds))` for
+NWB, and checks:
+
+- Identity fields (`session_id`, `identifier`, timezone-aware
+  `session_start_time`, `subject.subject_id`) are populated. These come from the
+  session's real metadata jsons via `create_base_nwb_file`, which is why this
+  tier — not the synthetic unit fixtures — is what catches an upstream metadata
+  key rename.
+- `nwb.trials` has the same row count as the parquet `sites` table, and
+  satisfies the same manifest invariants. The two are computed independently
+  (`nwbize` calls `compute()` itself), so agreement is the signal that the
+  outputs have not drifted apart.
+- After `write_nwb_zarr` and a re-read, the invariants still hold and
+  `was_generated_by` still contains every key `NwbSession.provenance` recorded.
+  The check is a **superset** (`>=`), because `create_base_nwb_file` adds its own
+  entry that is not ours to assert on. Re-reading from disk matters here:
+  `was_generated_by` is write-once, so a missing entry cannot be corrected after
+  the fact (see [nwb-packaging.md](../architecture/nwb-packaging.md)).
+- Optionally `pynwb.validate`, when the entry sets `expected.nwb_validates: true`.
+
+It deliberately uses `run_session`'s default `raise_on_error=False`: some
+sessions legitimately lack optional SoftwareEvents streams (e.g.
+`ForceGiveReward`, `PatchRewardAmount`), and an absent optional stream should
+not fail a smoke test.
 
 # Caching (why re-runs are cheap)
 

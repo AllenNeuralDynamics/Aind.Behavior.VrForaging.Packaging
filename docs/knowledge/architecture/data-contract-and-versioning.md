@@ -2,9 +2,9 @@
 type: Reference
 title: Data contract, Harp streams, and the three versions
 description: How the library reads sessions via contraqctor/aind-behavior-vr-foraging, the three semver versions it tracks and dispatches on, and where each lands in the parquet and NWB outputs.
-resource: src/aind_behavior_vr_foraging_packaging/_base.py
+resource: src/aind_behavior_vr_foraging_packaging/_provenance.py
 tags: [architecture, data-contract, contraqctor, harp, semver, versioning, provenance]
-timestamp: 2026-08-07T00:00:00Z
+timestamp: 2026-08-09T00:00:00Z
 ---
 
 Processors never touch raw files directly. They read through a **data
@@ -37,32 +37,43 @@ filter on it. Software-event payloads live in a `data` column (dicts, often
 
 # The three versions
 
-Tracked on [`AbstractProcessor`](processor-abstraction.md) and used for
-dispatch and provenance:
+`_provenance.py` defines all three in one frozen pydantic model,
+`PackagingProvenance`, and that model is the **only** place the key names are
+written down. Add or rename a provenance field by editing that file and nothing
+else.
 
-| Name | Property / source | What it means |
-|------|-------------------|---------------|
-| **Packaging version** | `aind_behavior_vr_foraging_packaging.__version__` / `__semver__` | This library's version. |
-| **Parser / data-contract version** | `parser_version` ← `aind_behavior_vr_foraging.__semver__` | Version of the schema library used to interpret the session. |
-| **Dataset version** | `dataset_version` ← the session's `tasklogic_input.json` | The schema version the data was actually recorded with. |
+| Field | Source | What it means |
+|-------|--------|---------------|
+| `packaging_version` | `importlib.metadata.version("aind-behavior-vr-foraging-packaging")` | This library's version. |
+| `data_contract_version` | `aind_behavior_vr_foraging.__semver__` | Version of the schema library used to interpret the session. |
+| `dataset_version` | the session's `tasklogic_input.json`, via `dataset.version` | The schema version the data was actually recorded with. |
 
-A mismatch between `dataset_version` and `parser_version` is logged as a
-warning (`SiteTableProcessor.__init__`), not an error.
+`PackagingProvenance.build(dataset)` constructs one; the two `*_semver`
+properties (`dataset_semver`, `data_contract_semver`) parse the strings for
+comparison. Both consumers reach it the same way:
+
+- `AbstractProcessor.provenance` — a `cached_property`, so a processor's
+  `compute()` and its version checks share one instance.
+- `NwbSession.provenance` — `PackagingProvenance.build(dataset).model_dump()`.
+
+Version dispatch reads through it too: `SiteTableProcessor.__init__` warns (does
+not raise) when `dataset_semver != data_contract_semver`, and
+`_LEGACY_VERSION_CUTOFF` is compared against `dataset_semver` — see
+[session-pipeline.md](session-pipeline.md).
 
 ## Where the versions land in the outputs
 
-Both outputs of a session carry the same three keys under the same names, so a
-consumer can compare them and the integration suite can assert they agree:
+Both outputs of a session carry the same three keys under the same names —
+guaranteed, because both serialize the same model — so a consumer can compare
+them and the integration suite can assert they agree:
 
 | Output | Location | Written by |
 |--------|----------|------------|
-| Parquet | `df.attrs`, plus the same keys as top-level parquet schema metadata (readable from DuckDB, Polars, R arrow — no pandas needed) | `AbstractProcessor.compute` stamps the attrs; `pipeline._write_parquet` promotes them |
+| Parquet | `df.attrs`, plus the same keys as top-level parquet schema metadata (readable from DuckDB, Polars, R arrow — no pandas needed) | `AbstractProcessor.compute` stamps the attrs; `session_pipeline._write_parquet` promotes them |
 | NWB | `nwb.was_generated_by`, appended to the entry `create_base_nwb_file` already wrote | `NwbSession._create_nwb_file` |
 
-Keys are `packaging_version`, `data_contract_version`, and `dataset_version`
-(parquet additionally carries `processor`). Note the name split that exists on
-both sides: the *property* is `parser_version`, the *key* is
-`data_contract_version`.
+Parquet additionally carries a `processor` key naming the class that produced
+the table.
 
 Reading them back from nwb:
 
@@ -72,6 +83,13 @@ dict(nwb.was_generated_by[:])   # includes aind-nwb-utils' own entry alongside o
 
 Why they live in `was_generated_by`, and the write-once constraint that comes
 with it, is covered in [nwb-packaging.md](nwb-packaging.md).
+
+One gap to know about: these keys are **per-session**, and
+[Phase 2 aggregation](export-pipeline.md) does not carry them onto the flat
+experiment-level tables — nor does the aggregated `session.parquet`, whose
+model has no version columns. A multi-session export is currently not
+self-describing; that section documents exactly where provenance is and is not
+retained.
 
 ## PEP 440 → SemVer
 

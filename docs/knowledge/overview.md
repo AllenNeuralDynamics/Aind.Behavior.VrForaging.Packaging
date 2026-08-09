@@ -3,8 +3,8 @@ type: System Overview
 title: aind-behavior-vr-foraging-packaging — Overview
 description: A parser/packager that turns raw AIND VR-foraging behavioral sessions into tabular (parquet) and NWB outputs.
 resource: https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging
-tags: [overview, architecture, vr-foraging, nwb, parquet]
-timestamp: 2026-07-03T00:00:00Z
+tags: [overview, architecture, vr-foraging, nwb, parquet, export]
+timestamp: 2026-08-09T00:00:00Z
 ---
 
 `aind-behavior-vr-foraging-packaging` reads a raw VR-foraging **session**
@@ -39,12 +39,17 @@ contraqctor Dataset  ◄── aind_behavior_vr_foraging.data_contract.dataset(p
 
 Two output targets share the same processors:
 
-- **Parquet** — [pipeline.run_session](architecture/pipeline.md) calls
-  `compute()` on each processor and writes a parquet per processor, stamping
-  provenance metadata into the parquet schema.
+- **Parquet** — [session_pipeline.run_session](architecture/session-pipeline.md)
+  calls `compute()` on each processor and writes a parquet per processor,
+  stamping provenance metadata into the parquet schema.
 - **NWB** — [NwbSession](architecture/nwb-packaging.md) builds a base `NWBFile`
   via `aind_nwb_utils.utils.create_base_nwb_file`, then calls each processor's
   `nwbize()` to populate it.
+
+Above the single session sits the
+[export pipeline](architecture/export-pipeline.md): the `aind-vr-export` CLI
+runs the parquet path over a folder of sessions, then concatenates the chosen
+tables into flat experiment-level files joinable on `session_id`.
 
 # Core vocabulary
 

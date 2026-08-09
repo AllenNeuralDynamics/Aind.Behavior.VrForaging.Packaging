@@ -1,10 +1,10 @@
 ---
 type: Convention
 title: Tooling and code style
-description: The uv-managed toolchain (ruff, ty, codespell, pytest) and the style rules enforced in CI.
+description: The uv-managed toolchain (ruff, ty, codespell, pytest), the runtime/dev/optional dependency split, and the style rules enforced in CI.
 resource: pyproject.toml
-tags: [conventions, uv, ruff, ty, codespell, pytest, style]
-timestamp: 2026-07-03T00:00:00Z
+tags: [conventions, uv, ruff, ty, codespell, pytest, style, dependencies]
+timestamp: 2026-08-09T00:00:00Z
 ---
 
 # Package management: uv
@@ -20,10 +20,18 @@ uv version <x.y.z>      # set the project version (used by release)
 ```
 
 Dev dependencies live in the `dev` dependency group (default group): `ruff`,
-`pytest`, `pytest-cov`, `codespell`, `ty`, `pyarrow`. Runtime deps are pinned
-in `[project.dependencies]` (notably `aind-behavior-vr-foraging[data] >= 1`,
-`aind-nwb-utils`, `pynwb`, `hdmf-zarr`, `pandas`, `numpy>=2`,
-`scipy`, `semver`).
+`pytest`, `pytest-cov`, `codespell`, `ty`, and the project's own `[db]` extra
+(`aind-behavior-vr-foraging-packaging[db]`) so the DuckDB-backed export
+examples are runnable in the dev environment.
+
+Runtime deps are pinned in `[project.dependencies]` (notably
+`aind-behavior-vr-foraging[data] >= 1.2.1`, `aind-nwb-utils`, `pynwb>=4.1`,
+`hdmf-zarr`, `pandas`, `pyarrow`, `numpy>=2`, `scipy`, `pydantic`,
+`pydantic-settings`). `[project.optional-dependencies]` defines one extra,
+`db` (`duckdb`, `boto3`), needed only to *query* an export — not to produce one.
+
+`pynwb>=4.1` is a hard floor, not a preference: `EventsTable` was merged into
+core pynwb at that version, replacing the former `ndx-events` extension.
 
 # Linting & formatting: ruff
 
@@ -41,12 +49,14 @@ to fix formatting before committing.
 
 CI runs `uv run ty check` (Astral's type checker). Keep annotations accurate;
 new public functions should be fully typed. Python target is 3.11+ (CI matrix:
-3.11, 3.12, 3.13 on Ubuntu, Windows, macOS).
+3.11, 3.12, 3.13 on Ubuntu, Windows, macOS). `[tool.ty.src]` excludes
+`examples/**` and `scripts/**` — those are illustrative snippets, so keep
+type-checked code out of them.
 
 # Spelling: codespell
 
 `uv run codespell --check-filenames`. Config skips `.git`, `*.pdf`, `*.svg`,
-`uv.lock`; `ignore-words-list = "nd"`.
+`uv.lock`; `ignore-words-list = "nd,setuptools"`.
 
 # Tests: pytest
 

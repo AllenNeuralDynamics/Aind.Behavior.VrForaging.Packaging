@@ -1,22 +1,22 @@
 ---
 type: Component
 title: NwbSession — building and writing the NWB file
-description: NwbSession builds a base NWBFile via aind-nwb-utils, stamps provenance into lab_meta_data, drives each processor's nwbize(), then writes NWB-Zarr.
+description: NwbSession builds a base NWBFile via aind-nwb-utils, stamps provenance into was_generated_by, drives each processor's nwbize(), then writes NWB-Zarr.
 resource: src/aind_behavior_vr_foraging_packaging/nwb_file/__init__.py
 tags: [architecture, nwb, zarr, metadata, provenance]
-timestamp: 2026-08-07T00:00:00Z
+timestamp: 2026-08-09T00:00:00Z
 ---
 
 `NwbSession` (`nwb_file/__init__.py`) is the NWB counterpart to
-[`run_session`](pipeline.md). Where the pipeline writes parquet, `NwbSession`
-builds a single `NWBFile` and lets each processor contribute.
+[`run_session`](session-pipeline.md). Where the session pipeline writes parquet,
+`NwbSession` builds a single `NWBFile` and lets each processor contribute.
 
 # Lifecycle
 
 ```python
 from pathlib import Path
 from aind_behavior_vr_foraging_packaging.nwb_file import NwbSession
-from aind_behavior_vr_foraging_packaging.pipeline import create_processors
+from aind_behavior_vr_foraging_packaging.session_pipeline import create_processors
 
 session = NwbSession(Path("/path/to/session"))
 nwb = session.run(*create_processors(session.dataset))  # process() + nwbize() loop
@@ -60,10 +60,11 @@ dict(nwb.was_generated_by[:])
 #  'dataset_version': '0.6.1'}
 ```
 
-The keys are the ones `AbstractProcessor.compute` stamps into `df.attrs`, so the
-parquet and NWB outputs of a session can be compared directly (see
-[data-contract-and-versioning.md](data-contract-and-versioning.md)).
-`NwbSession.provenance` returns that dict, and is what the tests assert against.
+`NwbSession.provenance` is just `PackagingProvenance.build(dataset).model_dump()`
+— the same object `AbstractProcessor.compute` stamps into `df.attrs`, so the key
+names cannot drift between the parquet and NWB outputs of a session and the two
+can be compared directly. `_provenance.py` is the only place those names are
+defined; see [data-contract-and-versioning.md](data-contract-and-versioning.md).
 
 The field is nominally software name/version pairs — `aind-nwb-utils`'s entry
 uses that convention — but nothing constrains the first element, so

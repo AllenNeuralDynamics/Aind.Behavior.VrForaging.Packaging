@@ -35,7 +35,7 @@ raw session dir
   `dataset_version`, `processor`) into the DataFrame's `attrs`.
 - **DataFrame** — the common in-memory representation. One row per unit of the
   output (e.g. one site-table row = one *site*).
-- **Parquet** — `pipeline.run_session()` calls `compute()` on each processor and
+- **Parquet** — `session_pipeline.run_session()` calls `compute()` on each processor and
   writes a parquet per processor, promoting `df.attrs` to first-class parquet
   metadata (readable from DuckDB, Polars, R arrow, Spark, …).
 - **NWB** — `NwbSession` builds a single `NWBFile` from AIND metadata,
