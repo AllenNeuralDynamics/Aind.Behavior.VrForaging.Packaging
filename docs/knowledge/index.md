@@ -12,7 +12,7 @@ relevant. Every concept file carries YAML frontmatter (`type`, `title`,
 ## Contents
 
 - [overview.md](overview.md) — What this library is, the end-to-end dataflow, and the vocabulary (sites/patches/blocks).
-- [architecture/](architecture/index.md) — How the code is structured: the processor abstraction, pipeline, trial table, streams, NWB packaging, and versioning.
+- [architecture/](architecture/index.md) — How the code is structured: the processor abstraction, pipeline, site table, streams, NWB packaging, and versioning.
 - [testing/](testing/index.md) — The two-tier test harness: fast unit tests and S3-backed integration tests.
 - [conventions/](conventions/index.md) — Tooling, code style, CI/CD, and release mechanics that every contribution must respect.
 

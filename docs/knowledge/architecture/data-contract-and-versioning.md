@@ -47,7 +47,7 @@ dispatch and provenance:
 | **Dataset version** | `dataset_version` ← the session's `tasklogic_input.json` | The schema version the data was actually recorded with. |
 
 A mismatch between `dataset_version` and `parser_version` is logged as a
-warning (`TrialTableProcessor.__init__`), not an error.
+warning (`SiteTableProcessor.__init__`), not an error.
 
 ## PEP 440 → SemVer
 

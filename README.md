@@ -21,7 +21,7 @@ raw session dir
       │
       ▼
   create_processors(dataset)          # picks processor variants by dataset version
-      │   [TrialTable, PositionAndVelocity, Licks, Sniffing, SoftwareEvents, Events]
+      │   [SiteTable, PositionAndVelocity, Licks, Sniffing, SoftwareEvents, Events]
       │
       ├─► proc.compute()  ──► pandas DataFrame  ──► one <name>.parquet   (run_session)
       │                        (provenance stamped into df.attrs / parquet schema)
@@ -34,7 +34,7 @@ raw session dir
   stamps provenance (`packaging_version`, `data_contract_version`,
   `dataset_version`, `processor`) into the DataFrame's `attrs`.
 - **DataFrame** — the common in-memory representation. One row per unit of the
-  output (e.g. one trial-table row = one *site*).
+  output (e.g. one site-table row = one *site*).
 - **Parquet** — `pipeline.run_session()` calls `compute()` on each processor and
   writes a parquet per processor, promoting `df.attrs` to first-class parquet
   metadata (readable from DuckDB, Polars, R arrow, Spark, …).
@@ -51,7 +51,7 @@ legacy processor variants.
 - The NWB workflow: [docs/knowledge/architecture/nwb-packaging.md](docs/knowledge/architecture/nwb-packaging.md)
 - Full architecture docs: [docs/knowledge/](docs/knowledge/) (start at [overview.md](docs/knowledge/overview.md))
 
-### Get a trials table
+### Get a sites table
 
 Install straight from GitHub with [uv](https://docs.astral.sh/uv/):
 
@@ -63,23 +63,88 @@ uv add "git+https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Pack
 uv pip install "git+https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging.git"
 ```
 
-Then load a session and compute the trials table (one row per *site*):
+Then load a session and compute the sites table (one row per *site*):
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-from aind_behavior_vr_foraging_packaging.pipeline import get_trial_table_processor
+from aind_behavior_vr_foraging_packaging.session_pipeline import get_site_table_processor
 
-ds = dataset("path/to/session")           # load the raw session
-trials_df = get_trial_table_processor(ds).compute()
+ds = dataset("path/to/session")  # load the raw session
+sites_df = get_site_table_processor(ds).compute()
 
-trials_df.to_parquet("trials.parquet")    # optional: persist to disk
-print(f"{len(trials_df)} sites, {trials_df['has_reward'].sum()} rewarded")
+sites_df.to_parquet("sites.parquet")  # optional: persist to disk
+print(f"{len(sites_df)} sites, {sites_df['has_reward'].sum()} rewarded")
 ```
 
-`get_trial_table_processor` automatically picks the current or legacy variant
+`get_site_table_processor` automatically picks the current or legacy variant
 based on the dataset's schema version. To produce every table at once, use
-`run_session(ds, "output_dir")` instead — it writes `trials.parquet`,
+`run_session(ds, "output_dir")` instead — it writes `sites.parquet`,
 `position_velocity.parquet`, and the rest, and returns them keyed by name.
+
+## Exporting a dataset collection
+
+Install the CLI with [uvx](https://docs.astral.sh/uv/guides/tools/):
+
+```bash
+uvx install "git+https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging.git"
+```
+
+Then run the export pipeline across a folder of raw session directories
+(`--input-dir` must contain one subdirectory per session):
+
+```bash
+uvx run aind-vr-export --input-dir /data/raw --output-dir /data/export
+```
+
+`--output-dir` receives the results:
+
+```text
+/data/export/
+├── session.parquet          # session catalogue (one row per session)
+├── sites.parquet            # aggregated sites table (all sessions)
+└── sessions/
+    └── <session_id>/
+        ├── sites.parquet
+        ├── position_velocity.parquet
+        └── ...
+```
+
+### Common flags
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--workers N` | `1` | Parallel threads for Phase 1 (per-session processing) |
+| `--exclude-processors a b` | *(none)* | Skip named processors, e.g. `sniffing software_events` |
+| `--include-processors a b` | *(all)* | Run only the listed processors |
+| `--dataset-tables a b` | `sites` | Tables to flatten across sessions in Phase 2 |
+| `--skip-processing` | `false` | Jump straight to Phase 2 (sessions/ already written) |
+| `--skip-aggregation` | `false` | Write only per-session parquets |
+| `--log-file path` | *(none)* | Append a structured log to this path |
+| `--raise-on-error` | `false` | Abort on the first failure instead of logging and continuing |
+
+### Example: fast parallel run, skip sniffing
+
+```bash
+uvx run aind-vr-export \
+    --input-dir /data/raw \
+    --output-dir /data/export \
+    --workers 8 \
+    --exclude-processors sniffing software_events \
+    --log-file /data/export/run.log
+```
+
+### Example: re-aggregate only
+
+Per-session parquets already written in `sessions/`:
+
+```bash
+uvx run aind-vr-export \
+    --input-dir /data/raw \
+    --output-dir /data/export \
+    --skip-processing
+```
+
+See `uvx run aind-vr-export --help` for the full flag reference.
 
 ## Contributors
 

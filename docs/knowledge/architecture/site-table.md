@@ -1,13 +1,13 @@
 ---
 type: Component
-title: TrialTableProcessor and the Site model
-description: The core processor that reconstructs one row per site (trial) by aligning software events, hardware events, and continuous streams on the harp timeline.
-resource: src/aind_behavior_vr_foraging_packaging/processing/_trial_table.py
-tags: [architecture, processor, trial-table, site, alignment]
+title: SiteTableProcessor and the Site model
+description: The core processor that reconstructs one row per site by aligning software events, hardware events, and continuous streams on the harp timeline.
+resource: src/aind_behavior_vr_foraging_packaging/processing/_site_table.py
+tags: [architecture, processor, site-table, site, alignment]
 timestamp: 2026-07-03T00:00:00Z
 ---
 
-`TrialTableProcessor` (`processing/_trial_table.py`, `output_name = "trials"`)
+`SiteTableProcessor` (`processing/_site_table.py`, `output_name = "sites"`)
 is the most complex processor and produces the primary scientific output: a
 table with **one row per site**. Each row is validated through the
 [`Site`](#schema) pydantic model in `models.py`.
@@ -92,10 +92,10 @@ See [overview.md](../overview.md#core-vocabulary) for site/patch/block.
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-from aind_behavior_vr_foraging_packaging.processing import TrialTableProcessor
+from aind_behavior_vr_foraging_packaging.processing import SiteTableProcessor
 import pandas as pd
 
 ds = dataset("session_path")
-sites = TrialTableProcessor(ds).process_to_sites()   # list[Site]
+sites = SiteTableProcessor(ds).process_to_sites()  # list[Site]
 df = pd.DataFrame([s.model_dump() for s in sites])
 ```

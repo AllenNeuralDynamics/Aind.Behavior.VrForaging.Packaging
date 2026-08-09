@@ -8,6 +8,7 @@ metadata field means editing only this file.
 import importlib.metadata
 
 import aind_behavior_vr_foraging
+import semver
 from contraqctor.contract import Dataset
 from pydantic import BaseModel, ConfigDict
 
@@ -35,6 +36,16 @@ class PackagingProvenance(BaseModel):
     packaging_version: str
     data_contract_version: str
     dataset_version: str
+
+    @property
+    def dataset_semver(self) -> semver.Version:
+        """Dataset version as a parsed :class:`semver.Version`."""
+        return semver.Version.parse(self.dataset_version)
+
+    @property
+    def data_contract_semver(self) -> semver.Version:
+        """Data-contract (parser) version as a parsed :class:`semver.Version`."""
+        return semver.Version.parse(self.data_contract_version)
 
     @classmethod
     def build(cls, dataset: Dataset) -> "PackagingProvenance":

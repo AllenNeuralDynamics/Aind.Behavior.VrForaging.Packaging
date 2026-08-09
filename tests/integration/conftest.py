@@ -218,3 +218,18 @@ def download_dataset(s3: BaseClient, entry: DatasetEntry, cache_root: Path) -> P
     _save_etag_index(ETAG_INDEX_PATH, etag_index)
 
     return local_root
+
+
+@pytest.fixture(scope="session")
+def all_cached_session_paths(ensure_datasets_cached) -> list[Path]:
+    """Return all session directories present on disk in the local cache.
+
+    Depends on ``ensure_datasets_cached`` (which downloads from S3 before this
+    fixture runs) so every reachable dataset from the manifest is already on
+    disk. Sessions that failed to download are absent from the cache and are
+    automatically skipped by tests that use this fixture.
+    """
+    cache_dir = CACHE_ROOT / "aind-open-data"
+    if not cache_dir.exists():
+        return []
+    return sorted(p for p in cache_dir.iterdir() if p.is_dir())

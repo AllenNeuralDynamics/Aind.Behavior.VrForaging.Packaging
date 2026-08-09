@@ -19,7 +19,7 @@ from aind_behavior_vr_foraging_packaging.nwb_file import NwbSession
 from aind_behavior_vr_foraging_packaging.pipeline import create_processors
 
 session = NwbSession(Path("/path/to/session"))
-nwb = session.run(*create_processors(session.dataset))   # process() + nwbize() loop
+nwb = session.run(*create_processors(session.dataset))  # process() + nwbize() loop
 session.write_nwb_zarr(Path("/path/to/out.nwb.zarr"))
 ```
 
@@ -55,7 +55,7 @@ run without DocDB access — see
 Each processor's `nwbize()` (see
 [processor-abstraction.md](processor-abstraction.md) and
 [continuous-and-event-streams.md](continuous-and-event-streams.md)) is
-responsible for its own NWB structure — trials table, `behavior` processing
+responsible for its own NWB structure — sites table, `behavior` processing
 module `TimeSeries`, or per-event `DynamicTable` acquisitions. `NwbSession`
 owns only the file skeleton and the write; it does not know processor
 internals.

@@ -27,15 +27,17 @@ class DatasetProcessorError(Exception):
     pass
 
 
-class TrialTableProcessor(AbstractProcessor):
-    __output_name__ = "trials"
+class SiteTableProcessor(AbstractProcessor):
+    __output_name__ = "sites"
 
     def __init__(self, dataset: contraqctor.contract.Dataset, *, raise_on_error: bool = False) -> None:
         super().__init__(dataset, raise_on_error=raise_on_error)
 
-        if self.dataset_version != self.parser_version:
+        if self.provenance.dataset_semver != self.provenance.data_contract_semver:
             logger.warning(
-                "Dataset version %s does not match parser version %s", self.dataset_version, self.parser_version
+                "Dataset version %s does not match parser version %s",
+                self.provenance.dataset_semver,
+                self.provenance.data_contract_semver,
             )
         self.rig_configuration = self._ensure_json_not_pydantic(
             self.dataset["Behavior"]["InputSchemas"]["Rig"].load().data
@@ -69,7 +71,7 @@ class TrialTableProcessor(AbstractProcessor):
         return patches_state
 
     def _parse_patch_state_at_reward(self, dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
-        if self.dataset_version < semver.Version(major=0, minor=6, patch=0):
+        if self.provenance.dataset_semver < semver.Version(major=0, minor=6, patch=0):
             raise DatasetProcessorError("PatchStateAtReward is only available in dataset version 0.6.0 and above")
         # TODO this is likely something we want to overload for 0.5.x to work.
         patches_state_at_reward = dataset.at("Behavior").at("SoftwareEvents").at("PatchStateAtReward").load().data
@@ -179,7 +181,7 @@ class TrialTableProcessor(AbstractProcessor):
         is_stopped = self._parse_is_stopped(dataset)
         velocity = self._parse_velocity(dataset)
 
-        # Precompute all trial indices
+        # Precompute all site indices
         merged["site_label"] = merged["data"].apply(lambda d: d["label"])
         merged["patch_label"] = merged["patch_data"].apply(lambda d: d["label"])
 
@@ -360,12 +362,12 @@ class TrialTableProcessor(AbstractProcessor):
                 reward_available=np.nan
                 if site_patch_state_at_reward.empty
                 else site_patch_state_at_reward.iloc[0]["Available"],
-                has_reward=np.isnan(reward_onset_time) == False,  # noqa: E712
+                has_reward=np.isnan(reward_onset_time) == False,
                 has_forced_rewards=not site_force_reward.empty,
                 choice_cue_time=choice_time,
                 has_choice=not site_choice_feedback.empty,
                 reward_delay_duration=reward_onset_time - choice_time
-                if reward_onset_time is not np.nan and choice_time is not None
+                if reward_onset_time is not np.nan and choice_time is not None  # noqa: PLW0177
                 else np.nan,
                 has_waited_reward_delay=has_waited_reward_delay,
                 last_stop_time=None if np.isnan(site_stop_time) else site_stop_time,
@@ -377,12 +379,12 @@ class TrialTableProcessor(AbstractProcessor):
         return sites
 
     def _compute(self) -> pd.DataFrame:
-        """Returns trial table as a DataFrame with one row per site."""
+        """Returns site table as a DataFrame with one row per site."""
         sites = self.process_to_sites()
         return pd.DataFrame([s.model_dump() for s in sites])
 
     def nwbize(self, nwb_file: t.Any) -> t.Any:
-        """Add trials to *nwb_file* from compute() output."""
+        """Add sites to *nwb_file* from compute() output."""
         df = self.compute()
         for col in df.columns:
             if col in ("start_time", "stop_time"):

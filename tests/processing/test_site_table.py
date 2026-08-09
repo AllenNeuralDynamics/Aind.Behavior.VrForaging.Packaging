@@ -3,7 +3,7 @@
 These tests verify that the vectorized groupby().cumcount() approach
 correctly computes all site-, patch-, and block-level indices.
 The tests replicate the same pandas operations used in
-TrialTableProcessor.process_to_sites without requiring a real dataset.
+SiteTableProcessor.process_to_sites without requiring a real dataset.
 """
 
 import pandas as pd
@@ -13,7 +13,7 @@ import pytest
 def _build_merged(sites: pd.DataFrame, patches: pd.DataFrame, blocks: pd.DataFrame) -> pd.DataFrame:
     """Replicate the merge + index precomputation from process_to_sites.
 
-    This mirrors the exact sequence of operations in TrialTableProcessor.process_to_sites
+    This mirrors the exact sequence of operations in SiteTableProcessor.process_to_sites
     so that tests exercise the same code path.
     """
     patches = patches.copy()

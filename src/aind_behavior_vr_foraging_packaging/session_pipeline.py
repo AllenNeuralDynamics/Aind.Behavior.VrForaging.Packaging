@@ -18,12 +18,13 @@ from ._base import AbstractProcessor
 from .processing import (
     EventsProcessor,
     LegacyPositionAndVelocityProcessor,
-    LegacyTrialTableProcessor,
+    LegacySiteTableProcessor,
     LicksProcessor,
     PositionAndVelocityProcessor,
+    SessionMetadataProcessor,
+    SiteTableProcessor,
     SniffingProcessor,
     SoftwareEventsProcessor,
-    TrialTableProcessor,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,8 +35,8 @@ _LEGACY_VERSION_CUTOFF = semver.Version(major=0, minor=6, patch=0)
 def create_processors(
     dataset: Dataset,
     *,
+    session_path: Path | None = None,
     raise_on_error: bool = False,
-    sampling_rate_hz: float | None = 250.0,
 ) -> list[AbstractProcessor]:
     """Return the ordered processor list for *dataset*, dispatching on version.
 
@@ -44,49 +45,53 @@ def create_processors(
     dataset:
         The loaded contraqctor Dataset. Its ``.version`` attribute determines
         which processor variants are selected.
+    session_path:
+        When provided, a :class:`~.processing.SessionMetadataProcessor` is
+        prepended to the list using this path as the session root.
     raise_on_error:
         Passed through to every processor. When ``True``, any parsing anomaly
         raises; when ``False`` (default) it logs a warning and continues.
-    sampling_rate_hz:
-        Target downsampling rate for position/velocity. ``None`` keeps the
-        native encoder resolution. Defaults to 250 Hz.
 
     Returns
     -------
     list[AbstractProcessor]
-        Processors in the order they must be applied: processing module first,
-        then trial table, then continuous streams.
+        Processors in the order they must be applied. When *session_path* is
+        given, ``session`` is always first.
     """
     version = semver.Version.parse(str(dataset.version))
     is_legacy = version < _LEGACY_VERSION_CUTOFF
 
     if is_legacy:
         logger.info("Dataset version %s < %s — using legacy processors.", version, _LEGACY_VERSION_CUTOFF)
-        trial_table_cls = LegacyTrialTableProcessor
+        site_table_cls = LegacySiteTableProcessor
         pos_vel_cls = LegacyPositionAndVelocityProcessor
     else:
         logger.info("Dataset version %s — using current processors.", version)
-        trial_table_cls = TrialTableProcessor
+        site_table_cls = SiteTableProcessor
         pos_vel_cls = PositionAndVelocityProcessor
 
-    return [
-        trial_table_cls(dataset, raise_on_error=raise_on_error),
-        pos_vel_cls(dataset, sampling_rate_hz=sampling_rate_hz, raise_on_error=raise_on_error),
+    procs: list[AbstractProcessor] = []
+    if session_path is not None:
+        procs.append(SessionMetadataProcessor(dataset, session_path=session_path, raise_on_error=raise_on_error))
+    procs += [
+        site_table_cls(dataset, raise_on_error=raise_on_error),
+        pos_vel_cls(dataset, raise_on_error=raise_on_error),
         LicksProcessor(dataset, raise_on_error=raise_on_error),
         SniffingProcessor(dataset, raise_on_error=raise_on_error),
         SoftwareEventsProcessor(dataset, raise_on_error=raise_on_error),
         EventsProcessor(dataset, raise_on_error=raise_on_error),
     ]
+    return procs
 
 
-def get_trial_table_processor(
+def get_site_table_processor(
     dataset: Dataset,
     *,
     raise_on_error: bool = False,
-) -> TrialTableProcessor | LegacyTrialTableProcessor:
-    """Return the correct trial-table processor for *dataset*'s version."""
+) -> SiteTableProcessor | LegacySiteTableProcessor:
+    """Return the correct site-table processor for *dataset*'s version."""
     version = semver.Version.parse(str(dataset.version))
-    cls = LegacyTrialTableProcessor if version < _LEGACY_VERSION_CUTOFF else TrialTableProcessor
+    cls = LegacySiteTableProcessor if version < _LEGACY_VERSION_CUTOFF else SiteTableProcessor
     return cls(dataset, raise_on_error=raise_on_error)
 
 
@@ -106,13 +111,13 @@ def run_session(
     dataset: Dataset,
     output_dir: Path,
     *,
+    session_path: Path | None = None,
     raise_on_error: bool = False,
-    sampling_rate_hz: float | None = 250.0,
 ) -> dict[str, pd.DataFrame]:
     """Run all processors and save their outputs as parquet files.
 
     Each processor's ``output_name`` attribute determines its parquet filename,
-    e.g. ``trials.parquet``, ``position_velocity.parquet``, etc.
+    e.g. ``sites.parquet``, ``position_velocity.parquet``, etc.
 
     Parameters
     ----------
@@ -121,10 +126,11 @@ def run_session(
         variants are selected (legacy vs current).
     output_dir:
         Directory where parquet files are written. Created if absent.
+    session_path:
+        When provided, a ``session`` processor is prepended. Pass the
+        session root directory (same value used to load *dataset*).
     raise_on_error:
         Passed to all processors.
-    sampling_rate_hz:
-        Downsampling target for position/velocity. ``None`` = native resolution.
 
     Returns
     -------
@@ -135,7 +141,11 @@ def run_session(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     all_data: dict[str, pd.DataFrame] = {}
-    for proc in create_processors(dataset, raise_on_error=raise_on_error, sampling_rate_hz=sampling_rate_hz):
+    for proc in create_processors(
+        dataset,
+        session_path=session_path,
+        raise_on_error=raise_on_error,
+    ):
         name = proc.output_name
         logger.info("compute: %s → %s.parquet", proc.__class__.__name__, name)
         # compute() stamps provenance attrs automatically (see AbstractProcessor.compute)

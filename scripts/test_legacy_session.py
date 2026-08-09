@@ -108,7 +108,6 @@ def _resolve_loader_version(version: str) -> str:
 
 def process(session_path: Path) -> None:
     from aind_behavior_vr_foraging.data_contract import dataset
-
     from aind_behavior_vr_foraging_packaging.pipeline import run_session
 
     version = _read_contract_version(session_path)

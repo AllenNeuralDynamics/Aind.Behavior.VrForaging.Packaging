@@ -27,7 +27,7 @@ contraqctor Dataset  ◄── aind_behavior_vr_foraging.data_contract.dataset(p
       ├─► create_processors(dataset)         # version-dispatched processor list
       │        │
       │        ▼
-      │   [TrialTable, PositionAndVelocity, Licks, Sniffing, SoftwareEvents]
+      │   [SiteTable, PositionAndVelocity, Licks, Sniffing, SoftwareEvents]
       │        │
       │        ├─► proc.compute()  ──► pandas DataFrame (+ provenance in df.attrs)
       │        │        └─► run_session(...) writes one <output_name>.parquet each
@@ -49,17 +49,17 @@ Two output targets share the same processors:
 # Core vocabulary
 
 The behavioral task is organized hierarchically. Understanding these terms is
-prerequisite to reading [trial-table.md](architecture/trial-table.md):
+prerequisite to reading [site-table.md](architecture/site-table.md):
 
 - **Site** — the atomic unit; a stretch of the virtual corridor the animal
   runs through (e.g. a `RewardSite` or an inter-site gap). One row of the
-  trial table = one site.
+  sites table = one site.
 - **Patch** — a contiguous group of sites that share a patch type/label
   (odor identity, reward statistics).
 - **Block** — a group of patches sharing a task regime.
 
 Sites, patches, and blocks each get several index columns (global, within
-parent, and "by type") — see the [trial table](architecture/trial-table.md).
+parent, and "by type") — see the [site table](architecture/site-table.md).
 
 # Key dependencies
 

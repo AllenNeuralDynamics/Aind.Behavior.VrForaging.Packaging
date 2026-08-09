@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 import pandas as pd
 import pytest
 
-from aind_behavior_vr_foraging_packaging.pipeline import get_trial_table_processor, run_session
+from aind_behavior_vr_foraging_packaging.session_pipeline import get_site_table_processor, run_session
 
 from .conftest import CACHE_ROOT, _manifest
 from .model import DatasetEntry
@@ -47,8 +47,8 @@ def _load_dataset(entry: DatasetEntry):
 # ---------------------------------------------------------------------------
 
 
-def _assert_trials_table_invariants(sites_df: pd.DataFrame, entry: DatasetEntry) -> None:
-    """Check invariants for the trial table."""
+def _assert_sites_table_invariants(sites_df: pd.DataFrame, entry: DatasetEntry) -> None:
+    """Check invariants for the site table."""
     inv = entry.expected
     if inv is None:
         return
@@ -90,8 +90,8 @@ def _assert_trials_table_invariants(sites_df: pd.DataFrame, entry: DatasetEntry)
 
 
 @pytest.mark.parametrize("entry", _entries, ids=_ids)
-def test_trials_table(entry, request):
-    """Test the trial table processing logic using already downloaded datasets."""
+def test_sites_table(entry, request):
+    """Test the site table processing logic using already downloaded datasets."""
     if entry.xfail:
         request.applymarker(
             pytest.mark.xfail(
@@ -102,17 +102,17 @@ def test_trials_table(entry, request):
 
     try:
         ds = _load_dataset(entry)
-        processor = get_trial_table_processor(ds, raise_on_error=entry.raise_on_error)
+        processor = get_site_table_processor(ds, raise_on_error=entry.raise_on_error)
         sites = processor.process_to_sites()
         sites_df = pd.DataFrame([s.model_dump() for s in sites])
 
         if entry.expected is not None:
-            _assert_trials_table_invariants(sites_df, entry)
+            _assert_sites_table_invariants(sites_df, entry)
 
-        assert not sites_df.empty, f"{entry.id}: trial table is unexpectedly empty"
+        assert not sites_df.empty, f"{entry.id}: site table is unexpectedly empty"
 
     except Exception as e:
-        pytest.fail(f"Dataset {entry.id} failed trial table test.\nRationale: {entry.rationale}\nError: {e}")
+        pytest.fail(f"Dataset {entry.id} failed site table test.\nRationale: {entry.rationale}\nError: {e}")
 
 
 @pytest.mark.parametrize("entry", _entries, ids=_ids)
@@ -120,7 +120,7 @@ def test_full_pipeline(entry, request, tmp_path):
     """Smoke-test the full parquet pipeline: all 6 processors must run without crashing.
 
     Exercises ``run_session`` end-to-end. Parquet files are written to
-    ``tmp_path`` (auto-cleaned by pytest). Only the ``trials`` output is
+    ``tmp_path`` (auto-cleaned by pytest). Only the ``sites`` output is
     asserted non-empty; other streams may legitimately be empty for some
     sessions.
 
@@ -140,7 +140,7 @@ def test_full_pipeline(entry, request, tmp_path):
     try:
         ds = _load_dataset(entry)
         outputs = run_session(ds, tmp_path)
-        assert not outputs["trials"].empty, f"{entry.id}: trials table is unexpectedly empty"
+        assert not outputs["sites"].empty, f"{entry.id}: sites table is unexpectedly empty"
 
     except Exception as e:
         pytest.fail(f"Dataset {entry.id} failed full pipeline test.\nRationale: {entry.rationale}\nError: {e}")

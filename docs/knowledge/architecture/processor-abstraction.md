@@ -21,7 +21,7 @@ The contract a subclass must satisfy and may extend:
 | `_compute(self) -> pd.DataFrame` | **abstract** | The real work. Return the output DataFrame. Never call directly from outside. |
 | `compute(self) -> pd.DataFrame` | concrete | Calls `_compute`, then stamps provenance into `df.attrs`. This is the public entry point. |
 | `nwbize(self, nwb_file) -> nwb_file` | concrete (no-op default) | Write this processor's data into an NWB file. Override where an NWB representation exists. |
-| `__output_name__: ClassVar[str \| None]` | class attr | Canonical parquet filename stem (e.g. `"trials"`). |
+| `__output_name__: ClassVar[str \| None]` | class attr | Canonical parquet filename stem (e.g. `"sites"`). |
 | `output_name` | property | `__output_name__` if set, else snake_case of the class name. |
 | `dataset` / `dataset_version` / `parser_version` | properties | The loaded dataset and the two semver versions (see [versioning](data-contract-and-versioning.md)). |
 | `raise_on_error` / `with_raise_errors(...)` | error policy | When `True`, parsing anomalies raise; when `False` (default), they log and continue. |
@@ -53,6 +53,7 @@ Adding a new processor is intentionally small:
 from ._base import AbstractProcessor
 import pandas as pd
 
+
 class RewardRateProcessor(AbstractProcessor):
     __output_name__ = "reward_rate"
 
@@ -60,7 +61,7 @@ class RewardRateProcessor(AbstractProcessor):
         # ...read streams via self.dataset, build a DataFrame...
         return df
 
-    def nwbize(self, nwb_file):          # optional
+    def nwbize(self, nwb_file):  # optional
         # ...add a TimeSeries / table...
         return nwb_file
 ```

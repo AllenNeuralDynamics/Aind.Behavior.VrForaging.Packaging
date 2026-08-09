@@ -1,7 +1,6 @@
 import dataclasses
 import logging
 from pathlib import Path
-from typing import Optional
 
 import aind_behavior_vr_foraging.data_contract
 import contraqctor.contract as data_contract
@@ -23,14 +22,14 @@ class NwbSession:
         self,
         root_path: Path,
         *,
-        dataset: Optional[data_contract.Dataset] = None,
+        dataset: data_contract.Dataset | None = None,
         use_local_schema: bool = False,
     ) -> None:
         self._root_path = root_path
         self._use_local_schema = use_local_schema
         self._dataset = dataset if dataset else aind_behavior_vr_foraging.data_contract.dataset(root_path)
         self._aind_data_schema = self._get_aind_data_schema_json()
-        self._nwb_file: Optional[NdxEventsNWBFile] = None
+        self._nwb_file: NdxEventsNWBFile | None = None
 
     @property
     def dataset(self) -> data_contract.Dataset:
@@ -57,9 +56,9 @@ class NwbSession:
 
     def run(self, *processors: AbstractProcessor) -> NdxEventsNWBFile:
         nwb = self.process()
-        logging.info("Running %s processors on NWB file...", len(processors))
+        logger.info("Running %s processors on NWB file...", len(processors))
         for processor in processors:
-            logging.info("Running nwbize: %s", processor.__class__.__name__)
+            logger.info("Running nwbize: %s", processor.__class__.__name__)
             nwb = processor.nwbize(nwb)
         return nwb
 

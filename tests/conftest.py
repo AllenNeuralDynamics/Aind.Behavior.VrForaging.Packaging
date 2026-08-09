@@ -1,6 +1,6 @@
 """Fixtures shared across the test suite."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pynwb import NWBFile
@@ -12,5 +12,5 @@ def nwb_file() -> NWBFile:
     return NWBFile(
         session_description="test",
         identifier="test",
-        session_start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        session_start_time=datetime(2026, 1, 1, tzinfo=UTC),
     )

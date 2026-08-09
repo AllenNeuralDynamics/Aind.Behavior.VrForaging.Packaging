@@ -8,17 +8,17 @@ import semver
 from pydantic import BaseModel
 
 from .._base import AbstractProcessor
-from ._trial_table import DatasetProcessorError, TrialTableProcessor
+from ._site_table import DatasetProcessorError, SiteTableProcessor
 
 logger = logging.getLogger(__name__)
 
 _LEGACY_OLFACTOMETER_CHANNEL_COUNT = 3
 
 
-class LegacyTrialTableProcessor(TrialTableProcessor):
-    """TrialTableProcessor for VR foraging datasets with schema version < 0.6.0.
+class LegacySiteTableProcessor(SiteTableProcessor):
+    """SiteTableProcessor for VR foraging datasets with schema version < 0.6.0.
 
-    Key differences from TrialTableProcessor:
+    Key differences from SiteTableProcessor:
     - Block stream is optional; falls back to ActivePatch stream when absent.
     - Olfactometer always exposes 3 odor channels (channel 3 is the carrier).
     - OdorSpecification uses legacy format: {"index": int, "concentration": float}.
@@ -34,18 +34,20 @@ class LegacyTrialTableProcessor(TrialTableProcessor):
     """
 
     def __init__(self, dataset: contraqctor.contract.Dataset, *, raise_on_error: bool = False) -> None:
-        # Bypass TrialTableProcessor.__init__ — InputSchemas/Rig is not present in legacy datasets.
+
+        # Bypass SiteTableProcessor.__init__ — InputSchemas/Rig is not present in legacy datasets.
         AbstractProcessor.__init__(self, dataset, raise_on_error=raise_on_error)
-        if self.dataset_version >= semver.Version(major=0, minor=6, patch=0):
+        if self.provenance.dataset_semver >= semver.Version(major=0, minor=6, patch=0):
             raise DatasetProcessorError(
-                f"LegacyTrialTableProcessor only supports datasets < 0.6.0, got {self.dataset_version}. "
-                "Use TrialTableProcessor for current datasets."
+                f"LegacySiteTableProcessor only supports datasets < 0.6.0, "
+                f"got {self.provenance.dataset_semver}. "
+                "Use SiteTableProcessor for current datasets."
             )
-        if self.dataset_version != self.parser_version:
+        if self.provenance.dataset_semver != self.provenance.data_contract_semver:
             logger.warning(
                 "Dataset version %s does not match parser version %s",
-                self.dataset_version,
-                self.parser_version,
+                self.provenance.dataset_semver,
+                self.provenance.data_contract_semver,
             )
 
     @staticmethod

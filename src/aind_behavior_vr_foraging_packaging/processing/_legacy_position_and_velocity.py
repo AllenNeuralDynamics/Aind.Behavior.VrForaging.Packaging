@@ -28,7 +28,7 @@ class LegacyPositionAndVelocityProcessor(PositionAndVelocityProcessor):
         self,
         dataset: contraqctor.contract.Dataset,
         *,
-        downsample_to_hz: ty.Optional[float] = 250.0,
+        downsample_to_hz: float | None = 250.0,
     ) -> pd.DataFrame:
         dataset.at("Behavior").at("InputSchemas").load_all()
         rig_settings = dataset.at("Behavior").at("InputSchemas").at("Rig").load().data

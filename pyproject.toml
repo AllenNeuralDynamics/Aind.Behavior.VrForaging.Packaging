@@ -25,6 +25,7 @@ dependencies = [
     "hdmf-zarr",
     "numpy>=2",
     "pandas",
+    "pyarrow>=14.0.0",
     "pydantic-settings>=2.10.1",
     "pydantic>=2.10",
     "pynwb",
@@ -34,6 +35,9 @@ dependencies = [
     "ndx-events",
     "aind-data-access-api>=1.9.2",
 ]
+
+[project.optional-dependencies]
+db = ["duckdb>=1.0", "boto3>=1.26"]
 
 [project.urls]
 Documentation = "https://allenneuraldynamics.github.io/Aind.Behavior.VrForaging.Packaging/"
@@ -49,11 +53,14 @@ dev = [
     'pytest-cov',
     'codespell',
     'ty',
-    "pyarrow>=24.0.0",
+    'aind-behavior-vr-foraging-packaging[db]',
 ]
 
 [tool.uv]
 default-groups = ['dev']
+
+[tool.ty.src]
+exclude = ["examples/**", "scripts/**"]
 
 [tool.ruff]
 line-length = 120
@@ -61,7 +68,7 @@ target-version = 'py311'
 
 [tool.ruff.lint]
 extend-select = ['Q', 'RUF100', 'C90', 'I']
-extend-ignore = []
+extend-ignore = ["BLE001"]
 mccabe = { max-complexity = 14 }
 pydocstyle = { convention = 'google' }
 
@@ -82,4 +89,4 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 
 [project.scripts]
-curriculum = "aind_behavior_vr_foraging_packaging.cli:main"
+aind-vr-export = "aind_behavior_vr_foraging_packaging.cli:main"
