@@ -58,10 +58,6 @@ class Aggregator:
 DEFAULT_AGGREGATOR = Aggregator(
     rules=[
         AggregationRule("trials", AggregationLevel.DATASET),
-        AggregationRule("licks", AggregationLevel.SUBJECT),
-        AggregationRule("position_velocity", AggregationLevel.SUBJECT),
-        AggregationRule("sniffing", AggregationLevel.SUBJECT),
-        AggregationRule("events", AggregationLevel.SUBJECT),
     ]
 )
 
