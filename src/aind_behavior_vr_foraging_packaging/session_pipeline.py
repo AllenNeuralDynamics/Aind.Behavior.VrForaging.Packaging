@@ -22,9 +22,9 @@ from .processing import (
     LicksProcessor,
     PositionAndVelocityProcessor,
     SessionMetadataProcessor,
+    SiteTableProcessor,
     SniffingProcessor,
     SoftwareEventsProcessor,
-    SiteTableProcessor,
 )
 
 logger = logging.getLogger(__name__)
