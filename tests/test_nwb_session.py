@@ -69,11 +69,7 @@ def test_provenance_survives_round_trip(tmp_path: Path) -> None:
     session = _session(tmp_path)
     nwb = session.process()
 
-    assert dict(nwb.was_generated_by) == {
-        "packaging_version": session.packaging_version,
-        "data_contract_version": str(session.parser_version),
-        "dataset_version": "0.0.0",
-    }
+    assert dict(nwb.was_generated_by) == session.provenance
 
     out = tmp_path / "session.nwb.zarr"
     session.write_nwb_zarr(out)

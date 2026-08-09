@@ -1,17 +1,15 @@
 import logging
-from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import Optional
 
-import aind_behavior_vr_foraging
 import aind_behavior_vr_foraging.data_contract
 import contraqctor.contract as data_contract
-import semver
 from aind_nwb_utils.utils import create_base_nwb_file
 from hdmf_zarr import NWBZarrIO
 from pynwb import NWBFile
 
 from .._base import AbstractProcessor
+from .._provenance import PackagingProvenance
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +30,6 @@ class NwbSession:
     @property
     def dataset(self) -> data_contract.Dataset:
         return self._dataset
-
-    @property
-    def dataset_version(self) -> semver.Version:
-        return semver.Version.parse(str(self._dataset.version))
 
     @property
     def root_path(self) -> Path:
@@ -61,21 +55,9 @@ class NwbSession:
         return nwb
 
     @property
-    def packaging_version(self) -> str:
-        return _pkg_version("aind-behavior-vr-foraging-packaging")
-
-    @property
-    def parser_version(self) -> semver.Version:
-        return semver.Version.parse(aind_behavior_vr_foraging.__semver__)
-
-    @property
     def provenance(self) -> dict[str, str]:
         """Versions describing how this file was produced, keyed as in ``df.attrs``."""
-        return {
-            "packaging_version": self.packaging_version,
-            "data_contract_version": str(self.parser_version),
-            "dataset_version": str(self.dataset_version),
-        }
+        return PackagingProvenance.build(self._dataset).model_dump()
 
     def _create_nwb_file(self) -> NWBFile:
         nwb_file = self._base_nwb_file if self._base_nwb_file is not None else create_base_nwb_file(self.root_path)
