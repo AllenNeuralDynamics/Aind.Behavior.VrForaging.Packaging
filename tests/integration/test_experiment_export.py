@@ -38,9 +38,7 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
     )
 
     for session_path in written:
-        assert (session_path / "trials.parquet").exists(), (
-            f"Missing trials.parquet in {session_path.name}"
-        )
+        assert (session_path / "trials.parquet").exists(), f"Missing trials.parquet in {session_path.name}"
         assert (session_path / "session_metadata.parquet").exists(), (
             f"Missing session_metadata.parquet in {session_path.name}"
         )
@@ -53,9 +51,7 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
     # sessions.parquet: one row per session, required columns present
     assert (output_dir / "sessions.parquet").exists()
     sessions = pd.read_parquet(output_dir / "sessions.parquet")
-    assert len(sessions) == len(written), (
-        f"sessions.parquet has {len(sessions)} rows; expected {len(written)}"
-    )
+    assert len(sessions) == len(written), f"sessions.parquet has {len(sessions)} rows; expected {len(written)}"
     assert {"session_id", "subject_id", "date"}.issubset(set(sessions.columns)), (
         f"Missing columns in sessions.parquet: {set(sessions.columns)}"
     )
@@ -82,14 +78,10 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
     subject_dirs = [d for d in subjects_dir.iterdir() if d.is_dir()]
     assert len(subject_dirs) > 0, "No subject directories created under subjects/"
     for sub_dir in subject_dirs:
-        assert (sub_dir / "licks.parquet").exists(), (
-            f"Missing licks.parquet for subject {sub_dir.name}"
-        )
+        assert (sub_dir / "licks.parquet").exists(), f"Missing licks.parquet for subject {sub_dir.name}"
 
 
-def test_skip_aggregation_writes_only_sessions(
-    all_cached_session_paths: list[Path], tmp_path: Path
-) -> None:
+def test_skip_aggregation_writes_only_sessions(all_cached_session_paths: list[Path], tmp_path: Path) -> None:
     """Phase 1 only: sessions/ is written; no top-level parquets exist."""
     if not all_cached_session_paths:
         pytest.skip("No cached session data available")
@@ -101,9 +93,7 @@ def test_skip_aggregation_writes_only_sessions(
     assert not (output_dir / "sessions.parquet").exists(), (
         "sessions.parquet should not exist when aggregation is skipped"
     )
-    assert not (output_dir / "trials.parquet").exists(), (
-        "trials.parquet should not exist when aggregation is skipped"
-    )
+    assert not (output_dir / "trials.parquet").exists(), "trials.parquet should not exist when aggregation is skipped"
 
 
 def test_exclude_processor(all_cached_session_paths: list[Path], tmp_path: Path) -> None:

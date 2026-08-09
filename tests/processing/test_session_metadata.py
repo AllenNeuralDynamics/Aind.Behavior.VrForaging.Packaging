@@ -25,15 +25,9 @@ def _make_dataset(stream_data: dict | None = None, fail: bool = False) -> MagicM
     ds = MagicMock()
     loader = ds.at.return_value.at.return_value.at.return_value.load.return_value
     if fail:
-        ds.at.return_value.at.return_value.at.return_value.load.side_effect = RuntimeError(
-            "stream unavailable"
-        )
+        ds.at.return_value.at.return_value.at.return_value.load.side_effect = RuntimeError("stream unavailable")
     else:
-        loader.data = (
-            stream_data
-            if stream_data is not None
-            else {"subject": "815103", "date": "2025-11-05T22:52:21Z"}
-        )
+        loader.data = stream_data if stream_data is not None else {"subject": "815103", "date": "2025-11-05T22:52:21Z"}
     return ds
 
 
@@ -44,9 +38,7 @@ def _write_session_json(
 ) -> None:
     logs_dir = directory / "behavior" / "Logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
-    (logs_dir / "session_output.json").write_text(
-        json.dumps({"subject": subject, "date": date}), encoding="utf-8"
-    )
+    (logs_dir / "session_output.json").write_text(json.dumps({"subject": subject, "date": date}), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -135,9 +127,7 @@ def test_json_missing_subject_raises(tmp_path):
     ds = _make_dataset(fail=True)
     logs_dir = tmp_path / "behavior" / "Logs"
     logs_dir.mkdir(parents=True)
-    (logs_dir / "session_output.json").write_text(
-        json.dumps({"date": "2025-11-05T22:52:21Z"}), encoding="utf-8"
-    )
+    (logs_dir / "session_output.json").write_text(json.dumps({"date": "2025-11-05T22:52:21Z"}), encoding="utf-8")
     proc = SessionMetadataProcessor(ds, session_path=tmp_path)
     with pytest.raises(KeyError, match="subject"):
         proc._compute()

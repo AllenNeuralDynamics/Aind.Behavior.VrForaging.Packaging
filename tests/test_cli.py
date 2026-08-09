@@ -1,4 +1,5 @@
 """Unit tests for cli.py — no real I/O; process_sessions and aggregate are patched."""
+
 import logging
 from pathlib import Path
 from unittest.mock import patch
@@ -42,11 +43,13 @@ def test_cli_skip_processing(tmp_path):
         patch("aind_behavior_vr_foraging_packaging.cli.process_sessions") as mock_ps,
         patch("aind_behavior_vr_foraging_packaging.cli.aggregate") as mock_agg,
     ):
-        _run_cli([
-            f"--input-dir={input_dir}",
-            f"--output-dir={tmp_path / 'out'}",
-            "--skip-processing=true",
-        ])
+        _run_cli(
+            [
+                f"--input-dir={input_dir}",
+                f"--output-dir={tmp_path / 'out'}",
+                "--skip-processing=true",
+            ]
+        )
 
     mock_ps.assert_not_called()
     mock_agg.assert_called_once()
@@ -60,11 +63,13 @@ def test_cli_skip_aggregation(tmp_path):
         patch("aind_behavior_vr_foraging_packaging.cli.process_sessions") as mock_ps,
         patch("aind_behavior_vr_foraging_packaging.cli.aggregate") as mock_agg,
     ):
-        _run_cli([
-            f"--input-dir={input_dir}",
-            f"--output-dir={tmp_path / 'out'}",
-            "--skip-aggregation=true",
-        ])
+        _run_cli(
+            [
+                f"--input-dir={input_dir}",
+                f"--output-dir={tmp_path / 'out'}",
+                "--skip-aggregation=true",
+            ]
+        )
 
     mock_ps.assert_called_once()
     mock_agg.assert_not_called()
@@ -78,11 +83,13 @@ def test_cli_exclude_processors_forwarded(tmp_path):
         patch("aind_behavior_vr_foraging_packaging.cli.process_sessions") as mock_ps,
         patch("aind_behavior_vr_foraging_packaging.cli.aggregate"),
     ):
-        _run_cli([
-            f"--input-dir={input_dir}",
-            f"--output-dir={tmp_path / 'out'}",
-            "--exclude-processors=sniffing,software_events",
-        ])
+        _run_cli(
+            [
+                f"--input-dir={input_dir}",
+                f"--output-dir={tmp_path / 'out'}",
+                "--exclude-processors=sniffing,software_events",
+            ]
+        )
 
     _, kwargs = mock_ps.call_args
     assert set(kwargs.get("exclude_processors", [])) == {"sniffing", "software_events"}
@@ -96,11 +103,13 @@ def test_cli_include_processors_forwarded(tmp_path):
         patch("aind_behavior_vr_foraging_packaging.cli.process_sessions") as mock_ps,
         patch("aind_behavior_vr_foraging_packaging.cli.aggregate"),
     ):
-        _run_cli([
-            f"--input-dir={input_dir}",
-            f"--output-dir={tmp_path / 'out'}",
-            "--include-processors=trials",
-        ])
+        _run_cli(
+            [
+                f"--input-dir={input_dir}",
+                f"--output-dir={tmp_path / 'out'}",
+                "--include-processors=trials",
+            ]
+        )
 
     _, kwargs = mock_ps.call_args
     assert "trials" in kwargs.get("include_processors", [])
@@ -120,11 +129,13 @@ def test_cli_log_file_created(tmp_path):
         patch("aind_behavior_vr_foraging_packaging.cli.process_sessions"),
         patch("aind_behavior_vr_foraging_packaging.cli.aggregate"),
     ):
-        _run_cli([
-            f"--input-dir={input_dir}",
-            f"--output-dir={tmp_path / 'out'}",
-            f"--log-file={log_file}",
-        ])
+        _run_cli(
+            [
+                f"--input-dir={input_dir}",
+                f"--output-dir={tmp_path / 'out'}",
+                f"--log-file={log_file}",
+            ]
+        )
 
     assert log_file.exists(), "log file was not created"
 

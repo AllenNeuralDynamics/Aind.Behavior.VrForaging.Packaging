@@ -72,11 +72,7 @@ def create_processors(
 
     procs: list[AbstractProcessor] = []
     if session_path is not None:
-        procs.append(
-            SessionMetadataProcessor(
-                dataset, session_path=session_path, raise_on_error=raise_on_error
-            )
-        )
+        procs.append(SessionMetadataProcessor(dataset, session_path=session_path, raise_on_error=raise_on_error))
     procs += [
         trial_table_cls(dataset, raise_on_error=raise_on_error),
         pos_vel_cls(dataset, raise_on_error=raise_on_error),

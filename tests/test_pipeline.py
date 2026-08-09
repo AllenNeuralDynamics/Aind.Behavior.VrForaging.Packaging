@@ -27,7 +27,8 @@ def test_run_session_saves_parquet_per_processor(tmp_path):
     mock_dataset.version = "0.6.1"
 
     with patch(
-        "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors", return_value=[_make_mock_proc("trials")]
+        "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
+        return_value=[_make_mock_proc("trials")],
     ):
         data = run_session(mock_dataset, tmp_path)
 
@@ -60,7 +61,8 @@ def test_parquet_metadata_written_to_schema(tmp_path):
     mock_dataset.version = "0.6.1"
 
     with patch(
-        "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors", return_value=[_make_mock_proc("trials")]
+        "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
+        return_value=[_make_mock_proc("trials")],
     ):
         run_session(mock_dataset, tmp_path)
 
