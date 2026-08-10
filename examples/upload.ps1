@@ -2,15 +2,15 @@
 # Process, aggregate, and (optionally) upload to s3://aind-scratch-data/vr-foraging/
 #
 # 1. Runs aind-vr-export (clean + full pipeline) against the integration cache.
-# 2. Uploads the output to an S3 prefix (skipped with --no-upload).
+# 2. Uploads the output to an S3 prefix (skipped with -SkipUpload).
 #
 # Usage:
 #   .\upload.ps1               # process + upload
-#   .\upload.ps1 --no-upload   # process only (no S3)
+#   .\upload.ps1 -SkipUpload   # process only (no S3)
 # ============================================================
 
 param(
-    [switch]$NoUpload
+    [switch]$SkipUpload
 )
 
 # --- EDIT THIS VALUE ---
@@ -45,8 +45,8 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-if ($NoUpload) {
-    Write-Host "Skipping upload (--no-upload set). Output is at: $OutputDir" -ForegroundColor Cyan
+if ($SkipUpload) {
+    Write-Host "Skipping upload (-SkipUpload set). Output is at: $OutputDir" -ForegroundColor Cyan
     exit 0
 }
 
