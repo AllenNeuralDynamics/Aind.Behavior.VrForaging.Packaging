@@ -23,10 +23,13 @@ class PositionAndVelocityProcessor(AbstractProcessor):
         return self.compute_position_and_velocity(self.dataset, downsample_to_hz=self._sampling_rate_hz)
 
     def nwbize(self, nwb_file: ty.Any) -> ty.Any:
-        """Add position and velocity TimeSeries to *nwb_file*."""
-        from pynwb import TimeSeries
+        """Add a single ``position_velocity`` DynamicTable to *nwb_file*.
+
+        The table has three columns: ``timestamp`` (harp time, seconds), ``position`` (cm) and
+        ``velocity`` (cm/s).
+        """
         from pynwb.base import ProcessingModule
-        from pynwb.behavior import Position, SpatialSeries
+        from pynwb.core import DynamicTable
 
         module = nwb_file.processing.get("behavior")
         if module is None:
@@ -34,24 +37,18 @@ class PositionAndVelocityProcessor(AbstractProcessor):
             nwb_file.add_processing_module(module)
 
         df = self.compute()
-        module.add(
-            Position(
-                spatial_series=SpatialSeries(
-                    name="position",
-                    data=df["position"].values,
-                    unit="cm",
-                    timestamps=df.index.values,
-                )
-            )
+        table = DynamicTable.from_dataframe(
+            name=self.__output_name__,
+            table_description="Treadmill-derived position (cm) and velocity (cm/s) by harp timestamp (s)",
+            df=pd.DataFrame(
+                {
+                    "timestamp": df.index.values,
+                    "position": df["position"].values,
+                    "velocity": df["velocity"].values,
+                }
+            ),
         )
-        module.add(
-            TimeSeries(
-                name="velocity",
-                data=df["velocity"].values,
-                unit="cm/s",
-                timestamps=df.index.values,
-            )
-        )
+        module.add(table)
         return nwb_file
 
     def compute_position_and_velocity(
