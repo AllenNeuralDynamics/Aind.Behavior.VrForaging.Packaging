@@ -17,6 +17,8 @@ import pandas as pd
 from .session_pipeline import _write_parquet, create_processors
 
 if TYPE_CHECKING:
+    import contraqctor.contract
+
     from ._base import AbstractProcessor
 
 logger = logging.getLogger(__name__)
@@ -73,7 +75,7 @@ DEFAULT_AGGREGATOR = Aggregator(
 def _write_session_nwb(
     raw_path: Path,
     session_out: Path,
-    dataset: object,
+    dataset: "contraqctor.contract.Dataset | None",
     processors: Sequence["AbstractProcessor"],
     *,
     raise_on_error: bool,
