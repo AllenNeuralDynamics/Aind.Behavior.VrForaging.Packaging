@@ -10,6 +10,9 @@ Usage examples::
     # Full run
     aind-vr-export --input-dir /data/raw --output-dir /data/export
 
+    # Also write one NWB-Zarr store per session
+    aind-vr-export --input-dir /data/raw --output-dir /data/export --write-nwb
+
     # Skip sniffing, write a log file
     aind-vr-export --input-dir /data/raw --output-dir /data/export \\
         --exclude-processors sniffing software_events \\
@@ -77,7 +80,7 @@ class ExportSettings(BaseSettings):
     and calls :meth:`cli_cmd`.
     """
 
-    model_config = SettingsConfigDict(cli_parse_args=True, cli_kebab_case=True)
+    model_config = SettingsConfigDict(cli_parse_args=True, cli_kebab_case=True, cli_implicit_flags=True)
 
     # ---- Required ----
     input_dir: Path
@@ -111,6 +114,12 @@ class ExportSettings(BaseSettings):
     workers: int = 1
     """Number of parallel threads for Phase 1. 1 = sequential (default)."""
 
+    # ---- NWB (optional, Phase 1) ----
+    write_nwb: bool = False
+    """Write one NWB-Zarr store per session alongside its parquet tables
+    (``sessions/{session_id}/{session_id}.nwb.zarr``).
+    Has no effect when ``--skip-processing`` is set."""
+
     # ------------------------------------------------------------------ #
 
     def _build_aggregator(self) -> Aggregator:
@@ -130,6 +139,9 @@ class ExportSettings(BaseSettings):
         logger.info("  sessions found: %d", len(dataset_paths))
         sessions_dir = self.output_dir / "sessions"
 
+        if self.write_nwb and self.skip_processing:
+            logger.warning("--write-nwb has no effect with --skip-processing (NWB is written in Phase 1).")
+
         if not self.skip_processing:
             process_sessions(
                 dataset_paths,
@@ -138,6 +150,7 @@ class ExportSettings(BaseSettings):
                 exclude_processors=self.exclude_processors,
                 raise_on_error=self.raise_on_error,
                 max_workers=self.workers,
+                write_nwb=self.write_nwb,
             )
 
         if not self.skip_aggregation:

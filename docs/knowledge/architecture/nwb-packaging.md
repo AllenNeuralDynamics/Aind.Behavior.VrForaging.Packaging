@@ -11,6 +11,10 @@ timestamp: 2026-08-09T00:00:00Z
 [`run_session`](session-pipeline.md). Where the session pipeline writes parquet,
 `NwbSession` builds a single `NWBFile` and lets each processor contribute.
 
+It is used in two contexts: directly (scripts, notebooks), and automatically
+by the [export pipeline](export-pipeline.md) when `write_nwb=True` is passed
+to `process_sessions`.
+
 # Lifecycle
 
 ```python

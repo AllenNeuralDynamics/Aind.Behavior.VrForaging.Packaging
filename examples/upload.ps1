@@ -1,9 +1,17 @@
 # ============================================================
-# Process, aggregate, and upload to s3://aind-scratch-data/vr-foraging/
+# Process, aggregate, and (optionally) upload to s3://aind-scratch-data/vr-foraging/
 #
 # 1. Runs aind-vr-export (clean + full pipeline) against the integration cache.
-# 2. Uploads the output to a timestamped S3 prefix.
+# 2. Uploads the output to an S3 prefix (skipped with -SkipUpload).
+#
+# Usage:
+#   .\upload.ps1               # process + upload
+#   .\upload.ps1 -SkipUpload   # process only (no S3)
 # ============================================================
+
+param(
+    [switch]$SkipUpload
+)
 
 # --- EDIT THIS VALUE ---
 $ProfileName  = "aind-scientist"               # your AWS SSO profile name
@@ -31,10 +39,15 @@ if (-not (Get-Command aws -ErrorAction SilentlyContinue)) {
 # --- Phase 1 + 2: process and aggregate ---
 
 Write-Host "Running export pipeline: $InputDir -> $OutputDir ..."
-uv run aind-vr-export --input-dir $InputDir --output-dir $OutputDir
+uv run aind-vr-export --input-dir $InputDir --output-dir $OutputDir --write-nwb
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Pipeline failed. Aborting upload." -ForegroundColor Red
     exit 1
+}
+
+if ($SkipUpload) {
+    Write-Host "Skipping upload (-SkipUpload set). Output is at: $OutputDir" -ForegroundColor Cyan
+    exit 0
 }
 
 # --- Authenticate ---

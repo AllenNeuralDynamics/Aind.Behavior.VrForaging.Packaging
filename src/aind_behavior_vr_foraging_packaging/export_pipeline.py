@@ -10,10 +10,16 @@ from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from .session_pipeline import _write_parquet, create_processors
+
+if TYPE_CHECKING:
+    import contraqctor.contract
+
+    from ._base import AbstractProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -66,12 +72,67 @@ DEFAULT_AGGREGATOR = Aggregator(
 # ---------------------------------------------------------------------------
 
 
+def _write_session_nwb(
+    raw_path: Path,
+    session_out: Path,
+    dataset: "contraqctor.contract.Dataset | None",
+    processors: Sequence["AbstractProcessor"],
+    *,
+    raise_on_error: bool,
+) -> Path | None:
+    """Build and write one NWB-Zarr store for a session.
+
+    Parameters
+    ----------
+    raw_path:
+        Root directory of the raw session (used to initialise :class:`NwbSession`).
+    session_out:
+        Per-session output directory (``sessions/{session_id}/``); the store is
+        written as ``session_out/{session_id}.nwb.zarr``.
+    dataset:
+        Already-loaded contraqctor Dataset (avoids a second ``load_dataset`` call).
+    processors:
+        Filtered processor list — the same one used for the parquet step.
+    raise_on_error:
+        When ``True``, any failure propagates. When ``False`` (default), the
+        error is logged and ``None`` is returned so the session is not dropped
+        from the result list.
+
+    Returns
+    -------
+    Path | None
+        Path to the written ``.nwb.zarr`` directory, or ``None`` on failure.
+    """
+    from .nwb_file import NwbSession
+
+    session_id = raw_path.name
+    dest = session_out / f"{session_id}.nwb.zarr"
+
+    try:
+        session = NwbSession(raw_path, dataset=dataset)
+        session.run(*processors)
+        # NWBZarrIO("w") does not reliably clear a pre-existing store; remove it
+        # first so a re-run with clean=False never mixes old and new objects.
+        if dest.exists():
+            shutil.rmtree(dest)
+        session.write_nwb_zarr(dest)
+    except Exception as exc:
+        logger.warning("[%s] NWB export FAILED: %s", session_id, exc, exc_info=True)
+        if raise_on_error:
+            raise
+        return None
+
+    logger.info("[%s] NWB → %s", session_id, dest.name)
+    return dest
+
+
 def _process_one_session(
     raw_path: Path,
     sessions_dir: Path,
     include_set: frozenset[str],
     exclude_set: frozenset[str],
     raise_on_error: bool,
+    write_nwb: bool,
 ) -> Path | None:
     """Process a single session directory and write per-processor parquets.
 
@@ -100,18 +161,22 @@ def _process_one_session(
         raise_on_error=raise_on_error,
     )
 
-    ran = 0
-    for proc in all_processors:
-        name = proc.output_name
-        # session is never filtered out
-        if name != "session":
-            if include_set and name not in include_set:
-                logger.debug("[%s] skip %s (not in include list)", session_id, name)
-                continue
-            if name in exclude_set:
-                logger.debug("[%s] skip %s (excluded)", session_id, name)
-                continue
+    def _keep(name: str) -> bool:
+        if name == "session":  # never filtered; Phase 2 depends on session.parquet
+            return True
+        if include_set and name not in include_set:
+            logger.debug("[%s] skip %s (not in include list)", session_id, name)
+            return False
+        if name in exclude_set:
+            logger.debug("[%s] skip %s (excluded)", session_id, name)
+            return False
+        return True
 
+    selected = [p for p in all_processors if _keep(p.output_name)]
+
+    ran = 0
+    for proc in selected:
+        name = proc.output_name
         try:
             df = proc.compute()
             _write_parquet(df, session_out / f"{name}.parquet")
@@ -123,6 +188,10 @@ def _process_one_session(
                 raise
 
     logger.info("[%s] done (%d processors ran)", session_id, ran)
+
+    if write_nwb:
+        _write_session_nwb(raw_path, session_out, ds, selected, raise_on_error=raise_on_error)
+
     return session_out
 
 
@@ -135,6 +204,7 @@ def process_sessions(
     raise_on_error: bool = False,
     max_workers: int = 1,
     clean: bool = True,
+    write_nwb: bool = False,
 ) -> list[Path]:
     """Run all processors on every session directory and write per-session parquets.
 
@@ -162,6 +232,14 @@ def process_sessions(
         anything.  This guarantees that a re-run never mixes outputs from two
         different invocations.  Set to ``False`` only when you intentionally
         want to resume a partial run.
+    write_nwb:
+        When ``True``, also write a NWB-Zarr store for each session alongside
+        its parquet files (``sessions/{session_id}/{session_id}.nwb.zarr``).
+        The same processor include/exclude filter applies to both outputs.
+        Requires the AIND metadata JSON files to be present in each session
+        root; sessions missing them will log a warning and skip NWB while
+        still writing their parquets (unless *raise_on_error* is ``True``).
+        Defaults to ``False``.
 
     Returns
     -------
@@ -180,7 +258,7 @@ def process_sessions(
     exclude_set = frozenset(exclude_processors)
 
     def _submit(raw_path: Path) -> Path | None:
-        return _process_one_session(raw_path, sessions_dir, include_set, exclude_set, raise_on_error)
+        return _process_one_session(raw_path, sessions_dir, include_set, exclude_set, raise_on_error, write_nwb)
 
     if max_workers == 1:
         return [r for p in paths if (r := _submit(p)) is not None]

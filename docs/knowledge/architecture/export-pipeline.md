@@ -1,9 +1,9 @@
 ---
 type: Component
 title: Export pipeline — many sessions to a queryable dataset
-description: export_pipeline.py runs the session pipeline over many session directories and concatenates chosen tables into flat per-experiment parquet files, driven by the aind-vr-export CLI.
+description: export_pipeline.py runs the session pipeline over many session directories, writes per-session parquets, optionally writes one NWB-Zarr store per session, and concatenates chosen tables into flat per-experiment parquet files; driven by the aind-vr-export CLI.
 resource: src/aind_behavior_vr_foraging_packaging/export_pipeline.py
-tags: [architecture, pipeline, parquet, export, cli, aggregation]
+tags: [architecture, pipeline, parquet, nwb, export, cli, aggregation]
 timestamp: 2026-08-09T00:00:00Z
 ---
 
@@ -19,7 +19,8 @@ not have to be repeated to re-cut the aggregates.
 process_sessions(
     dataset_paths, output_dir, *,
     include_processors=(), exclude_processors=(),
-    raise_on_error=False, max_workers=1,
+    raise_on_error=False, max_workers=1, clean=True,
+    write_nwb=False,
 ) -> list[Path]
 ```
 
@@ -38,6 +39,40 @@ processor and writes `output_dir/sessions/{session_id}/{output_name}.parquet`.
 - `max_workers > 1` fans sessions out over a `ThreadPoolExecutor`. Only
   worthwhile because the work is largely IO and pandas/pyarrow calls that drop
   the GIL.
+- `write_nwb=True` additionally writes a NWB-Zarr store per session; see
+  [NWB output](#nwb-output-write_nwb) below.
+
+# NWB output (`write_nwb`)
+
+When `write_nwb=True`, `_process_one_session` calls `_write_session_nwb` after
+the parquet loop. It uses the **same filtered processor list** so one
+`--exclude-processors sniffing` removes sniffing from both outputs — one filter,
+two output formats.
+
+The store is written to:
+
+```text
+output_dir/sessions/{session_id}/{session_id}.nwb.zarr
+```
+
+collocated with the parquets for that session. The helper delegates to
+[`NwbSession`](nwb-packaging.md): it passes the already-loaded dataset to avoid
+a second `load_dataset` call, then calls `session.run(*processors)` and
+`session.write_nwb_zarr(dest)`.
+
+**Failure isolation.** `create_base_nwb_file` (called inside `NwbSession`)
+requires five AIND metadata JSON files in the session root. Sessions that lack
+them will fail the NWB step but still write their parquets. The failure is
+logged as a warning (or re-raised when `raise_on_error=True`), and the session
+directory is still included in the return list.
+
+**Stale stores.** If `clean=False` and a store already exists from a prior run,
+`_write_session_nwb` removes it with `shutil.rmtree` before writing, because
+`NWBZarrIO("w")` does not guarantee a full overwrite.
+
+**Runtime cost.** `compute()` (parquet) and `nwbize()` (NWB) share no state by
+design, so every stream is derived twice. Expect Phase 1 to take roughly twice
+as long with `write_nwb=True`.
 
 # Phase 2 — `aggregate`
 
@@ -75,6 +110,9 @@ parses, validates, and dispatches to `cli_cmd`). The entry point is declared in
 # Full run
 aind-vr-export --input-dir /data/raw --output-dir /data/export
 
+# Also write NWB-Zarr per session
+aind-vr-export --input-dir /data/raw --output-dir /data/export --write-nwb
+
 # Skip slow streams, tee to a log file
 aind-vr-export --input-dir /data/raw --output-dir /data/export \
     --exclude-processors sniffing software_events \
@@ -86,8 +124,11 @@ aind-vr-export --input-dir /data/raw --output-dir /data/export --skip-processing
 
 `--input-dir` is scanned one level deep: every immediate subdirectory is taken
 to be one raw session. `--dataset-tables` chooses which tables Phase 2 flattens
-(default `sites`); `--skip-processing` / `--skip-aggregation` select phases;
-`--workers` sets Phase 1 concurrency.
+(default `sites`); `--skip-processing` / `--skip-aggregation` / `--write-nwb`
+are bare flags (no value needed); `--workers` sets Phase 1 concurrency.
+
+All boolean flags use `cli_implicit_flags=True`, so the negation form is
+`--no-<flag>` (e.g. `--no-skip-processing`).
 
 # Reading an export back
 
