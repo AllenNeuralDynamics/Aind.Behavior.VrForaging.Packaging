@@ -39,7 +39,7 @@ if (-not (Get-Command aws -ErrorAction SilentlyContinue)) {
 # --- Phase 1 + 2: process and aggregate ---
 
 Write-Host "Running export pipeline: $InputDir -> $OutputDir ..."
-uv run aind-vr-export --input-dir $InputDir --output-dir $OutputDir
+uv run aind-vr-export --input-dir $InputDir --output-dir $OutputDir --write-nwb
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Pipeline failed. Aborting upload." -ForegroundColor Red
     exit 1
