@@ -1,0 +1,184 @@
+# ============================================================================
+# Zensical configuration for the AIND VR Foraging Packaging documentation.
+#
+# Built with Zensical (https://zensical.org) by the Material for MkDocs team.
+# Branding mirrors the AIND Behavior Platforms site (aind-behavior-blog).
+# ============================================================================
+
+[project]
+site_name = "VrForaging Data Packaging"
+site_description = "Parse and package AIND VR-foraging behavioral sessions into analysis-ready parquet tables and NWB files."
+site_author = "Allen Institute for Neural Dynamics and Contributors"
+site_url = "https://allenneuraldynamics.github.io/Aind.Behavior.VrForaging.Packaging/"
+
+copyright = """
+Copyright &copy; 2026 Allen Institute for Neural Dynamics
+"""
+
+docs_dir = "docs"
+site_dir = "site"
+
+repo_url = "https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging"
+repo_name = "Aind.Behavior.VrForaging.Packaging"
+edit_uri = "edit/main/docs/"
+
+nav = [
+  { "Home" = "index.md" },
+  { "Getting Started" = "getting-started.md" },
+  { "Guides" = [
+    { "Overview" = "guides/index.md" },
+    { "Run a session from disk" = "guides/session-from-disk.md" },
+    { "Query parquet files" = "guides/parquet-files.md" },
+    { "Query from AWS S3" = "guides/aws-s3.md" },
+    { "Raw streams with contraqctor" = "guides/contraqctor-streams.md" },
+  ] },
+  { "Examples" = [
+    { "Query local export" = "examples/query-export.md" },
+    { "Query from S3 (DuckDB)" = "examples/query-export-s3-duckdb.md" },
+    { "Query from S3 (Polars)" = "examples/query-export-s3-polars.md" },
+  ] },
+  { "API Reference" = [
+    { "Overview" = "api/index.md" },
+    { "Session pipeline" = "api/session-pipeline.md" },
+    { "Export pipeline" = "api/export-pipeline.md" },
+    { "Processors" = "api/processors.md" },
+    { "NWB export" = "api/nwb.md" },
+  ] },
+]
+
+extra_css = ["stylesheets/extra.css"]
+
+# ----------------------------------------------------------------------------
+# Plugins
+# ----------------------------------------------------------------------------
+[project.plugins.search]
+
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "google"
+show_source = true
+show_root_heading = true
+show_root_full_path = false
+show_symbol_type_heading = true
+show_symbol_type_toc = true
+members_order = "source"
+inherited_members = false
+
+# ----------------------------------------------------------------------------
+# Theme — Zensical with AIND branding
+# ----------------------------------------------------------------------------
+[project.theme]
+logo = "assets/logo.svg"
+favicon = "assets/favicon.ico"
+language = "en"
+
+features = [
+  "announce.dismiss",
+  "content.action.edit",
+  "content.action.view",
+  "content.code.annotate",
+  "content.code.copy",
+  "content.code.select",
+  "content.footnote.tooltips",
+  "content.tabs.link",
+  "content.tooltips",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.instant.prefetch",
+  "navigation.instant.progress",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.tabs",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "search.suggest",
+  "toc.follow",
+]
+
+[project.theme.icon]
+repo = "fontawesome/brands/github"
+edit = "material/pencil"
+view = "material/eye"
+
+[project.theme.font]
+text = "Inter"
+code = "JetBrains Mono"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "custom"
+accent = "custom"
+toggle.icon = "material/brightness-7"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "custom"
+accent = "custom"
+toggle.icon = "material/brightness-4"
+toggle.name = "Switch to light mode"
+
+# ----------------------------------------------------------------------------
+# Social / extra links
+# ----------------------------------------------------------------------------
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/AllenNeuralDynamics"
+name = "Allen Institute for Neural Dynamics on GitHub"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/AllenNeuralDynamics/aind-behavior-vr-foraging"
+name = "VR Foraging task repository"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/python"
+link = "https://pypi.org/project/aind-behavior-vr-foraging-packaging/"
+name = "aind-behavior-vr-foraging-packaging on PyPI"
+
+# ----------------------------------------------------------------------------
+# Markdown extensions
+# ----------------------------------------------------------------------------
+[project.markdown_extensions.abbr]
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.def_list]
+[project.markdown_extensions.footnotes]
+[project.markdown_extensions.md_in_html]
+[project.markdown_extensions.tables]
+[project.markdown_extensions.toc]
+permalink = true
+title = "Page contents"
+[project.markdown_extensions.pymdownx.betterem]
+[project.markdown_extensions.pymdownx.caret]
+[project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.pymdownx.emoji]
+emoji_generator = "zensical.extensions.emoji.to_svg"
+emoji_index = "zensical.extensions.emoji.twemoji"
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+[project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.keys]
+[project.markdown_extensions.pymdownx.magiclink]
+[project.markdown_extensions.pymdownx.mark]
+[project.markdown_extensions.pymdownx.smartsymbols]
+[project.markdown_extensions.pymdownx.superfences]
+custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" }
+]
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+combine_header_slug = true
+[project.markdown_extensions.pymdownx.tasklist]
+custom_checkbox = true
+[project.markdown_extensions.pymdownx.tilde]
+[project.markdown_extensions.pymdownx.snippets]
+base_path = ["."]

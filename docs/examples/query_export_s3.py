@@ -1,7 +1,6 @@
 # /// script
 # dependencies = [
 #     "duckdb>=1.0",
-#     "boto3>=1.26",
 # ]
 # requires-python = ">=3.11"
 # ///
@@ -20,50 +19,40 @@ Remote layout (mirrors the local export structure)::
             ├── position_velocity.parquet
             └── ...
 
-Prerequisites
--------------
-Configure your AWS SSO profile::
-
-    aws sso login --profile aind-scientist
-
 Dependencies are declared inline (PEP 723) — ``uv`` resolves them per-run, so this
 script needs no project install::
 
-    uv run examples/query_export_s3.py
+    uv run docs/examples/query_export_s3.py
 """
 
-import os
-
-import boto3
 import duckdb
 
-# ── Configure these ───────────────────────────────────────────────────────────
+# ── Configure this path to point at your export root ─────────────────────────
 S3_ROOT = "s3://aind-scratch-data/vr-foraging/demo"
-AWS_PROFILE = "aind-scientist"
 # ─────────────────────────────────────────────────────────────────────────────
-
-# Resolve SSO / short-lived credentials via boto3, then hand them to DuckDB.
-# boto3 handles the full credential chain (SSO, assume-role, env vars, etc.)
-# so DuckDB never has to deal with profiles directly.
-_session = boto3.Session(profile_name=AWS_PROFILE)
-_creds = _session.get_credentials().get_frozen_credentials()
-_region = _session.region_name or "us-west-2"
-
-# Expose through env vars so DuckDB's CREDENTIAL_CHAIN picks them up cleanly.
-os.environ["AWS_ACCESS_KEY_ID"] = _creds.access_key
-os.environ["AWS_SECRET_ACCESS_KEY"] = _creds.secret_key
-os.environ["AWS_SESSION_TOKEN"] = _creds.token or ""
-os.environ["AWS_DEFAULT_REGION"] = _region
 
 con = duckdb.connect()
 con.execute("INSTALL httpfs; LOAD httpfs;")
-con.execute("""
-    CREATE SECRET s3_creds (
-        TYPE S3,
-        PROVIDER CREDENTIAL_CHAIN,
-        CHAIN 'env'
-    )
-""")
+
+# For a public bucket no credentials are needed.
+# For a private bucket, uncomment and fill in the block below:
+#
+# import os, boto3
+# AWS_PROFILE = "aind-scientist"  # your SSO profile name
+# _session = boto3.Session(profile_name=AWS_PROFILE)
+# _creds = _session.get_credentials().get_frozen_credentials()
+# _region = _session.region_name or "us-west-2"
+# os.environ["AWS_ACCESS_KEY_ID"] = _creds.access_key
+# os.environ["AWS_SECRET_ACCESS_KEY"] = _creds.secret_key
+# os.environ["AWS_SESSION_TOKEN"] = _creds.token or ""
+# os.environ["AWS_DEFAULT_REGION"] = _region
+# con.execute("""
+#     CREATE SECRET s3_creds (
+#         TYPE S3,
+#         PROVIDER CREDENTIAL_CHAIN,
+#         CHAIN 'env'
+#     )
+# """)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -134,7 +123,6 @@ print(f"  {len(result)} rows, {result['session_id'].nunique()} session(s)")
 
 POS_VEL_GLOB = f"{S3_ROOT}/sessions/*/position_velocity.parquet"
 
-# Check whether any position_velocity files exist before querying
 try:
     n = con.execute(f"SELECT COUNT(*) FROM read_parquet('{POS_VEL_GLOB}')").fetchone()[0]
 except duckdb.IOException:
@@ -142,8 +130,6 @@ except duckdb.IOException:
 
 if n:
     print(f"\n=== position_velocity for '{first_animal}' (glob scan across sessions) ===")
-    # session_id is not a column inside the parquet — extract it from the file path.
-    # filename=true adds a `filename` column; regexp_extract pulls the session folder name.
     result = con.execute(f"""
         WITH pv AS (
             SELECT
@@ -159,15 +145,6 @@ if n:
     print(f"  {len(result)} rows, {result['session_id'].nunique()} session(s)")
 else:
     print(f"\n(no position_velocity files found under {S3_ROOT}/sessions/ — skipping)")
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 5. Download the entire sites table into a pandas DataFrame
-# ─────────────────────────────────────────────────────────────────────────────
-
-print("\n=== downloading full sites table into memory ===")
-sites_df = con.execute(f"SELECT * FROM read_parquet('{S3_ROOT}/sites.parquet')").df()
-print(f"{sites_df.shape[0]:,} rows × {sites_df.shape[1]} columns")
-print(sites_df.dtypes)
 
 con.close()
 print("\nDone.")

@@ -48,7 +48,9 @@ legacy processor variants.
 
 - Runnable script covering the parquet workflows (all-at-once, single stream,
   load-back): [scripts/example_parquet_pipeline.py](scripts/example_parquet_pipeline.py)
-- The NWB workflow: [docs/knowledge/architecture/nwb-packaging.md](docs/knowledge/architecture/nwb-packaging.md)
+- Query the local export with pandas and DuckDB: [docs/examples/query_export.py](docs/examples/query_export.py)
+- Query from S3 with DuckDB: [docs/examples/query_export_s3.py](docs/examples/query_export_s3.py)
+- Query from S3 with Polars: [docs/examples/query_export_s3_polars.py](docs/examples/query_export_s3_polars.py)
 - Full architecture docs: [docs/knowledge/](docs/knowledge/) (start at [overview.md](docs/knowledge/overview.md))
 
 ### Get a sites table
@@ -145,6 +147,27 @@ uvx run aind-vr-export \
 ```
 
 See `uvx run aind-vr-export --help` for the full flag reference.
+
+## Documentation
+
+The full documentation site is built with [Zensical](https://zensical.org).
+
+**Preview locally:**
+
+```bash
+uv sync --group docs
+uv run zensical serve
+```
+
+**Build a static copy:**
+
+```bash
+uv run zensical build --clean
+# output → site/
+```
+
+The site deploys automatically to GitHub Pages on every push to `main`
+as part of the main CI workflow.
 
 ## Contributors
 
