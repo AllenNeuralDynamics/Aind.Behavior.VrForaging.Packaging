@@ -59,7 +59,7 @@ dev = [
 default-groups = ['dev']
 
 [tool.ty.src]
-exclude = ["examples/**", "scripts/**"]
+exclude = ["examples/**", "scripts/**", "docs/**"]
 
 [tool.ruff]
 line-length = 120
