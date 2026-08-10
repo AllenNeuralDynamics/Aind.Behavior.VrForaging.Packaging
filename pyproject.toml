@@ -41,6 +41,11 @@ Changelog = "https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Pac
 
 [dependency-groups]
 
+docs = [
+    "zensical>=0.0.43",
+    "mkdocstrings[python]>=0.27",
+]
+
 dev = [
     'ruff',
     'pytest',
@@ -54,7 +59,7 @@ dev = [
 default-groups = ['dev']
 
 [tool.ty.src]
-exclude = ["examples/**", "scripts/**"]
+exclude = ["examples/**", "scripts/**", "docs/**"]
 
 [tool.ruff]
 line-length = 120
@@ -69,7 +74,7 @@ pydocstyle = { convention = 'google' }
 [tool.setuptools_scm]
 
 [tool.codespell]
-skip = '.git,*.pdf,*.svg,uv.lock'
+skip = '.git,*.pdf,*.svg,uv.lock,site'
 ignore-words-list = 'nd,setuptools'
 
 [tool.pytest.ini_options]

@@ -161,37 +161,50 @@ jobs:
         with:
           files: dist/*
 
-  # ╔─────────────────────────╗
-  # │   ____                  │
-  # │  |  _ \  ___   ___ ___  │
-  # │  | | | |/ _ \ / __/ __| │
-  # │  | |_| | (_) | (__\__ \ │
-  # │  |____/ \___/ \___|___/ │
-  # │   (disabled)            │
-  # ╚─────────────────────────╝
-  # build-docs:
-  #   name: Build and deploy documentation to GitHub Pages
-  #   runs-on: ubuntu-latest
-  #   needs: prepare-release
-  #   if: github.event_name == 'release' && !github.event.release.prerelease
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v7
-  #       with:
-  #         ref: main
-  #
-  #     - name: Install uv
-  #       uses: astral-sh/setup-uv@v8.2.0
-  #       with:
-  #         enable-cache: true
-  #
-  #     - name: Install dependencies
-  #       run: uv sync --group docs
-  #
-  #     - name: Configure Git user
-  #       run: |
-  #         git config user.name "github-actions[bot]"
-  #         git config user.email "github-actions[bot]@users.noreply.github.com"
-  #
-  #     - name: Build & Deploy docs
-  #       run: uv run mkdocs gh-deploy --force
+  # ╔─────────────────────────────────────────────────╗
+  # │   ____                                          │
+  # │  |  _ \  ___   ___  ___                         │
+  # │  | | | |/ _ \ / __|/ __|                        │
+  # │  | |_| | (_) | (__\__ \                         │
+  # │  |____/ \___/ \___|___/                         │
+  # │                                                 │
+  # ╚─────────────────────────────────────────────────╝
+
+  build-docs:
+    name: Build docs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --group docs
+
+      - name: Build site
+        run: uv run zensical build --clean
+
+      - name: Upload pages artifact
+        if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/
+
+  deploy-docs:
+    name: Deploy docs to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build-docs
+    if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v5
