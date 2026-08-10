@@ -47,7 +47,7 @@ def test_cli_skip_processing(tmp_path):
             [
                 f"--input-dir={input_dir}",
                 f"--output-dir={tmp_path / 'out'}",
-                "--skip-processing=true",
+                "--skip-processing",
             ]
         )
 
@@ -67,7 +67,7 @@ def test_cli_skip_aggregation(tmp_path):
             [
                 f"--input-dir={input_dir}",
                 f"--output-dir={tmp_path / 'out'}",
-                "--skip-aggregation=true",
+                "--skip-aggregation",
             ]
         )
 

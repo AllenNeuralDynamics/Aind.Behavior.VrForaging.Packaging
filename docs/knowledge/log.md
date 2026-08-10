@@ -3,6 +3,17 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-08-09 (NWB export feature)
+
+* **Architecture**: Updated [export-pipeline.md](architecture/export-pipeline.md) —
+  added `write_nwb` parameter to the `process_sessions` signature, documented
+  the new `# NWB output` section (collocated path, failure isolation, stale-store
+  handling, runtime cost), updated the CLI example to show `--write-nwb`, and
+  noted that all boolean flags are now bare (`cli_implicit_flags=True`).
+* **Architecture**: Updated [nwb-packaging.md](architecture/nwb-packaging.md) —
+  noted that `NwbSession` is now called from two contexts: directly and via
+  the export pipeline.
+
 ## 2026-08-09
 
 * **Conventions**: Removed the `[db]` extra from
