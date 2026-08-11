@@ -96,7 +96,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "aind-behavior-vr-foraging", extras = ["data"], specifier = ">=1.2.1" },
-    { name = "aind-nwb-utils" },
+    { name = "aind-nwb-utils", specifier = ">=0.2.9" },
     { name = "hdmf-zarr" },
     { name = "numpy", specifier = ">=2" },
     { name = "pandas" },
