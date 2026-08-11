@@ -30,7 +30,7 @@ dependencies = [
     "pynwb>=4.1",
     "scipy",
     "pydantic-settings",
-    "aind-nwb-utils",
+    "aind-nwb-utils>=0.2.9",
 ]
 
 [project.urls]
