@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 _LEGACY_OLFACTOMETER_CHANNEL_COUNT = 3
 
+_TRewardEvents = t.TypeVar("_TRewardEvents", pd.DataFrame, pd.Series)
+
 
 class LegacySiteTableProcessor(SiteTableProcessor):
     """SiteTableProcessor for VR foraging datasets with schema version < 0.6.0.
@@ -25,6 +27,10 @@ class LegacySiteTableProcessor(SiteTableProcessor):
     - Choice cue is read from HarpBehavior.PwmStart with dynamic port detection
       (PwmDO1 in v0.3, PwmDO2 in v0.4+; port is inferred from which channel is active).
     - PatchStateAtReward is reconstructed from split PatchReward*.json files when absent.
+    - A site interval may contain several water deliveries, because manual (experimenter)
+      water was not logged separately until 0.6.0 added ``ForceGiveReward``. The first
+      delivery at or after the choice tone is taken as the earned one; see
+      :meth:`_first_after_choice`.
     - HarpTreadmill is optional; friction defaults to 0 when absent.
     - IsStopped and velocity streams are absent; last_stop_* fields are always None.
 
@@ -151,6 +157,55 @@ class LegacySiteTableProcessor(SiteTableProcessor):
         result["PatchId"] = merged["state_index"].values
 
         return result
+
+    @staticmethod
+    def _first_after_choice(candidates: _TRewardEvents, *, choice_time: float, what: str) -> _TRewardEvents:
+        """Keep only the first reward event at or after the choice tone.
+
+        ``ForceGiveReward`` was introduced in dataset 0.6.0; before that the experimenter's
+        manual water went through the same code path as an earned reward, emitting the same
+        ``GiveReward`` event, decrementing the same patch bookkeeping and commanding the same
+        valve pulse. A site interval can therefore hold several deliveries that are identical
+        in the record.
+
+        The heuristic: the earned reward is the first delivery to follow the choice tone, since
+        that is what the task's reward-delay timer is started by. Anything else in the interval
+        is assumed to be manual and dropped. With no choice tone in the interval there is
+        nothing to anchor on, so the first delivery is kept.
+
+        This is a heuristic, not ground truth — the two are not separable before 0.6.0.
+        """
+        if len(candidates) <= 1:
+            return candidates
+        after_tone = np.flatnonzero(np.asarray(candidates.index >= choice_time))
+        pos = int(after_tone[0]) if after_tone.size else 0
+        chosen = candidates.iloc[pos : pos + 1]
+        logger.warning(
+            "%d %s events in one site interval; keeping the one at t=%s (first at/after the "
+            "choice tone). The other %d are assumed to be manually delivered — manual and earned "
+            "water are not separable before dataset 0.6.0.",
+            len(candidates),
+            what,
+            chosen.index[0],
+            len(candidates) - 1,
+        )
+        return chosen
+
+    def _select_patch_state_at_reward(  # type: ignore[override]
+        self, candidates: pd.DataFrame, *, choice_time: float, site_start: float, site_stop: float
+    ) -> pd.DataFrame:
+        return self._first_after_choice(candidates, choice_time=choice_time, what="patch-reward-state")
+
+    def _select_reward_onset_time(  # type: ignore[override]
+        self,
+        site_water_delivery: pd.Series,
+        reward_metadata_sliced: pd.DataFrame,
+        *,
+        site_start: float,
+        choice_time: float,
+    ) -> float:
+        chosen = self._first_after_choice(site_water_delivery, choice_time=choice_time, what="water-delivery")
+        return t.cast(float, chosen.index[0])
 
     @staticmethod
     def _parse_friction(dataset: contraqctor.contract.Dataset) -> pd.Series:  # type: ignore[override]

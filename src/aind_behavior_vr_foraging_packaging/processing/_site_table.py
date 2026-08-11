@@ -134,7 +134,44 @@ class SiteTableProcessor(AbstractProcessor):
         blocks["block_count"] = range(len(blocks))
         return blocks
 
-    def process_to_sites(self) -> list[Site]:  # noqa: C901
+    def _select_patch_state_at_reward(
+        self, candidates: pd.DataFrame, *, choice_time: float, site_start: float, site_stop: float
+    ) -> pd.DataFrame:
+        """Narrow the in-site patch-reward states down to the one belonging to this site.
+
+        From dataset 0.6.0 onwards the experimenter's manual rewards are logged separately, as
+        ``ForceGiveReward``, so only the site's own earned reward can land in the interval and
+        more than one row means the parse is wrong. Overridden by
+        :class:`~._legacy_site_table.LegacySiteTableProcessor`, where manual and earned rewards
+        share a single logging path and cannot be told apart from the record alone.
+        """
+        assert len(candidates) <= 1, (
+            f"Site interval [{site_start}, {site_stop}) booked {len(candidates)} rewards to this patch, "
+            "expected at most one. A site can only be rewarded once, and from dataset 0.6.0 the "
+            "experimenter's manual water is logged separately as ForceGiveReward, so it cannot account "
+            f"for the extras. Reward times: {list(candidates.index)}"
+        )
+        return candidates
+
+    def _select_reward_onset_time(
+        self,
+        site_water_delivery: pd.Series,
+        reward_metadata_sliced: pd.DataFrame,
+        *,
+        site_start: float,
+        choice_time: float,
+    ) -> float:
+        """Pick the valve opening that delivered this site's earned reward.
+
+        ``site_water_delivery`` is guaranteed non-empty by the caller. See
+        :meth:`_select_patch_state_at_reward` for why the legacy processor overrides this.
+        """
+        if len(reward_metadata_sliced) > 1:
+            closest_index = site_water_delivery.index.get_indexer(pd.Index([site_start]), method="nearest")[0]
+            return t.cast(float, site_water_delivery.index[closest_index])
+        return t.cast(float, site_water_delivery.index[0])
+
+    def process_to_sites(self) -> list[Site]:
         """
         Processes sites, patches, and blocks from the dataset and merges them.
         Returns a DataFrame with merged information.
@@ -232,6 +269,10 @@ class SiteTableProcessor(AbstractProcessor):
             site_choice_feedback = slice_by_index(choice_feedback, this_timestamp, next_timestamp)
             assert len(site_choice_feedback) <= 1, "Multiple speaker choices in site interval"
 
+            choice_time: float = (
+                t.cast(float, site_choice_feedback.index[0]) if not site_choice_feedback.empty else np.nan
+            )
+
             site_odor_onset = slice_by_index(odor_onset, this_timestamp, next_timestamp)
             site_force_reward = slice_by_index(manual_water_delivery, this_timestamp, next_timestamp)
 
@@ -243,14 +284,15 @@ class SiteTableProcessor(AbstractProcessor):
             site_patch_state_at_reward = site_patch_state_at_reward[
                 site_patch_state_at_reward["PatchId"] == merged.iloc[i]["patch_index"]
             ]
-            assert len(site_patch_state_at_reward) <= 1, "Multiple patch states at reward in site interval"
+            site_patch_state_at_reward = self._select_patch_state_at_reward(
+                site_patch_state_at_reward,
+                choice_time=choice_time,
+                site_start=this_timestamp,
+                site_stop=next_timestamp,
+            )
 
             ##
             row = merged.iloc[i]
-
-            choice_time: float = (
-                t.cast(float, site_choice_feedback.index[0]) if not site_choice_feedback.empty else np.nan
-            )
 
             # Compute last_stop_time, last_stop_duration, velocity_at_last_stop
             # We skip calculation if no choice_time was found or IsStopped data is unavailable
@@ -315,12 +357,12 @@ class SiteTableProcessor(AbstractProcessor):
                     else:
                         logger.error("Valid reward metadata found but no water delivery in site interval")
                         reward_onset_time = np.nan
-                elif len(reward_metadata_sliced) > 1:
-                    closest_index = site_water_delivery.index.get_indexer([this_timestamp], method="nearest")[0]
-                    reward_onset_time = t.cast(float, site_water_delivery.index[closest_index])
                 else:
-                    reward_onset_time = (
-                        t.cast(float, site_water_delivery.index[0]) if not site_water_delivery.empty else np.nan
+                    reward_onset_time = self._select_reward_onset_time(
+                        site_water_delivery,
+                        reward_metadata_sliced,
+                        site_start=this_timestamp,
+                        choice_time=choice_time,
                     )
 
             wait_reward_outcome_sliced = slice_by_index(wait_reward_outcome, this_timestamp, next_timestamp)
