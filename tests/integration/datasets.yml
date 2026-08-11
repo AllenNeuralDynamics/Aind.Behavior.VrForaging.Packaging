@@ -74,6 +74,14 @@ datasets:
       n_rewards: 103
       n_patches: 291
       n_blocks: 6
+
+  - id: behavior_754559_2024-08-26_09-24-17
+    uri: s3://aind-open-data/behavior_754559_2024-08-26_09-24-17/
+    raise_on_error: false
+    rationale: |
+      Legacy dataset (schema version 0.4.0) for subject 754559.
+      Also tests creation of nwb with v1 metadata using jsons in bucket
+
   - id: 716458_2024-05-13_09-03-55
     uri: s3://aind-open-data/716458_2024-05-13_09-03-55/
     raise_on_error: false

@@ -124,7 +124,7 @@ docs = [
 
 [[package]]
 name = "aind-nwb-utils"
-version = "0.2.8"
+version = "0.2.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fsspec" },
@@ -134,9 +134,9 @@ dependencies = [
     { name = "s3fs" },
     { name = "xarray" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/f8/f4e66fd3d1c549f24d127de0772f2f23351da644589b7bdf214123bd7242/aind_nwb_utils-0.2.8.tar.gz", hash = "sha256:2467dfc0b4b2e2d8bd2ed7a1c40658c8f10b262b8b598b4adb483c934b7b5870", size = 39201420, upload-time = "2026-07-29T00:37:24.079Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/80/9f/0309c43b60837e80817191885683cbb90173d4ec38adc4303e885bd1a971/aind_nwb_utils-0.2.9.tar.gz", hash = "sha256:9530430613e05de58779c1bdda82d1f026fb49a6416aeb75c64bc8981540c355", size = 39203302, upload-time = "2026-08-11T19:32:46.159Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c2/79/fcbc53898cff1ed891556c04af227a12a5bcc0816a5c836cc459eb0a9279/aind_nwb_utils-0.2.8-py3-none-any.whl", hash = "sha256:526aad95a8b34824be4dbdc7e8297c0845f709a843af53bd4d51101d820a919c", size = 14622, upload-time = "2026-07-29T00:37:22.382Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/dc/c26b2a94d23c77aca4666645713dcb393daac8a2879b4757aba439b0c30a/aind_nwb_utils-0.2.9-py3-none-any.whl", hash = "sha256:a21dd3ef945b8d9a2bbe5f46e3234e647f1957f88fa868d44b4e67e0f4fd7f78", size = 14614, upload-time = "2026-08-11T19:32:43.442Z" },
 ]
 
 [[package]]
