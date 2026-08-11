@@ -177,8 +177,9 @@ class LegacySiteTableProcessor(SiteTableProcessor):
         """
         if len(candidates) <= 1:
             return candidates
-        after = candidates if np.isnan(choice_time) else candidates[candidates.index >= choice_time]
-        chosen = (after if not after.empty else candidates).iloc[:1]
+        after_tone = np.flatnonzero(np.asarray(candidates.index >= choice_time))
+        pos = int(after_tone[0]) if after_tone.size else 0
+        chosen = candidates.iloc[pos : pos + 1]
         logger.warning(
             "%d %s events in one site interval; keeping the one at t=%s (first at/after the "
             "choice tone). The other %d are assumed to be manually delivered — manual and earned "
