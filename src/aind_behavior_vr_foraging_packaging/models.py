@@ -93,8 +93,8 @@ class SessionMetadata(BaseModel):
     subject_id: str = Field(
         description="Subject identifier loaded from the session metadata (session_output.json or contraqctor stream).",
     )
-    date: datetime.date = Field(
-        description="Session date loaded from the session metadata (session_output.json or contraqctor stream).",
+    date: datetime.datetime = Field(
+        description="Session start datetime loaded from the session metadata (session_output.json or contraqctor stream).",
     )
     dataset_version: str = Field(
         description="Dataset schema version recorded in the session (from tasklogic_input.json).",

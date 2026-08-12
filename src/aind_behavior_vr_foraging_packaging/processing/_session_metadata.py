@@ -77,7 +77,7 @@ class SessionMetadataProcessor(AbstractProcessor):
         return SessionMetadata(
             session_id=folder_name,
             subject_id=str(raw["subject"]),
-            date=datetime.date.fromisoformat(str(raw["date"])[:10]),
+            date=datetime.datetime.fromisoformat(str(raw["date"])),
             dataset_version=provenance.dataset_version,
             data_contract_version=provenance.data_contract_version,
             packaging_version=provenance.packaging_version,
