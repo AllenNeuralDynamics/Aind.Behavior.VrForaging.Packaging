@@ -90,11 +90,18 @@ class SessionMetadata(BaseModel):
     """
 
     session_id: str = Field(description="Session folder name (AIND naming convention).")
-    subject_id: str | None = Field(
-        default=None,
-        description="Subject identifier parsed from the session folder name. None when the name cannot be parsed.",
+    subject_id: str = Field(
+        description="Subject identifier loaded from the session metadata (session_output.json or contraqctor stream).",
     )
-    date: datetime.date | None = Field(
-        default=None,
-        description="Session date parsed from the session folder name. None when the name cannot be parsed.",
+    date: datetime.date = Field(
+        description="Session date loaded from the session metadata (session_output.json or contraqctor stream).",
+    )
+    dataset_version: str = Field(
+        description="Dataset schema version recorded in the session (from tasklogic_input.json).",
+    )
+    data_contract_version: str = Field(
+        description="Version of the aind-behavior-vr-foraging data-contract library used to parse this session.",
+    )
+    packaging_version: str = Field(
+        description="Version of the aind-behavior-vr-foraging-packaging library that produced this output.",
     )

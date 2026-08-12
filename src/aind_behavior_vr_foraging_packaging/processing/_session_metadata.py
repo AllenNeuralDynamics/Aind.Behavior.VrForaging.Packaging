@@ -8,6 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 from .._base import AbstractProcessor
+from .._provenance import PackagingProvenance
 from ..models import SessionMetadata
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ class SessionMetadataProcessor(AbstractProcessor):
         raw = self._fetch_stream_raw()
         if raw is None:
             raw = self._fetch_json_raw()  # FileNotFoundError if absent
-        row = self._build_metadata(folder_name, raw)
+        row = self._build_metadata(folder_name, raw, self.provenance)
         return pd.DataFrame([row.model_dump()])
 
     # ------------------------------------------------------------------
@@ -64,7 +65,7 @@ class SessionMetadataProcessor(AbstractProcessor):
             return json.load(fh)
 
     @staticmethod
-    def _build_metadata(folder_name: str, raw: dict) -> SessionMetadata:
+    def _build_metadata(folder_name: str, raw: dict, provenance: PackagingProvenance) -> SessionMetadata:
         """Extract required ``subject_id`` and ``date`` from a raw session dict.
 
         Raises :exc:`KeyError` if either field is absent.
@@ -77,4 +78,7 @@ class SessionMetadataProcessor(AbstractProcessor):
             session_id=folder_name,
             subject_id=str(raw["subject"]),
             date=datetime.date.fromisoformat(str(raw["date"])[:10]),
+            dataset_version=provenance.dataset_version,
+            data_contract_version=provenance.data_contract_version,
+            packaging_version=provenance.packaging_version,
         )
