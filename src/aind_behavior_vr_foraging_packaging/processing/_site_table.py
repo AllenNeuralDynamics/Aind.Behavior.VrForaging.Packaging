@@ -171,6 +171,27 @@ class SiteTableProcessor(AbstractProcessor):
             return t.cast(float, site_water_delivery.index[closest_index])
         return t.cast(float, site_water_delivery.index[0])
 
+    def _select_choice_feedback(
+        self,
+        candidates: pd.DataFrame,
+        *,
+        site_index: int,
+        t_start: float,
+        t_end: float,
+    ) -> pd.DataFrame:
+        """Validate and return the choice-feedback events for a single site interval.
+
+        The base implementation enforces that at most one choice-cue event falls inside
+        the interval — a violation indicates a parse or hardware problem and raises.
+        Override in subclasses (e.g. :class:`~._legacy_site_table.LegacySiteTableProcessor`)
+        to handle known hardware quirks gracefully.
+        """
+        assert len(candidates) <= 1, (
+            f"Multiple speaker choices in site interval [{t_start}, {t_end}); "
+            f"site index {site_index}, timestamps: {candidates.index.tolist()}"
+        )
+        return candidates
+
     def process_to_sites(self) -> list[Site]:
         """
         Processes sites, patches, and blocks from the dataset and merges them.
@@ -267,7 +288,9 @@ class SiteTableProcessor(AbstractProcessor):
             this_patch = merged.iloc[i]["patch_data"]
 
             site_choice_feedback = slice_by_index(choice_feedback, this_timestamp, next_timestamp)
-            assert len(site_choice_feedback) <= 1, "Multiple speaker choices in site interval"
+            site_choice_feedback = self._select_choice_feedback(
+                site_choice_feedback, site_index=i, t_start=this_timestamp, t_end=next_timestamp
+            )
 
             choice_time: float = (
                 t.cast(float, site_choice_feedback.index[0]) if not site_choice_feedback.empty else np.nan

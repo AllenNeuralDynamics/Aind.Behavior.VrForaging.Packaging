@@ -88,6 +88,32 @@ class LegacySiteTableProcessor(SiteTableProcessor):
         logger.debug("Using %s as choice-cue channel.", col)
         return writes[writes[col]]
 
+    def _select_choice_feedback(
+        self,
+        candidates: pd.DataFrame,
+        *,
+        site_index: int,
+        t_start: float,
+        t_end: float,
+    ) -> pd.DataFrame:
+        """Tolerate duplicate choice-cue pulses seen in pre-0.6.0 Harp data.
+
+        This was only identified in a single session (behavior_754570_2024-09-06_10-58-52)
+        and is not intended to be maintained as a fix in the stable version.
+        """
+        if len(candidates) > 1:
+            logger.warning(
+                "Site %d: %d speaker-choice events in interval [%.3f, %.3f); "
+                "keeping first (Harp double-trigger). Timestamps: %s",
+                site_index,
+                len(candidates),
+                t_start,
+                t_end,
+                candidates.index.tolist(),
+            )
+            return candidates.iloc[:1]
+        return candidates
+
     def _get_olfactometer_channel_count(self, dataset: contraqctor.contract.Dataset) -> int:
         return _LEGACY_OLFACTOMETER_CHANNEL_COUNT
 
