@@ -347,7 +347,8 @@ def _apply_rule(
             logger.debug("  %s: no %s.parquet in %s — skipping", rule.table, rule.table, sd.name)
             continue
         df = pd.read_parquet(p)
-        df.insert(0, "session_id", sd.name)
+        if "session_id" not in df.columns:
+            df.insert(0, "session_id", sd.name)
         frames.append(df)
         source_files.append(p)
 
