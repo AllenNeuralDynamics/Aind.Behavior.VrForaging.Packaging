@@ -54,7 +54,7 @@ def test_reads_from_stream(tmp_path):
     assert len(df) == 1
     assert set(df.columns) >= {"session_id", "subject_id", "date"}
     assert df["subject_id"].iloc[0] == "815103"
-    assert df["date"].iloc[0] == datetime.date(2025, 11, 5)
+    assert df["date"].iloc[0] == datetime.datetime(2025, 11, 5, 22, 52, 21, tzinfo=datetime.timezone.utc)
 
 
 def test_stream_integer_subject_coerced_to_str(tmp_path):
@@ -100,7 +100,7 @@ def test_falls_back_to_json_when_stream_fails(tmp_path):
     proc = SessionMetadataProcessor(ds, session_path=tmp_path)
     df = proc._compute()
     assert df["subject_id"].iloc[0] == "815103"
-    assert df["date"].iloc[0] == datetime.date(2025, 11, 5)
+    assert df["date"].iloc[0] == datetime.datetime(2025, 11, 5, 22, 52, 21, tzinfo=datetime.timezone.utc)
 
 
 def test_json_integer_subject_coerced(tmp_path):
@@ -119,7 +119,7 @@ def test_legacy_version_fallback_reads_json(tmp_path):
     proc = SessionMetadataProcessor(ds, session_path=tmp_path)
     df = proc._compute()
     assert df["subject_id"].iloc[0] == "716458"
-    assert df["date"].iloc[0] == datetime.date(2024, 5, 13)
+    assert df["date"].iloc[0] == datetime.datetime(2024, 5, 13, 9, 3, 55, tzinfo=datetime.timezone.utc)
 
 
 def test_json_missing_subject_raises(tmp_path):
