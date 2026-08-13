@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 import pandas as pd
+from pydantic import BaseModel
 
 from .._base import AbstractProcessor
 from .._provenance import PackagingProvenance
@@ -53,7 +54,10 @@ class SessionMetadataProcessor(AbstractProcessor):
     def _fetch_stream_raw(self) -> dict | None:
         """Return the raw dict from the contraqctor stream, or None if unavailable."""
         try:
-            return self._dataset.at("Behavior").at("InputSchemas").at("Session").load().data
+            data = self._dataset.at("Behavior").at("InputSchemas").at("Session").load().data
+            if isinstance(data, BaseModel):
+                return data.model_dump()
+            return data
         except Exception as exc:
             logger.debug("Contraqctor stream unavailable for %s: %s", self._session_path.name, exc)
             return None

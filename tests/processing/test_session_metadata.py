@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from aind_behavior_services.session import Session
 
 from aind_behavior_vr_foraging_packaging.processing._session_metadata import (
     SessionMetadataProcessor,
@@ -70,6 +71,27 @@ def test_session_id_is_folder_name(tmp_path):
     proc = SessionMetadataProcessor(ds, session_path=tmp_path)
     df = proc._compute()
     assert df["session_id"].iloc[0] == tmp_path.name
+
+
+def test_stream_pydantic_model_normalised_to_dict(tmp_path):
+    """Regression: when .data is a Pydantic BaseModel (not a dict), _fetch_stream_raw
+    must call model_dump() so that _build_metadata can do plain dict lookups.
+
+    Before the fix, ``"subject" not in raw`` evaluated True on a real
+    ``aind_behavior_services.session.Session`` instance even when
+    ``raw.subject`` held a real value, causing a spurious KeyError on 100 %
+    of sessions where the contraqctor stream was available.
+    """
+    session = Session(subject="841299")
+
+    ds = MagicMock()
+    loader = ds.at.return_value.at.return_value.at.return_value.load.return_value
+    loader.data = session
+
+    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
+    df = proc._compute()
+    assert df["subject_id"].iloc[0] == "841299"
+    # date is auto-populated by the Session model; just verify it's a real datetime
 
 
 def test_stream_missing_subject_raises(tmp_path):
