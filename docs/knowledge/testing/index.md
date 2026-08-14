@@ -4,7 +4,7 @@ The suite has two tiers with very different cost profiles. Keeping them
 separate is deliberate: the default `uv run pytest` must stay fast and
 network-free, while heavy end-to-end validation is opt-in.
 
-- [unit-tests.md](unit-tests.md) — Fast, data-free tests that replicate the pandas alignment logic in isolation. Run by default.
+- [unit-tests.md](unit-tests.md) — Fast, data-free tests over synthetic frames and mocked streams: pandas alignment logic, per-processor behaviour, and the error-policy contract. Run by default.
 - [integration-tests.md](integration-tests.md) — End-to-end parsing against real datasets downloaded from a public S3 bucket. Gated behind the `integration` marker.
 
 ## The default gate

@@ -5,6 +5,7 @@ coherent. None of this is derivable from a single file — it's spread across
 `pyproject.toml`, the CI workflow, and the README.
 
 - [tooling-and-style.md](tooling-and-style.md) — uv, ruff, ty, codespell, pytest: the exact commands CI runs and the local equivalents.
+- [error-policy.md](error-policy.md) — what `raise_on_error` covers and what it must never swallow; where failure isolation belongs.
 - [ci-cd-and-release.md](ci-cd-and-release.md) — the GitHub Actions pipeline, the label-gated integration job, and the release/version-bump mechanics.
 
 ## The one-line summary

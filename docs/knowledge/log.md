@@ -3,6 +3,36 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-08-14 (error-policy audit)
+
+* **Conventions**: Added [error-policy.md](conventions/error-policy.md) — a new
+  `Convention` concept splitting failures into known anomaly / expected absence /
+  general failure, documenting the `except Exception` + `raise_on_error`
+  anti-pattern that an audit found in six processor sites (all now fixed), when
+  raising unconditionally is correct, why isolation belongs to the driver, and
+  two unfixed legacy hard-raises under **Known gaps**. Listed it in
+  [conventions/index.md](conventions/index.md).
+* **Architecture**: Corrected [continuous-and-event-streams.md](architecture/continuous-and-event-streams.md)
+  — the claim that a failing `EventsProcessor` source "is skipped and logged …
+  one broken source cannot take down the others" no longer held; sources now
+  propagate and own their own expected-absence handling. Also tightened the
+  `SoftwareEventsProcessor` bullet to separate `has_error` (flag-governed) from
+  malformed streams (propagate).
+* **Architecture**: Tightened the `raise_on_error` row in
+  [processor-abstraction.md](architecture/processor-abstraction.md), noted in
+  [export-pipeline.md](architecture/export-pipeline.md) that its two broad
+  catches are the package's only legitimate ones, and added a
+  legacy-reachability note to [site-table.md](architecture/site-table.md)
+  (`LegacySiteTableProcessor` inherits `_compute`, so the flag *is* honoured
+  pre-0.6.0 — but the two `IsStopped` branches are unreachable there).
+* **Conventions**: Replaced the three-line error-policy summary in
+  [tooling-and-style.md](conventions/tooling-and-style.md) with a pointer to the
+  new concept.
+* **Testing**: Expanded [unit-tests.md](testing/unit-tests.md) beyond its
+  original site-table-only scope — added the `# Pinning the error policy`
+  section (both test shapes, parametrized over the flag) and refreshed its
+  `description`/`resource`/`timestamp`.
+
 ## 2026-08-09 (NWB export feature)
 
 * **Architecture**: Updated [export-pipeline.md](architecture/export-pipeline.md) —

@@ -35,7 +35,11 @@ processor and writes `output_dir/sessions/{session_id}/{output_name}.parquet`.
 - Failures are per-session and per-processor: a dataset that will not load is
   logged and skipped (returning `None`, absent from the result list), and a
   processor that raises is logged while the rest of the session continues.
-  `raise_on_error=True` makes both fatal.
+  `raise_on_error=True` makes both fatal. These two `except Exception` handlers
+  are the package's **only** legitimate broad catches — this is the isolation
+  boundary, and a supervisor cannot know what its children raise. Processors
+  themselves must never swallow general exceptions; see
+  [error-policy.md](../conventions/error-policy.md).
 - `max_workers > 1` fans sessions out over a `ThreadPoolExecutor`. Only
   worthwhile because the work is largely IO and pandas/pyarrow calls that drop
   the GIL.

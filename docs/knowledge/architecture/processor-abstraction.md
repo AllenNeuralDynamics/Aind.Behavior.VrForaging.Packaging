@@ -25,7 +25,7 @@ The contract a subclass must satisfy and may extend:
 | `output_name` | property | `__output_name__` if set, else snake_case of the class name. |
 | `dataset` | property | The loaded contraqctor Dataset. |
 | `provenance` | `cached_property` | A `PackagingProvenance` carrying all three versions; cached so `compute()` and any version checks share one instance (see [versioning](data-contract-and-versioning.md)). |
-| `raise_on_error` / `with_raise_errors(...)` | error policy | When `True`, parsing anomalies raise; when `False` (default), they log and continue. |
+| `raise_on_error` / `with_raise_errors(...)` | error policy | Governs **known** data anomalies only — those a processor names explicitly and can degrade past. `True` raises `DatasetProcessorError`; `False` (default) logs a warning and falls back. It does *not* gate general exceptions, which always propagate. See [error-policy.md](../conventions/error-policy.md). |
 
 Construction is uniform: `Processor(dataset, *, raise_on_error=False)`.
 Subclasses add their own keyword-only options (e.g. `sampling_rate_hz`,
