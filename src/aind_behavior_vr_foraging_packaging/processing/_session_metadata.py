@@ -52,15 +52,22 @@ class SessionMetadataProcessor(AbstractProcessor):
     # ------------------------------------------------------------------
 
     def _fetch_stream_raw(self) -> dict | None:
-        """Return the raw dict from the contraqctor stream, or None if unavailable."""
+        """Return the raw dict from the contraqctor stream, or None if unavailable.
+
+        Only a *structurally absent* stream triggers the fallback: ``KeyError`` when
+        the node is not declared at all (pre-0.6.0 schemas), ``FileNotFoundError``
+        when it is declared but the file is missing.  Anything else — a corrupt
+        file, a validation error, a bug — propagates, so a real failure can never
+        be silently misread as "this is a legacy dataset".
+        """
         try:
             data = self._dataset.at("Behavior").at("InputSchemas").at("Session").load().data
-            if isinstance(data, BaseModel):
-                return data.model_dump()
-            return data
-        except Exception as exc:
-            logger.debug("Contraqctor stream unavailable for %s: %s", self._session_path.name, exc)
+        except (KeyError, FileNotFoundError) as exc:
+            logger.debug("Contraqctor Session stream unavailable for %s: %s", self._session_path.name, exc)
             return None
+        if isinstance(data, BaseModel):
+            return data.model_dump()
+        return data
 
     def _fetch_json_raw(self) -> dict:
         """Return the raw dict from ``behavior/Logs/session_output.json``."""

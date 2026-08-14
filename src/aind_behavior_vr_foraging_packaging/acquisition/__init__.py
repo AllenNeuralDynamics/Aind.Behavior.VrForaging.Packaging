@@ -32,14 +32,15 @@ class AcquisitionProcessor(AbstractProcessor):
                     raise ValueError(f"Stream {stream.name} has error")
                 continue
             name = stream.resolved_name.replace("::", ".")
-            try:
-                df = stream.data.reset_index()
-                df["_stream_name"] = name
-                frames.append(df)
-            except Exception as exc:
-                if self._raise_on_error:
-                    raise
-                logger.debug("Could not load stream %s: %s", stream.name, exc)
+            data = stream.data
+            if not isinstance(data, pd.DataFrame):
+                # Non-tabular streams (e.g. PydanticModel) have no representation in a
+                # tall table; nwbize() handles them separately. Not an error.
+                logger.debug("Skipping non-tabular stream %s (%s)", stream.name, type(data).__name__)
+                continue
+            df = data.reset_index()
+            df["_stream_name"] = name
+            frames.append(df)
         return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
     def nwbize(self, nwb_file: ty.Any) -> ty.Any:
@@ -60,35 +61,35 @@ class AcquisitionProcessor(AbstractProcessor):
                 continue
 
             name = stream.resolved_name.replace("::", ".")
-            try:
-                if stream.has_error:
-                    logger.debug("Stream %s has error: %s", stream.name, stream.collect_errors())
-                    if self._raise_on_error:
-                        raise ValueError(f"Stream {stream.name} has error: {stream.collect_errors()}")
-                    continue
-                if isinstance(stream, (data_contract.harp.HarpRegister, data_contract.csv.Csv)):
-                    table = pynwb.core.DynamicTable.from_dataframe(
-                        name=name, table_description=stream.description, df=stream.data.reset_index()
-                    )
-                    nwb_file.add_acquisition(table)
-                elif isinstance(stream, data_contract.json.SoftwareEvents):
-                    table = pynwb.core.DynamicTable.from_dataframe(
-                        name=name,
-                        table_description=stream.description,
-                        df=clean_dataframe_for_nwb(stream.data.reset_index()),
-                    )
-                    nwb_file.add_acquisition(table)
-                elif isinstance(stream, data_contract.json.PydanticModel):
-                    nwb_file.add_acquisition(
-                        pynwb.core.DynamicTable(
-                            name=name,
-                            description=stream.data.model_dump_json(),
-                        )
-                    )
-                else:
-                    raise TypeError(f"Stream {stream.name} has unsupported type {type(stream)}")
-            except Exception as exc:
+            if stream.has_error:
+                logger.debug("Stream %s has error: %s", stream.name, stream.collect_errors())
                 if self._raise_on_error:
-                    raise
-                logger.debug("Error processing stream %s: %s", stream.name, exc)
+                    raise ValueError(f"Stream {stream.name} has error: {stream.collect_errors()}")
+                continue
+            if isinstance(stream, (data_contract.harp.HarpRegister, data_contract.csv.Csv)):
+                table = pynwb.core.DynamicTable.from_dataframe(
+                    name=name, table_description=stream.description, df=stream.data.reset_index()
+                )
+                nwb_file.add_acquisition(table)
+            elif isinstance(stream, data_contract.json.SoftwareEvents):
+                table = pynwb.core.DynamicTable.from_dataframe(
+                    name=name,
+                    table_description=stream.description,
+                    df=clean_dataframe_for_nwb(stream.data.reset_index()),
+                )
+                nwb_file.add_acquisition(table)
+            elif isinstance(stream, data_contract.json.PydanticModel):
+                nwb_file.add_acquisition(
+                    pynwb.core.DynamicTable(
+                        name=name,
+                        description=stream.data.model_dump_json(),
+                    )
+                )
+            else:
+                # A stream type nwbize() has not been taught to express: a known,
+                # nameable gap, so it is governed by raise_on_error.
+                msg = f"Stream {stream.name} has unsupported type {type(stream)}"
+                if self._raise_on_error:
+                    raise TypeError(msg)
+                logger.warning("%s; skipping.", msg)
         return nwb_file

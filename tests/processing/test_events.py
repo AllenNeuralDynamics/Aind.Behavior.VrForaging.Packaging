@@ -205,25 +205,23 @@ class TestEventsCompute:
         assert df.empty
         assert set(df.columns) == {"event_name", "data"}
 
-    def test_failing_source_is_skipped_and_logged(self, monkeypatch):
-        proc = _make_processor(raise_on_error=False)
+    @pytest.mark.parametrize("raise_on_error", [False, True])
+    def test_failing_source_propagates_regardless_of_flag(self, monkeypatch, raise_on_error):
+        """An exception from a source is a real failure, not a known data anomaly.
+
+        ``raise_on_error`` governs *named* data anomalies only. A source that raises
+        has hit a bug or a corrupt file, and must never be silently skipped — doing so
+        drops the event type from the output while the pipeline still reports success.
+        Expected absence is the source's own job to handle by returning an empty frame.
+        """
+        proc = _make_processor(raise_on_error=raise_on_error)
 
         def _boom(ds):
             raise ValueError("no stream")
 
         sources = [("Broken", _boom), ("Ok", lambda ds: pd.DataFrame({"data": ["x"]}, index=[1.0]))]
         monkeypatch.setattr(EventsProcessor, "_EVENT_SOURCES", sources)
-        df = proc.compute()
-        assert list(df["event_name"]) == ["Ok"]
-
-    def test_failing_source_raises_when_raise_on_error(self, monkeypatch):
-        proc = _make_processor(raise_on_error=True)
-
-        def _boom(ds):
-            raise ValueError("no stream")
-
-        monkeypatch.setattr(EventsProcessor, "_EVENT_SOURCES", [("Broken", _boom)])
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="no stream"):
             proc.compute()
 
     def test_output_name_is_events(self):

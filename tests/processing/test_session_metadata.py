@@ -18,15 +18,26 @@ _SESSION_PATH = Path("behavior_815103_2025-11-05_22-52-21")
 # ---------------------------------------------------------------------------
 
 
-def _make_dataset(stream_data: dict | None = None, fail: bool = False) -> MagicMock:
+def _make_dataset(
+    stream_data: dict | None = None,
+    fail: bool = False,
+    error: Exception | None = None,
+) -> MagicMock:
     """Return a mock dataset whose Behavior/InputSchemas/Session stream returns *stream_data*.
 
-    If *fail* is True the stream raises RuntimeError.
+    If *fail* is True the stream raises ``FileNotFoundError`` — the real signal for a
+    structurally absent stream, which is what legitimately triggers the JSON fallback.
+    Pass *error* to raise something else instead (used to assert that unexpected
+    exceptions propagate rather than being mistaken for a legacy dataset).
     """
     ds = MagicMock()
     loader = ds.at.return_value.at.return_value.at.return_value.load.return_value
-    if fail:
-        ds.at.return_value.at.return_value.at.return_value.load.side_effect = RuntimeError("stream unavailable")
+    if error is not None:
+        ds.at.return_value.at.return_value.at.return_value.load.side_effect = error
+    elif fail:
+        ds.at.return_value.at.return_value.at.return_value.load.side_effect = FileNotFoundError(
+            "session.json not found"
+        )
     else:
         loader.data = stream_data if stream_data is not None else {"subject": "815103", "date": "2025-11-05T22:52:21Z"}
     return ds
@@ -160,6 +171,31 @@ def test_stream_unavailable_and_json_missing_raises(tmp_path):
     ds = _make_dataset(fail=True)
     proc = SessionMetadataProcessor(ds, session_path=tmp_path)
     with pytest.raises(FileNotFoundError):
+        proc._compute()
+
+
+def test_undeclared_stream_node_falls_back_to_json(tmp_path):
+    """``KeyError`` from ``.at()`` — the node is not in this schema version — also falls back."""
+    ds = _make_dataset(error=KeyError("Session"))
+    _write_session_json(tmp_path, subject="716458")
+    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
+    df = proc._compute()
+    assert df["subject_id"].iloc[0] == "716458"
+
+
+def test_unexpected_stream_error_propagates(tmp_path):
+    """A stream error that is *not* structural absence must not trigger the fallback.
+
+    Only ``KeyError`` (node undeclared) and ``FileNotFoundError`` (file missing) mean
+    "this dataset does not have this stream". Anything else — a corrupt file, a
+    validation error, a bug in contraqctor — is a real failure. Falling back would
+    silently read a *different* source and report success, so it propagates even
+    though a perfectly good ``session_output.json`` is sitting right there.
+    """
+    ds = _make_dataset(error=RuntimeError("corrupt stream"))
+    _write_session_json(tmp_path, subject="815103")
+    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
+    with pytest.raises(RuntimeError, match="corrupt stream"):
         proc._compute()
 
 

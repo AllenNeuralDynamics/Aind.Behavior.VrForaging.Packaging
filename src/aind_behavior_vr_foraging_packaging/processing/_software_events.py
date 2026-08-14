@@ -53,21 +53,20 @@ class SoftwareEventsProcessor(AbstractProcessor):
             if not isinstance(stream, _dc.json.SoftwareEvents):
                 continue
 
-            try:
-                df = ty.cast(pd.DataFrame, stream.data)
-                frames.append(
-                    pd.DataFrame(
-                        {
-                            "event_name": stream.name,
-                            "data": df["data"].apply(lambda d: json.dumps(d, default=str)),
-                        },
-                        index=df.index,
-                    )
+            df = ty.cast(pd.DataFrame, stream.data)
+            if df.empty:
+                # An event type that never fired contributes no rows, and its frame
+                # may not even carry a "data" column. Not an error.
+                continue
+            frames.append(
+                pd.DataFrame(
+                    {
+                        "event_name": stream.name,
+                        "data": df["data"].apply(lambda d: json.dumps(d, default=str)),
+                    },
+                    index=df.index,
                 )
-            except Exception as exc:
-                if self._raise_on_error:
-                    raise
-                logger.debug("Could not load %s: %s", stream.name, exc)
+            )
 
         if not frames:
             empty = pd.DataFrame(columns=["event_name", "data"])
@@ -108,18 +107,15 @@ class SoftwareEventsProcessor(AbstractProcessor):
                 continue
 
             name = stream.resolved_name.replace("::", ".")
-            try:
-                df = ty.cast(pd.DataFrame, stream.data).copy()
-                df["data"] = df["data"].apply(lambda d: _json.dumps(d, default=str))
-                table = pynwb.core.DynamicTable.from_dataframe(
-                    name=name,
-                    table_description=stream.description,
-                    df=clean_dataframe_for_nwb(df.reset_index()),
-                )
-                nwb_file.add_acquisition(table)
-            except Exception as exc:
-                if self._raise_on_error:
-                    raise
-                logger.debug("Could not add %s to NWB: %s", stream.name, exc)
+            df = ty.cast(pd.DataFrame, stream.data).copy()
+            if df.empty:
+                continue
+            df["data"] = df["data"].apply(lambda d: _json.dumps(d, default=str))
+            table = pynwb.core.DynamicTable.from_dataframe(
+                name=name,
+                table_description=stream.description,
+                df=clean_dataframe_for_nwb(df.reset_index()),
+            )
+            nwb_file.add_acquisition(table)
 
         return nwb_file

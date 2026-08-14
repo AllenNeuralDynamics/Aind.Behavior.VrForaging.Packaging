@@ -87,4 +87,32 @@ class AbstractProcessor(abc.ABC):
 
     @property
     def raise_on_error(self) -> bool:
+        """Whether *known* data anomalies raise instead of being logged and worked around.
+
+        The flag covers only anomalies a processor explicitly checks for and can name,
+        and only where a degraded-but-meaningful output exists. The convention is::
+
+            if <specific condition detected>:
+                msg = "<what was violated>"
+                if self.raise_on_error:
+                    raise DatasetProcessorError(msg)
+                logger.warning("%s; <what is used instead>.", msg)
+
+        It does **not** gate general exceptions. Never write
+        ``except Exception: ... if self.raise_on_error: raise`` — with the flag off (the
+        default) that swallows real bugs, API drift and corrupt files as though they were
+        data quirks, dropping the processor's output while the run still reports success.
+        Catch only the exception types that signal an *expected* condition, narrowly —
+        e.g. ``except (KeyError, FileNotFoundError)`` for a stream a given schema version
+        does not declare — and let everything else propagate.
+
+        Failures that leave nothing meaningful to emit (e.g. absent treadmill calibration,
+        without which position cannot be computed at all) should raise unconditionally
+        rather than consult this flag: there is no degraded output to fall back to.
+
+        Isolating one failure from the rest of a run is the caller's job, not the flag's.
+        :func:`~aind_behavior_vr_foraging_packaging.export_pipeline.process_sessions`
+        catches whatever a processor raises, so a single bad session or processor never
+        aborts a batch.
+        """
         return self._raise_on_error
