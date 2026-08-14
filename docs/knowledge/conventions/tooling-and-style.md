@@ -97,6 +97,8 @@ See [testing/index.md](../testing/index.md) for the full harness. Style rules:
   `__init__`. Follow this when adding one.
 - Google-style docstrings with explicit units in field/param descriptions
   (e.g. "(unit: cm/s)").
-- Error policy is explicit and threaded via `raise_on_error`; prefer logging
-  a warning + graceful fallback over silent failure, and raise
-  `DatasetProcessorError` for hard parsing failures.
+- Error policy is explicit and threaded via `raise_on_error`, which covers
+  **named data anomalies only** — never a bare `except Exception`. Catch narrowly,
+  let general failures propagate, and raise `DatasetProcessorError` for hard
+  parsing failures. The rules and the anti-pattern are in
+  [error-policy.md](error-policy.md).

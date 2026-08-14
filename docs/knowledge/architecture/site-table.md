@@ -55,13 +55,23 @@ timestamp interval. Documented edge cases it handles:
 - **Odor onset slightly before the site** (< 2 ms): a warning is logged and
   the site onset is used.
 - **Choice with no in-window `IsStopped=True`**: falls back to a global search
-  before the choice time (or raises if `raise_on_error`).
+  before the choice time (or raises if `raise_on_error`). If the global search
+  also comes up empty it raises `DatasetProcessorError` **regardless** of the
+  flag — there is no stop time to fall back to.
 - **Reward metadata present but no hardware water delivery**: raises or logs
   depending on `raise_on_error`.
 
 `DatasetProcessorError` is raised for hard failures (and for
 `PatchStateAtReward` on datasets `< 0.6.0`, which is why those go through the
 [legacy processor](data-contract-and-versioning.md)).
+
+**Reachability on legacy data.** `LegacySiteTableProcessor` overrides hook
+methods but *not* `_compute`, so pre-0.6.0 sessions run this same alignment
+logic and honour `raise_on_error` through it. The two `IsStopped` branches above
+are the exception: legacy's `_parse_is_stopped` returns `None`, so the guard that
+wraps them is never entered and `last_stop_*` is always `None` there. See
+[error-policy.md](../conventions/error-policy.md) for which failures the flag
+covers, and its **Known gaps** section for two unfixed legacy hard-raises.
 
 # Schema
 

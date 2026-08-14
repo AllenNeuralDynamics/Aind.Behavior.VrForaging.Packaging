@@ -1,4 +1,3 @@
-import logging
 import typing as t
 
 import contraqctor
@@ -6,8 +5,6 @@ import pandas as pd
 
 from .._base import AbstractProcessor
 from ._helper import parse_manual_water_delivery
-
-logger = logging.getLogger(__name__)
 
 
 class EventsProcessor(AbstractProcessor):
@@ -37,13 +34,7 @@ class EventsProcessor(AbstractProcessor):
         """
         frames: list[pd.DataFrame] = []
         for name, source in self._EVENT_SOURCES:
-            try:
-                df = source(self.dataset)
-            except Exception as exc:
-                if self.raise_on_error:
-                    raise
-                logger.warning("Skipping event source %s: %s", name, exc)
-                continue
+            df = source(self.dataset)
             if df.empty:
                 continue
             frames.append(pd.DataFrame({"event_name": name, "data": df["data"]}, index=df.index))

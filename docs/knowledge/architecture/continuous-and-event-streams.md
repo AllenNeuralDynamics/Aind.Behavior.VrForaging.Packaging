@@ -60,7 +60,11 @@ streams into a single tall table: columns `event_name` (str) and `data`
 
 - Payloads are polymorphic; parse back with `df["data"].apply(json.loads)`,
   or flatten one type with `pd.json_normalize`.
-- Streams with errors are skipped (or raise if `raise_on_error`).
+- Streams contraqctor flags via `has_error` are skipped (or raise if
+  `raise_on_error`) — that is a *known* condition, already reported upstream. An
+  event type that never fired is skipped as empty. Anything else — a stream that
+  loads but lacks its `data` column, say — propagates; see
+  [error-policy.md](../conventions/error-policy.md).
 - `nwbize()` differs from `compute()`: it writes **one `DynamicTable`
   acquisition per event type** (preserving the original stream structure)
   rather than the single tall table, using
@@ -79,8 +83,13 @@ passthrough of a single raw stream.
   list, tags each source's rows with its `event_name`, and concatenates.
   Adding a new derived event is a self-contained addition: write one function,
   append one tuple.
-- A source that raises is skipped and logged (or raises, if
-  `raise_on_error`) — one broken source cannot take down the others.
+- A source that raises **propagates**, under either `raise_on_error` value. Each
+  source owns its own expected-absence handling: when the streams it needs are
+  not part of this dataset's schema version it returns an empty frame (as
+  `parse_manual_water_delivery` does via `except (KeyError, FileNotFoundError)`),
+  so anything it raises is a real failure. Isolating one bad source from the rest
+  of the run is the driver's job, not the processor's — see
+  [error-policy.md](../conventions/error-policy.md).
 - Current source: `ManualWaterDelivery` — `ForceGiveReward` (forced/manual
   reward) events, re-timestamped to their recovered hardware valve-open time by
   `_helper.parse_manual_water_delivery`. `GiveReward` deliveries claim their

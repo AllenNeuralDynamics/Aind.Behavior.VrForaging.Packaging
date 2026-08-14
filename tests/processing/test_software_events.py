@@ -5,6 +5,7 @@ import typing as ty
 from unittest.mock import MagicMock
 
 import pandas as pd
+import pytest
 
 from aind_behavior_vr_foraging_packaging.processing._software_events import SoftwareEventsProcessor
 
@@ -120,3 +121,41 @@ class TestSoftwareEventsCompute:
     def test_output_name_is_software_events(self):
         proc = SoftwareEventsProcessor.__new__(SoftwareEventsProcessor)
         assert proc.output_name == "software_events"
+
+    def test_stream_with_no_rows_is_skipped(self):
+        """An event type that never fired contributes nothing, and may lack a 'data' column."""
+        proc = _make_processor([_make_sw_stream("NeverFired", []), _make_sw_stream("ActiveSite", [(1.0, {"a": 1})])])
+        df = proc.compute()
+        assert list(df["event_name"]) == ["ActiveSite"]
+
+    @pytest.mark.parametrize("raise_on_error", [False, True])
+    def test_malformed_stream_propagates(self, raise_on_error):
+        """A non-empty stream with the wrong schema must fail, not be silently dropped.
+
+        ``has_error`` is the *known* condition and stays governed by ``raise_on_error``
+        (asserted separately). A stream that loads fine but has no ``data`` column is a
+        bug or a corrupt file: swallowing the ``KeyError`` dropped the whole event type
+        from the parquet while the pipeline still reported success.
+        """
+        broken = _make_sw_stream("Broken", [(1.0, {"a": 1})])
+        broken.data = pd.DataFrame({"not_data": [1]}, index=pd.Index([1.0], name="Time"))
+
+        proc = _make_processor([broken])
+        proc._raise_on_error = raise_on_error
+        with pytest.raises(KeyError, match="data"):
+            proc.compute()
+
+    @pytest.mark.parametrize("raise_on_error", [False, True])
+    def test_has_error_stream_is_governed_by_flag(self, raise_on_error):
+        """``has_error`` is a known condition contraqctor already reported: flag decides."""
+        bad = _make_sw_stream("Errored", [(1.0, {"a": 1})])
+        bad.has_error = True
+        bad.collect_errors.return_value = ["parse failed"]
+
+        proc = _make_processor([bad])
+        proc._raise_on_error = raise_on_error
+        if raise_on_error:
+            with pytest.raises(ValueError, match="Errored"):
+                proc.compute()
+        else:
+            assert proc.compute().empty
