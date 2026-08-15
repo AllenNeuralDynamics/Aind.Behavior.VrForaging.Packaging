@@ -136,8 +136,15 @@ def _process_one_session(
 ) -> Path | None:
     """Process a single session directory and write per-processor parquets.
 
-    Returns the written session directory on success, ``None`` when the
-    dataset fails to load and *raise_on_error* is ``False``.
+    Returns the written session directory, or ``None`` if the dataset failed
+    to load, its processors could not be constructed, or *any* processor (or
+    the NWB step) raised — regardless of ``raise_on_error``. A processor is
+    only supposed to catch and gracefully degrade from anomalies it explicitly
+    anticipates (the ``raise_on_error`` convention, ``AbstractProcessor.raise_on_error``);
+    anything that reaches this function's ``except Exception`` is unexpected
+    by definition, so the session is not a usable partial result — whatever
+    parquet files other processors already wrote are discarded along with it,
+    so a failed session can never be picked up by a later :func:`aggregate` call.
     """
     from aind_behavior_vr_foraging.data_contract import dataset as load_dataset
 
@@ -155,11 +162,20 @@ def _process_one_session(
             raise
         return None
 
-    all_processors = create_processors(
-        ds,
-        session_path=raw_path,
-        raise_on_error=raise_on_error,
-    )
+    try:
+        all_processors = create_processors(
+            ds,
+            session_path=raw_path,
+            raise_on_error=raise_on_error,
+        )
+    except Exception:
+        # Isolated the same way a single processor's own failure is (below) — a
+        # bad rig config must not abort the rest of a multi-session batch.
+        logger.exception("[%s] Failed to construct processors", session_id)
+        if raise_on_error:
+            raise
+        shutil.rmtree(session_out, ignore_errors=True)
+        return None
 
     def _keep(name: str) -> bool:
         if name == "session":  # never filtered; Phase 2 depends on session.parquet
@@ -175,6 +191,7 @@ def _process_one_session(
     selected = [p for p in all_processors if _keep(p.output_name)]
 
     ran = 0
+    any_failed = False
     for proc in selected:
         name = proc.output_name
         try:
@@ -184,13 +201,20 @@ def _process_one_session(
             ran += 1
         except Exception as exc:
             logger.warning("[%s] %s FAILED: %s", session_id, name, exc, exc_info=True)
+            any_failed = True
             if raise_on_error:
                 raise
 
     logger.info("[%s] done (%d processors ran)", session_id, ran)
 
     if write_nwb:
-        _write_session_nwb(raw_path, session_out, ds, selected, raise_on_error=raise_on_error)
+        nwb_path = _write_session_nwb(raw_path, session_out, ds, selected, raise_on_error=raise_on_error)
+        any_failed = any_failed or nwb_path is None
+
+    if any_failed:
+        logger.error("[%s] session failed: at least one processor did not complete — discarding its output", session_id)
+        shutil.rmtree(session_out, ignore_errors=True)
+        return None
 
     return session_out
 
@@ -221,8 +245,12 @@ def process_sessions(
     exclude_processors:
         Processors whose ``output_name`` is in this list are skipped.
     raise_on_error:
-        Forwarded to every processor. When ``False`` (default) failures are
-        logged and the session continues.
+        Forwarded to every processor. When ``False`` (default), a processor's
+        exception is logged and the *other* processors for that session still
+        run — but the session as a whole is still not written: any processor
+        failing drops the session from the returned list and discards
+        whatever parquet files its siblings already wrote for it. When
+        ``True``, the first exception propagates immediately instead.
     max_workers:
         Number of parallel threads. ``1`` (default) runs sessions sequentially.
         Values ``> 1`` process up to *max_workers* sessions concurrently via

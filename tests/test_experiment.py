@@ -1,15 +1,108 @@
 """Unit tests for export_pipeline.py — no real dataset I/O required."""
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 
 from aind_behavior_vr_foraging_packaging.export_pipeline import (
     DEFAULT_AGGREGATOR,
     AggregationRule,
     Aggregator,
     aggregate,
+    process_sessions,
 )
+
+# ---------------------------------------------------------------------------
+# process_sessions — any processor failure fails the whole session
+# ---------------------------------------------------------------------------
+
+
+def _mock_proc(name: str, *, raises: bool = False) -> MagicMock:
+    proc = MagicMock()
+    proc.output_name = name
+    if raises:
+        proc.compute.side_effect = ValueError(f"{name} blew up")
+    else:
+        df = pd.DataFrame({"x": [1]})
+        df.attrs.update({"packaging_version": "test", "data_contract_version": "1.0.0", "dataset_version": "0.6.1"})
+        proc.compute.return_value = df
+    return proc
+
+
+def _mock_dataset() -> MagicMock:
+    ds = MagicMock()
+    ds.version = "0.6.1"
+    return ds
+
+
+class TestAnyProcessorFailureFailsTheSession:
+    def test_session_dropped_and_directory_removed_when_a_processor_fails(self, tmp_path):
+        raw = tmp_path / "raw" / "sess_A"
+        raw.mkdir(parents=True)
+        procs = [_mock_proc("session"), _mock_proc("sites"), _mock_proc("licks", raises=True)]
+
+        with (
+            patch("aind_behavior_vr_foraging.data_contract.dataset", return_value=_mock_dataset()),
+            patch("aind_behavior_vr_foraging_packaging.export_pipeline.create_processors", return_value=procs),
+        ):
+            written = process_sessions([raw], tmp_path / "out", raise_on_error=False)
+
+        assert written == []
+        assert not (tmp_path / "out" / "sessions" / "sess_A").exists()
+
+    def test_session_kept_when_every_processor_succeeds(self, tmp_path):
+        raw = tmp_path / "raw" / "sess_A"
+        raw.mkdir(parents=True)
+        procs = [_mock_proc("session"), _mock_proc("sites"), _mock_proc("licks")]
+
+        with (
+            patch("aind_behavior_vr_foraging.data_contract.dataset", return_value=_mock_dataset()),
+            patch("aind_behavior_vr_foraging_packaging.export_pipeline.create_processors", return_value=procs),
+        ):
+            written = process_sessions([raw], tmp_path / "out", raise_on_error=False)
+
+        assert written == [tmp_path / "out" / "sessions" / "sess_A"]
+        assert (tmp_path / "out" / "sessions" / "sess_A" / "sites.parquet").exists()
+
+    def test_raise_on_error_true_propagates_immediately(self, tmp_path):
+        raw = tmp_path / "raw" / "sess_A"
+        raw.mkdir(parents=True)
+        procs = [_mock_proc("session"), _mock_proc("sites", raises=True)]
+
+        with (
+            patch("aind_behavior_vr_foraging.data_contract.dataset", return_value=_mock_dataset()),
+            patch("aind_behavior_vr_foraging_packaging.export_pipeline.create_processors", return_value=procs),
+            pytest.raises(ValueError, match="blew up"),
+        ):
+            process_sessions([raw], tmp_path / "out", raise_on_error=True)
+
+    def test_processor_construction_failure_is_isolated_from_other_sessions(self, tmp_path):
+        """A bad rig config crashing create_processors() for one session must not
+        abort the rest of a multi-session batch."""
+        good = tmp_path / "raw" / "sess_good"
+        bad = tmp_path / "raw" / "sess_bad"
+        good.mkdir(parents=True)
+        bad.mkdir(parents=True)
+
+        def _create_processors(ds, **kwargs):
+            if kwargs.get("session_path") == bad:
+                raise RuntimeError("malformed rig config")
+            return [_mock_proc("session"), _mock_proc("sites")]
+
+        with (
+            patch("aind_behavior_vr_foraging.data_contract.dataset", return_value=_mock_dataset()),
+            patch(
+                "aind_behavior_vr_foraging_packaging.export_pipeline.create_processors",
+                side_effect=_create_processors,
+            ),
+        ):
+            written = process_sessions([bad, good], tmp_path / "out", raise_on_error=False)
+
+        assert written == [tmp_path / "out" / "sessions" / "sess_good"]
+        assert not (tmp_path / "out" / "sessions" / "sess_bad").exists()
+
 
 # ---------------------------------------------------------------------------
 # AggregationRule / Aggregator
