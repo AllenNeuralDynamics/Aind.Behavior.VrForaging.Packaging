@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from .session_pipeline import _write_parquet, create_processors
+from .session_pipeline import _write_parquet, create_processors, process_session
 
 if TYPE_CHECKING:
     import contraqctor.contract
@@ -154,28 +154,9 @@ def _process_one_session(
     session_out.mkdir(parents=True, exist_ok=True)
     logger.info("[%s] Processing session", session_id)
 
-    try:
-        ds = load_dataset(raw_path)
-    except Exception:
-        logger.exception("[%s] Failed to load dataset", session_id)
-        if raise_on_error:
-            raise
-        return None
+    ds = load_dataset(raw_path)
 
-    try:
-        all_processors = create_processors(
-            ds,
-            session_path=raw_path,
-            raise_on_error=raise_on_error,
-        )
-    except Exception:
-        # Isolated the same way a single processor's own failure is (below) — a
-        # bad rig config must not abort the rest of a multi-session batch.
-        logger.exception("[%s] Failed to construct processors", session_id)
-        if raise_on_error:
-            raise
-        shutil.rmtree(session_out, ignore_errors=True)
-        return None
+    all_processors = create_processors(ds, raise_on_error=raise_on_error)
 
     def _keep(name: str) -> bool:
         if name == "session":  # never filtered; Phase 2 depends on session.parquet
@@ -190,31 +171,17 @@ def _process_one_session(
 
     selected = [p for p in all_processors if _keep(p.output_name)]
 
-    ran = 0
-    any_failed = False
-    for proc in selected:
-        name = proc.output_name
-        try:
-            df = proc.compute()
-            _write_parquet(df, session_out / f"{name}.parquet")
-            logger.info("[%s] %s → %d rows", session_id, name, len(df))
-            ran += 1
-        except Exception as exc:
-            logger.warning("[%s] %s FAILED: %s", session_id, name, exc, exc_info=True)
-            any_failed = True
-            if raise_on_error:
-                raise
+    computed, logs = process_session(
+        ds,
+        session_out,
+        processors=selected,
+        raise_on_error=raise_on_error,
+    )
 
-    logger.info("[%s] done (%d processors ran)", session_id, ran)
+    logger.info("[%s] done (%d processors ran)", session_id, len(computed))
 
     if write_nwb:
-        nwb_path = _write_session_nwb(raw_path, session_out, ds, selected, raise_on_error=raise_on_error)
-        any_failed = any_failed or nwb_path is None
-
-    if any_failed:
-        logger.error("[%s] session failed: at least one processor did not complete — discarding its output", session_id)
-        shutil.rmtree(session_out, ignore_errors=True)
-        return None
+        _ = _write_session_nwb(raw_path, session_out, ds, selected, raise_on_error=raise_on_error)
 
     return session_out
 

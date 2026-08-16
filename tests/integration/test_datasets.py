@@ -16,8 +16,8 @@ import pytest
 
 from aind_behavior_vr_foraging_packaging.session_pipeline import (
     create_processors,
-    get_site_table_processor,
-    run_session,
+    process_session,
+    resolve_site_table_processor,
 )
 
 from .conftest import CACHE_ROOT, _manifest
@@ -110,7 +110,7 @@ def test_sites_table(entry, request):
 
     try:
         ds = _load_dataset(entry)
-        processor = get_site_table_processor(ds, raise_on_error=entry.raise_on_error)
+        processor = resolve_site_table_processor(ds, raise_on_error=entry.raise_on_error)
         sites = processor.process_to_sites()
         sites_df = pd.DataFrame([s.model_dump() for s in sites])
 
@@ -164,7 +164,7 @@ def test_full_pipeline(entry, request, tmp_path):
 
     try:
         ds = _load_dataset(entry)
-        outputs = run_session(ds, tmp_path)
+        outputs = process_session(ds, tmp_path)
         assert not outputs["sites"].empty, f"{entry.id}: sites table is unexpectedly empty"
 
         session = NwbSession(_session_path(entry), dataset=ds)

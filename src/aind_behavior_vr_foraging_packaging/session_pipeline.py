@@ -8,6 +8,7 @@ See ``scripts/example_parquet_pipeline.py`` for usage examples.
 """
 
 import logging
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import pandas as pd
@@ -35,7 +36,6 @@ _LEGACY_VERSION_CUTOFF = semver.Version(major=0, minor=6, patch=0)
 def create_processors(
     dataset: Dataset,
     *,
-    session_path: Path | None = None,
     raise_on_error: bool = False,
 ) -> list[AbstractProcessor]:
     """Return the ordered processor list for *dataset*, dispatching on version.
@@ -45,9 +45,6 @@ def create_processors(
     dataset:
         The loaded contraqctor Dataset. Its ``.version`` attribute determines
         which processor variants are selected.
-    session_path:
-        When provided, a :class:`~.processing.SessionMetadataProcessor` is
-        prepended to the list using this path as the session root.
     raise_on_error:
         Passed through to every processor. When ``True``, any parsing anomaly
         raises; when ``False`` (default) it logs a warning and continues.
@@ -55,36 +52,25 @@ def create_processors(
     Returns
     -------
     list[AbstractProcessor]
-        Processors in the order they must be applied. When *session_path* is
-        given, ``session`` is always first.
+        Processors in the order they must be applied; ``session`` is always
+        first. :class:`~.processing.SessionMetadataProcessor` is unconditional —
+        it derives the session root from the dataset's own Session stream, so
+        there is nothing for the caller to supply and no reason to omit it.
     """
-    version = semver.Version.parse(str(dataset.version))
-    is_legacy = version < _LEGACY_VERSION_CUTOFF
 
-    if is_legacy:
-        logger.info("Dataset version %s < %s — using legacy processors.", version, _LEGACY_VERSION_CUTOFF)
-        site_table_cls = LegacySiteTableProcessor
-        pos_vel_cls = LegacyPositionAndVelocityProcessor
-    else:
-        logger.info("Dataset version %s — using current processors.", version)
-        site_table_cls = SiteTableProcessor
-        pos_vel_cls = PositionAndVelocityProcessor
-
-    procs: list[AbstractProcessor] = []
-    if session_path is not None:
-        procs.append(SessionMetadataProcessor(dataset, session_path=session_path, raise_on_error=raise_on_error))
-    procs += [
-        site_table_cls(dataset, raise_on_error=raise_on_error),
-        pos_vel_cls(dataset, raise_on_error=raise_on_error),
+    processors: list[AbstractProcessor] = [
+        SessionMetadataProcessor(dataset, raise_on_error=raise_on_error),
+        resolve_position_velocity_processor(dataset, raise_on_error=raise_on_error),
+        resolve_site_table_processor(dataset, raise_on_error=raise_on_error),
         LicksProcessor(dataset, raise_on_error=raise_on_error),
         SniffingProcessor(dataset, raise_on_error=raise_on_error),
         SoftwareEventsProcessor(dataset, raise_on_error=raise_on_error),
         EventsProcessor(dataset, raise_on_error=raise_on_error),
     ]
-    return procs
+    return processors
 
 
-def get_site_table_processor(
+def resolve_site_table_processor(
     dataset: Dataset,
     *,
     raise_on_error: bool = False,
@@ -95,7 +81,7 @@ def get_site_table_processor(
     return cls(dataset, raise_on_error=raise_on_error)
 
 
-def get_position_velocity_processor(
+def resolve_position_velocity_processor(
     dataset: Dataset,
     *,
     sampling_rate_hz: float | None = 250.0,
@@ -107,12 +93,14 @@ def get_position_velocity_processor(
     return cls(dataset, sampling_rate_hz=sampling_rate_hz, raise_on_error=raise_on_error)
 
 
-def run_session(
+def process_session(
     dataset: Dataset,
     output_dir: Path,
     *,
-    session_path: Path | None = None,
     raise_on_error: bool = False,
+    processors: Sequence[AbstractProcessor] | None = None,
+    on_error: Callable[[AbstractProcessor, Exception], None] | None = None,
+    log_prefix: str = "",
 ) -> dict[str, pd.DataFrame]:
     """Run all processors and save their outputs as parquet files.
 
@@ -126,33 +114,60 @@ def run_session(
         variants are selected (legacy vs current).
     output_dir:
         Directory where parquet files are written. Created if absent.
-    session_path:
-        When provided, a ``session`` processor is prepended. Pass the
-        session root directory (same value used to load *dataset*).
     raise_on_error:
         Passed to all processors.
+    processors:
+        Use this exact, already-constructed processor list instead of calling
+        :func:`create_processors` internally. For a caller that has already
+        filtered/selected its own processor list (e.g.
+        ``export_pipeline._process_one_session``'s ``--include-processors``/
+        ``--exclude-processors`` handling) — *raise_on_error* is then
+        irrelevant to processor construction and only still applies to this
+        function's own behavior. ``None`` (default) preserves the original
+        behavior: build the list via
+        ``create_processors(dataset, raise_on_error=raise_on_error)``.
+    on_error:
+        Called as ``on_error(processor, exception)`` when a processor's
+        ``compute()`` raises, instead of letting the exception propagate.
+        The callback decides what happens next: returning normally skips that
+        processor and continues with the rest; re-raising aborts the run
+        immediately (the callback's own raised exception propagates out of
+        this function). ``None`` (default) means an exception propagates
+        immediately, same as before this parameter existed — every existing
+        caller keeps its current behavior unchanged.
+    log_prefix:
+        Prepended to this function's own log lines — e.g. ``f"[{session_id}] "``
+        for a caller processing many sessions in one batch, so per-processor
+        progress stays grep-able by session. Empty by default.
 
     Returns
     -------
     dict[str, pd.DataFrame]
-        Computed DataFrames keyed by each processor's ``output_name``.
+        DataFrames for every processor that computed successfully, keyed by
+        ``output_name``. A processor whose ``compute()`` raised and whose
+        failure was absorbed by *on_error* (rather than re-raised) is simply
+        absent from this dict.
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    selected = processors if processors is not None else create_processors(dataset, raise_on_error=raise_on_error)
+
     all_data: dict[str, pd.DataFrame] = {}
-    for proc in create_processors(
-        dataset,
-        session_path=session_path,
-        raise_on_error=raise_on_error,
-    ):
+    for proc in selected:
         name = proc.output_name
-        logger.info("compute: %s → %s.parquet", proc.__class__.__name__, name)
-        # compute() stamps provenance attrs automatically (see AbstractProcessor.compute)
-        df = proc.compute()
+        logger.info("%scompute: %s → %s.parquet", log_prefix, proc.__class__.__name__, name)
+        try:
+            # compute() stamps provenance attrs automatically (see AbstractProcessor.compute)
+            df = proc.compute()
+        except Exception as exc:
+            if on_error is None:
+                raise
+            on_error(proc, exc)
+            continue
         _write_parquet(df, output_dir / f"{name}.parquet")
         all_data[name] = df
-        logger.info("  saved %d rows", len(df))
+        logger.info("%s  saved %d rows", log_prefix, len(df))
 
     return all_data
 

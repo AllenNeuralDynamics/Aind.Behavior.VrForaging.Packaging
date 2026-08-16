@@ -1,9 +1,8 @@
 """Processor that extracts session-level identity metadata from the dataset's Session log."""
 
 import datetime
-import json
 import logging
-from pathlib import Path
+from typing import Any, cast
 
 import pandas as pd
 from pydantic import BaseModel
@@ -14,79 +13,52 @@ from ..models import SessionMetadata
 
 logger = logging.getLogger(__name__)
 
-# Path relative to session root where the launcher writes the Session JSON.
-_SESSION_JSON_RELPATH = Path("behavior") / "Logs" / "session_output.json"
-
 
 class SessionMetadataProcessor(AbstractProcessor):
     """Produces a single-row DataFrame of session-level metadata.
 
-    Tries the contraqctor ``Behavior/InputSchemas/Session`` stream first; falls
-    back to reading ``behavior/Logs/session_output.json`` directly if the stream
-    is unavailable.  Both sources expose the same ``subject`` and ``date`` keys.
+    The contraqctor ``Behavior/InputSchemas/Session`` stream is the *only*
+    source: ``session_name``, ``subject`` and ``date`` all come from it. There
+    is deliberately no second source — no reading ``session_output.json`` off
+    disk, no deriving identity from the directory name. A dataset whose Session
+    stream cannot be loaded, or which does not name itself, is broken rather
+    than legacy, and a fallback that silently disagrees with the stream is worse
+    than a crash.
 
-    Raises if either required field (``subject``, ``date``) is absent from the
-    loaded dict.  Error propagation is controlled by the caller (e.g.
-    ``_process_one_session`` in :mod:`export_pipeline`).
+    Raises if the stream is unavailable or if any required field
+    (``session_name``, ``subject``, ``date``) is absent. Isolating that failure
+    from the rest of a batch is the caller's job — see
+    :func:`~aind_behavior_vr_foraging_packaging.export_pipeline.process_sessions`.
     """
 
     __output_name__ = "session"
 
-    def __init__(self, dataset, *, session_path: Path, raise_on_error: bool = False) -> None:
-        super().__init__(dataset, raise_on_error=raise_on_error)
-        self._session_path = Path(session_path)
-
     def _compute(self) -> pd.DataFrame:
-        folder_name = self._session_path.name
-        # Try the contraqctor stream; fall back to JSON only when the stream
-        # itself is unavailable.  Data errors (missing required fields) propagate
-        # immediately from _build_metadata regardless of which source was used.
-        raw = self._fetch_stream_raw()
-        if raw is None:
-            raw = self._fetch_json_raw()  # FileNotFoundError if absent
-        row = self._build_metadata(folder_name, raw, self.provenance)
+        raw = self._load_session_stream()
+        row = self._build_metadata(raw, self.provenance)
         return pd.DataFrame([row.model_dump()])
 
-    # ------------------------------------------------------------------
-    # Raw-dict fetchers (return the dict; validation is in _build_metadata)
-    # ------------------------------------------------------------------
+    def _load_session_stream(self) -> dict[str, Any]:
+        """Return the Session stream's payload as a plain dict.
 
-    def _fetch_stream_raw(self) -> dict | None:
-        """Return the raw dict from the contraqctor stream, or None if unavailable.
-
-        Only a *structurally absent* stream triggers the fallback: ``KeyError`` when
-        the node is not declared at all (pre-0.6.0 schemas), ``FileNotFoundError``
-        when it is declared but the file is missing.  Anything else — a corrupt
-        file, a validation error, a bug — propagates, so a real failure can never
-        be silently misread as "this is a legacy dataset".
+        Propagates ``KeyError``/``FileNotFoundError`` rather than degrading:
+        this processor has nothing meaningful to emit without the stream.
         """
-        try:
-            data = self._dataset.at("Behavior").at("InputSchemas").at("Session").load().data
-        except (KeyError, FileNotFoundError) as exc:
-            logger.debug("Contraqctor Session stream unavailable for %s: %s", self._session_path.name, exc)
-            return None
-        if isinstance(data, BaseModel):
-            return data.model_dump()
-        return data
-
-    def _fetch_json_raw(self) -> dict:
-        """Return the raw dict from ``behavior/Logs/session_output.json``."""
-        json_path = self._session_path / _SESSION_JSON_RELPATH
-        with open(json_path, encoding="utf-8") as fh:
-            return json.load(fh)
+        data = self._dataset.at("Behavior").at("InputSchemas").at("Session").load().data
+        return data.model_dump() if isinstance(data, BaseModel) else cast(dict[str, Any], data)
 
     @staticmethod
-    def _build_metadata(folder_name: str, raw: dict, provenance: PackagingProvenance) -> SessionMetadata:
-        """Extract required ``subject_id`` and ``date`` from a raw session dict.
+    def _build_metadata(raw: dict, provenance: PackagingProvenance) -> SessionMetadata:
+        """Extract the required identity fields from a raw session dict.
 
-        Raises :exc:`KeyError` if either field is absent.
+        Raises :exc:`KeyError` if any of ``session_name``, ``subject`` or
+        ``date`` is absent or empty.
         """
-        if "subject" not in raw:
-            raise KeyError(f"Required field 'subject' missing from session dict for {folder_name!r}")
-        if not raw.get("date"):
-            raise KeyError(f"Required field 'date' missing from session dict for {folder_name!r}")
+        for field in ("session_name", "subject", "date"):
+            if not raw.get(field):
+                raise KeyError(f"Required field {field!r} missing from the contraqctor Session stream")
         return SessionMetadata(
-            session_id=folder_name,
+            session_id=str(raw["session_name"]),
             subject_id=str(raw["subject"]),
             date=datetime.datetime.fromisoformat(str(raw["date"])),
             dataset_version=provenance.dataset_version,

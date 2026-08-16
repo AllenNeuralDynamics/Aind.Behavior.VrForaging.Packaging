@@ -21,7 +21,7 @@ def _make_mock_proc(name: str) -> MagicMock:
 
 def test_run_session_saves_parquet_per_processor(tmp_path):
     """run_session() saves one parquet per processor using proc.effective_output_name."""
-    from aind_behavior_vr_foraging_packaging.session_pipeline import run_session
+    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
 
     mock_dataset = MagicMock()
     mock_dataset.version = "0.6.1"
@@ -30,14 +30,14 @@ def test_run_session_saves_parquet_per_processor(tmp_path):
         "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
         return_value=[_make_mock_proc("sites")],
     ):
-        data = run_session(mock_dataset, tmp_path)
+        data = process_session(mock_dataset, tmp_path)
 
     assert "sites" in data
     assert (tmp_path / "sites.parquet").exists()
 
 
 def test_run_session_returns_all_dataframes(tmp_path):
-    from aind_behavior_vr_foraging_packaging.session_pipeline import run_session
+    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
 
     mock_dataset = MagicMock()
     mock_dataset.version = "0.6.1"
@@ -45,7 +45,7 @@ def test_run_session_returns_all_dataframes(tmp_path):
     procs = [_make_mock_proc("sites"), _make_mock_proc("position_velocity")]
 
     with patch("aind_behavior_vr_foraging_packaging.session_pipeline.create_processors", return_value=procs):
-        data = run_session(mock_dataset, tmp_path)
+        data = process_session(mock_dataset, tmp_path)
 
     assert set(data.keys()) == {"sites", "position_velocity"}
     assert all((tmp_path / f"{k}.parquet").exists() for k in data)
@@ -55,7 +55,7 @@ def test_parquet_metadata_written_to_schema(tmp_path):
     """run_session() embeds provenance in parquet schema metadata (not just pandas attrs)."""
     import pyarrow.parquet as pq
 
-    from aind_behavior_vr_foraging_packaging.session_pipeline import run_session
+    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
 
     mock_dataset = MagicMock()
     mock_dataset.version = "0.6.1"
@@ -64,7 +64,7 @@ def test_parquet_metadata_written_to_schema(tmp_path):
         "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
         return_value=[_make_mock_proc("sites")],
     ):
-        run_session(mock_dataset, tmp_path)
+        process_session(mock_dataset, tmp_path)
 
     meta = pq.read_metadata(tmp_path / "sites.parquet").metadata
     assert b"dataset_version" in meta

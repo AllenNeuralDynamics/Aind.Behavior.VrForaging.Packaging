@@ -1,6 +1,4 @@
 import datetime
-import json
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,7 +8,11 @@ from aind_behavior_vr_foraging_packaging.processing._session_metadata import (
     SessionMetadataProcessor,
 )
 
-_SESSION_PATH = Path("behavior_815103_2025-11-05_22-52-21")
+_VALID = {
+    "session_name": "815103_2025-11-05T225221Z",
+    "subject": "815103",
+    "date": "2025-11-05T22:52:21Z",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -18,184 +20,96 @@ _SESSION_PATH = Path("behavior_815103_2025-11-05_22-52-21")
 # ---------------------------------------------------------------------------
 
 
-def _make_dataset(
-    stream_data: dict | None = None,
-    fail: bool = False,
-    error: Exception | None = None,
-) -> MagicMock:
+def _make_dataset(stream_data: dict | Session | None = None, *, error: Exception | None = None) -> MagicMock:
     """Return a mock dataset whose Behavior/InputSchemas/Session stream returns *stream_data*.
 
-    If *fail* is True the stream raises ``FileNotFoundError`` — the real signal for a
-    structurally absent stream, which is what legitimately triggers the JSON fallback.
-    Pass *error* to raise something else instead (used to assert that unexpected
-    exceptions propagate rather than being mistaken for a legacy dataset).
+    Pass *error* to make ``load()`` raise instead.
     """
     ds = MagicMock()
-    loader = ds.at.return_value.at.return_value.at.return_value.load.return_value
+    stream = ds.at.return_value.at.return_value.at.return_value
     if error is not None:
-        ds.at.return_value.at.return_value.at.return_value.load.side_effect = error
-    elif fail:
-        ds.at.return_value.at.return_value.at.return_value.load.side_effect = FileNotFoundError(
-            "session.json not found"
-        )
+        stream.load.side_effect = error
     else:
-        loader.data = stream_data if stream_data is not None else {"subject": "815103", "date": "2025-11-05T22:52:21Z"}
+        stream.load.return_value.data = _VALID if stream_data is None else stream_data
     return ds
 
 
-def _write_session_json(
-    directory: Path,
-    subject: str | int = "815103",
-    date: str = "2025-11-05T22:52:21+00:00",
-) -> None:
-    logs_dir = directory / "behavior" / "Logs"
-    logs_dir.mkdir(parents=True, exist_ok=True)
-    (logs_dir / "session_output.json").write_text(json.dumps({"subject": subject, "date": date}), encoding="utf-8")
-
-
 # ---------------------------------------------------------------------------
-# Stream loader (primary path)
+# Stream loader — the only source
 # ---------------------------------------------------------------------------
 
 
-def test_reads_from_stream(tmp_path):
-    """Primary path: reads subject and date from the contraqctor stream."""
-    ds = _make_dataset({"subject": 815103, "date": "2025-11-05T22:52:21Z"})
-    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
-    df = proc._compute()
+def test_reads_all_identity_fields_from_stream():
+    df = SessionMetadataProcessor(_make_dataset())._compute()
     assert len(df) == 1
     assert set(df.columns) >= {"session_id", "subject_id", "date"}
+    assert df["session_id"].iloc[0] == "815103_2025-11-05T225221Z"
     assert df["subject_id"].iloc[0] == "815103"
     assert df["date"].iloc[0] == datetime.datetime(2025, 11, 5, 22, 52, 21, tzinfo=datetime.timezone.utc)
 
 
-def test_stream_integer_subject_coerced_to_str(tmp_path):
-    """Integer subject in stream dict must be coerced to str."""
-    ds = _make_dataset({"subject": 815103, "date": "2025-11-05T22:52:21Z"})
-    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
-    df = proc._compute()
+def test_integer_subject_coerced_to_str():
+    df = SessionMetadataProcessor(_make_dataset({**_VALID, "subject": 815103}))._compute()
     assert df["subject_id"].iloc[0] == "815103"
 
 
-def test_session_id_is_folder_name(tmp_path):
-    ds = _make_dataset()
-    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
-    df = proc._compute()
-    assert df["session_id"].iloc[0] == tmp_path.name
-
-
-def test_stream_pydantic_model_normalised_to_dict(tmp_path):
-    """Regression: when .data is a Pydantic BaseModel (not a dict), _fetch_stream_raw
-    must call model_dump() so that _build_metadata can do plain dict lookups.
+def test_pydantic_model_normalised_to_dict():
+    """Regression: when .data is a Pydantic BaseModel (not a dict), the payload must
+    be model_dump()ed so the required-field checks can do plain dict lookups.
 
     Before the fix, ``"subject" not in raw`` evaluated True on a real
-    ``aind_behavior_services.session.Session`` instance even when
-    ``raw.subject`` held a real value, causing a spurious KeyError on 100 %
-    of sessions where the contraqctor stream was available.
+    ``aind_behavior_services.session.Session`` instance even when ``raw.subject``
+    held a real value, causing a spurious KeyError on 100 % of sessions where the
+    contraqctor stream was available.
     """
-    session = Session(subject="841299")
-
-    ds = MagicMock()
-    loader = ds.at.return_value.at.return_value.at.return_value.load.return_value
-    loader.data = session
-
-    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
-    df = proc._compute()
+    df = SessionMetadataProcessor(_make_dataset(Session(subject="841299", session_name="841299_x")))._compute()
     assert df["subject_id"].iloc[0] == "841299"
-    # date is auto-populated by the Session model; just verify it's a real datetime
+    assert df["session_id"].iloc[0] == "841299_x"
 
 
-def test_stream_missing_subject_raises(tmp_path):
-    """Stream dict that lacks 'subject' raises KeyError."""
-    ds = _make_dataset({"date": "2025-11-05T22:52:21Z"})
-    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
-    with pytest.raises(KeyError, match="subject"):
+# ---------------------------------------------------------------------------
+# Every required field is required — no defaults, no derivation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("field", ["session_name", "subject", "date"])
+def test_missing_required_field_raises(field):
+    proc = SessionMetadataProcessor(_make_dataset({k: v for k, v in _VALID.items() if k != field}))
+    with pytest.raises(KeyError, match=field):
         proc._compute()
 
 
-def test_stream_missing_date_raises(tmp_path):
-    """Stream dict that lacks 'date' raises KeyError."""
-    ds = _make_dataset({"subject": "815103"})
-    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
-    with pytest.raises(KeyError, match="date"):
+@pytest.mark.parametrize("field", ["session_name", "subject", "date"])
+def test_empty_required_field_raises(field):
+    """A present-but-null field (e.g. session_name=None on older launchers) is
+    just as fatal as an absent one — identity is never guessed."""
+    proc = SessionMetadataProcessor(_make_dataset({**_VALID, field: None}))
+    with pytest.raises(KeyError, match=field):
         proc._compute()
 
 
 # ---------------------------------------------------------------------------
-# JSON fallback (stream fails → read session_output.json)
+# No fallback: an unloadable stream is a crash, not a legacy dataset
 # ---------------------------------------------------------------------------
 
 
-def test_falls_back_to_json_when_stream_fails(tmp_path):
-    """When the contraqctor stream raises, fall back to session_output.json."""
-    ds = _make_dataset(fail=True)
-    _write_session_json(tmp_path, subject="815103")
-    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
-    df = proc._compute()
-    assert df["subject_id"].iloc[0] == "815103"
-    assert df["date"].iloc[0] == datetime.datetime(2025, 11, 5, 22, 52, 21, tzinfo=datetime.timezone.utc)
+@pytest.mark.parametrize(
+    "error",
+    [
+        FileNotFoundError("session_input.json not found"),
+        KeyError("Session"),
+        RuntimeError("corrupt stream"),
+    ],
+    ids=["missing-file", "undeclared-node", "corrupt"],
+)
+def test_unloadable_stream_propagates(error):
+    """Every stream failure propagates — there is deliberately no second source.
 
-
-def test_json_integer_subject_coerced(tmp_path):
-    """Integer subject in JSON must be coerced to str (fallback path)."""
-    ds = _make_dataset(fail=True)
-    _write_session_json(tmp_path, subject=815103)
-    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
-    df = proc._compute()
-    assert df["subject_id"].iloc[0] == "815103"
-
-
-def test_legacy_version_fallback_reads_json(tmp_path):
-    """Legacy datasets (stream fails) fall back to raw JSON correctly."""
-    ds = _make_dataset(fail=True)
-    _write_session_json(tmp_path, subject="716458", date="2024-05-13T09:03:55+00:00")
-    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
-    df = proc._compute()
-    assert df["subject_id"].iloc[0] == "716458"
-    assert df["date"].iloc[0] == datetime.datetime(2024, 5, 13, 9, 3, 55, tzinfo=datetime.timezone.utc)
-
-
-def test_json_missing_subject_raises(tmp_path):
-    """JSON that lacks 'subject' raises KeyError — not swallowed by fallback logic."""
-    ds = _make_dataset(fail=True)
-    logs_dir = tmp_path / "behavior" / "Logs"
-    logs_dir.mkdir(parents=True)
-    (logs_dir / "session_output.json").write_text(json.dumps({"date": "2025-11-05T22:52:21Z"}), encoding="utf-8")
-    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
-    with pytest.raises(KeyError, match="subject"):
-        proc._compute()
-
-
-def test_stream_unavailable_and_json_missing_raises(tmp_path):
-    """Stream unavailable and JSON absent → FileNotFoundError (no silent fallback)."""
-    ds = _make_dataset(fail=True)
-    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
-    with pytest.raises(FileNotFoundError):
-        proc._compute()
-
-
-def test_undeclared_stream_node_falls_back_to_json(tmp_path):
-    """``KeyError`` from ``.at()`` — the node is not in this schema version — also falls back."""
-    ds = _make_dataset(error=KeyError("Session"))
-    _write_session_json(tmp_path, subject="716458")
-    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
-    df = proc._compute()
-    assert df["subject_id"].iloc[0] == "716458"
-
-
-def test_unexpected_stream_error_propagates(tmp_path):
-    """A stream error that is *not* structural absence must not trigger the fallback.
-
-    Only ``KeyError`` (node undeclared) and ``FileNotFoundError`` (file missing) mean
-    "this dataset does not have this stream". Anything else — a corrupt file, a
-    validation error, a bug in contraqctor — is a real failure. Falling back would
-    silently read a *different* source and report success, so it propagates even
-    though a perfectly good ``session_output.json`` is sitting right there.
+    Reading a different file instead would report success off a source that may
+    disagree with the stream.
     """
-    ds = _make_dataset(error=RuntimeError("corrupt stream"))
-    _write_session_json(tmp_path, subject="815103")
-    proc = SessionMetadataProcessor(ds, session_path=tmp_path)
-    with pytest.raises(RuntimeError, match="corrupt stream"):
+    proc = SessionMetadataProcessor(_make_dataset(error=error))
+    with pytest.raises(type(error)):
         proc._compute()
 
 
@@ -204,6 +118,8 @@ def test_unexpected_stream_error_propagates(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_output_name():
-    proc = SessionMetadataProcessor(_make_dataset(), session_path=_SESSION_PATH)
+def test_constructor_matches_every_other_processor():
+    """No bespoke session_path kwarg — plain (dataset, raise_on_error)."""
+    proc = SessionMetadataProcessor(_make_dataset(), raise_on_error=True)
     assert proc.output_name == "session"
+    assert proc.raise_on_error is True

@@ -9,7 +9,7 @@ from aind_behavior_vr_foraging.task_logic import OdorMixture
 from contraqctor.contract.json import PydanticModel
 from pydantic import BaseModel, TypeAdapter
 
-from .._base import AbstractProcessor
+from .._base import AbstractProcessor, cached_frame
 from ..models import Site
 from ._helper import (
     get_closest_from_timestamp,
@@ -443,6 +443,7 @@ class SiteTableProcessor(AbstractProcessor):
             sites.append(site)
         return sites
 
+    @cached_frame
     def _compute(self) -> pd.DataFrame:
         """Returns site table as a DataFrame with one row per site."""
         sites = self.process_to_sites()

@@ -5,7 +5,7 @@ import contraqctor.contract
 import numpy as np
 import pandas as pd
 
-from .._base import AbstractProcessor
+from .._base import AbstractProcessor, cached_frame
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,7 @@ class LicksProcessor(AbstractProcessor):
         super().__init__(dataset=dataset, **kwargs)
         self._refractory_period_s = refractory_period_s
 
+    @cached_frame
     def _compute(self) -> pd.DataFrame:
         """Returns DataFrame with 'is_lick_onset' (bool) indexed by harp time."""
         licks = self._compute_lick_state(self.dataset)

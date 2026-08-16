@@ -3,7 +3,7 @@ import typing as t
 import contraqctor
 import pandas as pd
 
-from .._base import AbstractProcessor
+from .._base import AbstractProcessor, cached_frame
 from ._helper import parse_manual_water_delivery
 
 
@@ -24,6 +24,7 @@ class EventsProcessor(AbstractProcessor):
         ("ManualWaterDelivery", parse_manual_water_delivery),
     ]
 
+    @cached_frame
     def _compute(self) -> pd.DataFrame:
         """Returns all derived events sorted by timestamp.
 

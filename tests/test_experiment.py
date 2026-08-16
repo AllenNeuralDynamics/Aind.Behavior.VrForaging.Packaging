@@ -86,13 +86,18 @@ class TestAnyProcessorFailureFailsTheSession:
         good.mkdir(parents=True)
         bad.mkdir(parents=True)
 
+        def _load_dataset(path):
+            ds = _mock_dataset()
+            ds.session_root = path
+            return ds
+
         def _create_processors(ds, **kwargs):
-            if kwargs.get("session_path") == bad:
+            if ds.session_root == bad:
                 raise RuntimeError("malformed rig config")
             return [_mock_proc("session"), _mock_proc("sites")]
 
         with (
-            patch("aind_behavior_vr_foraging.data_contract.dataset", return_value=_mock_dataset()),
+            patch("aind_behavior_vr_foraging.data_contract.dataset", side_effect=_load_dataset),
             patch(
                 "aind_behavior_vr_foraging_packaging.export_pipeline.create_processors",
                 side_effect=_create_processors,
