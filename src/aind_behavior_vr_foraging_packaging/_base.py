@@ -10,6 +10,14 @@ from contraqctor.contract import Dataset
 from ._provenance import PackagingProvenance
 
 
+class DatasetProcessorError(Exception):
+    """Raised by a processor for a data condition it explicitly checks for and names.
+
+    See :attr:`AbstractProcessor.strict_parsing` and
+    ``docs/knowledge/conventions/error-policy.md``.
+    """
+
+
 def _class_name_to_snake(name: str) -> str:
     """Convert a CamelCase class name to snake_case, e.g. ``LicksProcessor`` → ``licks_processor``."""
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()

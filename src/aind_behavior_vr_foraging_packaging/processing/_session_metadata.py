@@ -2,12 +2,13 @@
 
 import datetime
 import logging
+from pathlib import Path
 from typing import Any, cast
 
 import pandas as pd
 from pydantic import BaseModel
 
-from .._base import AbstractProcessor
+from .._base import AbstractProcessor, DatasetProcessorError
 from .._provenance import PackagingProvenance
 from ..models import SessionMetadata
 
@@ -17,48 +18,56 @@ logger = logging.getLogger(__name__)
 class SessionMetadataProcessor(AbstractProcessor):
     """Produces a single-row DataFrame of session-level metadata.
 
-    The contraqctor ``Behavior/InputSchemas/Session`` stream is the *only*
-    source: ``session_name``, ``subject`` and ``date`` all come from it. There
-    is deliberately no second source — no reading ``session_output.json`` off
-    disk, no deriving identity from the directory name. A dataset whose Session
-    stream cannot be loaded, or which does not name itself, is broken rather
-    than legacy, and a fallback that silently disagrees with the stream is worse
-    than a crash.
-
-    Raises if the stream is unavailable or if any required field
-    (``session_name``, ``subject``, ``date``) is absent. Isolating that failure
-    from the rest of a batch is the caller's job — see
-    :func:`~aind_behavior_vr_foraging_packaging.export_pipeline.process_sessions`.
+    ``session_id`` is always the session directory's name; the stream's own
+    ``session_name`` field is ignored. ``subject`` and ``date`` come from the
+    contraqctor ``Behavior/InputSchemas/Session`` stream, with no fallback.
     """
 
     __output_name__ = "session"
 
     def _compute(self) -> pd.DataFrame:
         raw = self._load_session_stream()
-        row = self._build_metadata(raw, self.provenance)
+        row = self._build_metadata(raw, self._session_root().name, self.provenance)
         return pd.DataFrame([row.model_dump()])
 
     def _load_session_stream(self) -> dict[str, Any]:
-        """Return the Session stream's payload as a plain dict.
-
-        Propagates ``KeyError``/``FileNotFoundError`` rather than degrading:
-        this processor has nothing meaningful to emit without the stream.
-        """
-        data = self._dataset.at("Behavior").at("InputSchemas").at("Session").load().data
+        """Return the Session stream's payload as a plain dict."""
+        data = self._session_stream().load().data
         return data.model_dump() if isinstance(data, BaseModel) else cast(dict[str, Any], data)
 
-    @staticmethod
-    def _build_metadata(raw: dict, provenance: PackagingProvenance) -> SessionMetadata:
-        """Extract the required identity fields from a raw session dict.
+    def _session_stream(self) -> Any:
+        return self._dataset.at("Behavior").at("InputSchemas").at("Session")
 
-        Raises :exc:`KeyError` if any of ``session_name``, ``subject`` or
-        ``date`` is absent or empty.
+    def _session_root(self) -> Path:
+        """Return the session root, found by walking up from the Session stream's path.
+
+        Anchors on the ``behavior/`` component of
+        ``<root>/behavior/Logs/session_input.json`` rather than counting parents, so
+        moving the log deeper under ``behavior/`` cannot silently yield the wrong
+        directory. Raises when the root cannot be recovered — there is no identity
+        without it.
         """
-        for field in ("session_name", "subject", "date"):
+        raw_path = getattr(self._session_stream().reader_params, "path", None)
+        if raw_path is None:
+            raise DatasetProcessorError("Session stream exposes no source path to take the session directory from")
+
+        path = Path(raw_path)
+        for parent in path.parents:
+            if parent.name.lower() == "behavior":
+                return parent.parent
+
+        raise DatasetProcessorError(
+            f"Session stream path {str(path)!r} has no 'behavior' component to locate the session root from"
+        )
+
+    @staticmethod
+    def _build_metadata(raw: dict, session_id: str, provenance: PackagingProvenance) -> SessionMetadata:
+        """Raises :exc:`KeyError` if ``subject`` or ``date`` is absent or empty."""
+        for field in ("subject", "date"):
             if not raw.get(field):
                 raise KeyError(f"Required field {field!r} missing from the contraqctor Session stream")
         return SessionMetadata(
-            session_id=str(raw["session_name"]),
+            session_id=session_id,
             subject_id=str(raw["subject"]),
             date=datetime.datetime.fromisoformat(str(raw["date"])),
             dataset_version=provenance.dataset_version,

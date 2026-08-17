@@ -7,8 +7,8 @@ import pandas as pd
 import semver
 from pydantic import BaseModel
 
-from .._base import AbstractProcessor
-from ._site_table import DatasetProcessorError, SiteTableProcessor
+from .._base import AbstractProcessor, DatasetProcessorError
+from ._site_table import SiteTableProcessor
 
 logger = logging.getLogger(__name__)
 

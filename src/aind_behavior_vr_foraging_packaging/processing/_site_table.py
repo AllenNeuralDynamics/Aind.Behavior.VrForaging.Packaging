@@ -9,7 +9,7 @@ from aind_behavior_vr_foraging.task_logic import OdorMixture
 from contraqctor.contract.json import PydanticModel
 from pydantic import BaseModel, TypeAdapter
 
-from .._base import AbstractProcessor, cached_frame
+from .._base import AbstractProcessor, DatasetProcessorError, cached_frame
 from ..models import Site
 from ._helper import (
     get_closest_from_timestamp,
@@ -21,10 +21,6 @@ from ._helper import (
 from ._position_and_velocity import PositionAndVelocityProcessor
 
 logger = logging.getLogger(__name__)
-
-
-class DatasetProcessorError(Exception):
-    pass
 
 
 class SiteTableProcessor(AbstractProcessor):
