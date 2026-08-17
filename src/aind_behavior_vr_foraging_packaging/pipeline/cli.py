@@ -86,9 +86,11 @@ class _ProcessingCommand(_Command):
     """
 
     include_processors: list[str] = []
-    """Processor output names to run (empty = all). E.g. ``sites licks``."""
+    """Processor output names to run (empty = all). Repeat the flag per name:
+    ``--include-processors sites --include-processors licks``."""
     exclude_processors: list[str] = []
-    """Processor output names to skip. E.g. ``sniffing software_events``."""
+    """Processor output names to skip. Repeat the flag per name:
+    ``--exclude-processors sniffing --exclude-processors software_events``."""
 
     strict_parsing: bool = False
     """Treat a known, anticipated data anomaly as fatal instead of logging it and
@@ -99,6 +101,11 @@ class _ProcessingCommand(_Command):
     """Write per-session parquet tables."""
     write_nwb: bool = False
     """Write one NWB-Zarr store per session, named ``{session_id}.nwb.zarr``."""
+    write_sidecar: bool = False
+    """Write ``output.metadata.json`` per session: per-processor status, row and
+    warning counts, and code/version provenance. Written even when the session
+    fails, which is how the orchestration layer reads per-processor detail out of
+    a container. Does not change what counts as a failure."""
 
 
 # ---------------------------------------------------------------------------
@@ -123,6 +130,7 @@ class SessionCommand(_ProcessingCommand):
             strict_parsing=self.strict_parsing,
             write_parquet=self.write_parquet,
             write_nwb=self.write_nwb,
+            write_sidecar=self.write_sidecar,
         )
 
 
@@ -165,6 +173,7 @@ class BatchCommand(_ProcessingCommand):
             clean=self.clean,
             write_parquet=self.write_parquet,
             write_nwb=self.write_nwb,
+            write_sidecar=self.write_sidecar,
         )
 
         if not self.skip_aggregation:

@@ -1,0 +1,44 @@
+# Deployment sketch for the session-processing pipeline (§4, §13).
+# One image, three entrypoints — `vr-foraging-packaging` (the default ENTRYPOINT, used
+# by ephemeral processor containers the worker launches, which pass it the
+# `session` subcommand), `vr-foraging-orchestrator work`, and
+# `vr-foraging-orchestrator serve`.
+#
+# Before a real run: `docker compose run --rm worker vr-foraging-orchestrator doctor
+# --config /etc/vrf/config.yaml` — the §4(a) volume-visibility assertion plus
+# credential/Docker-daemon reachability checks.
+
+services:
+  worker:
+    image: ghcr.io/allenneuraldynamics/aind-behavior-vr-foraging-packaging:latest
+    command: ["vr-foraging-orchestrator", "work", "--config", "/etc/vrf/config.yaml"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # root-equivalent; single-purpose host only
+      - vrf_ledger:/var/lib/vrf
+      - vrf_work:/work                              # SAME named volume the processor gets (§4a)
+      - ./config.yaml:/etc/vrf/config.yaml:ro
+      - ${HOME}/.aws:/home/runner/.aws:ro            # or rely on an instance role instead
+      # - /data/raw:/data/raw:ro                     # identity-mapped; only for input.store: mount
+    environment:
+      - AWS_PROFILE=aind-scientist
+    # The image runs as a fixed non-root user (§12's Dockerfile). Reading
+    # /var/run/docker.sock generally needs the container's user in a group
+    # matching the socket's GID on THIS host — find it with `stat -c '%g'
+    # /var/run/docker.sock` on the host and set it here; group ownership of
+    # the socket varies by distro and is not something the image can bake in.
+    # group_add:
+    #   - "999"
+    restart: unless-stopped
+
+  dashboard:
+    image: ghcr.io/allenneuraldynamics/aind-behavior-vr-foraging-packaging:latest
+    command: ["vr-foraging-orchestrator", "serve", "--config", "/etc/vrf/config.yaml"]
+    volumes:
+      - vrf_ledger:/var/lib/vrf:ro
+      - ./config.yaml:/etc/vrf/config.yaml:ro
+    ports: ["127.0.0.1:8080:8080"]   # no auth (§16) — never publish on 0.0.0.0
+    restart: unless-stopped
+
+volumes:
+  vrf_ledger:
+  vrf_work:

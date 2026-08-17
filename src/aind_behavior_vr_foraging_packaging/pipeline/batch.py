@@ -8,6 +8,7 @@ a slow Phase 1 does not have to be repeated to re-cut the aggregates. The
 ``vr-foraging-packaging`` CLI in :mod:`.cli` exposes each as its own subcommand.
 """
 
+import json
 import logging
 import shutil
 from collections.abc import Iterable, Sequence
@@ -16,6 +17,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from .._sidecar import SIDECAR_NAME
 from .session import _write_parquet, process_session
 
 logger = logging.getLogger(__name__)
@@ -41,6 +43,7 @@ def process_sessions(
     clean: bool = True,
     write_parquet: bool = True,
     write_nwb: bool = False,
+    write_sidecar: bool = False,
 ) -> list[Path]:
     """Run :func:`~.pipeline.session.process_session` over many session directories.
 
@@ -61,12 +64,12 @@ def process_sessions(
     output_dir:
         Root of the experiment export. Per-session files go to
         ``output_dir/sessions/{session_id}/``.
-    include_processors, exclude_processors, strict_parsing, write_parquet, write_nwb:
+    include_processors, exclude_processors, strict_parsing, write_parquet, write_nwb, write_sidecar:
         Per-session options, forwarded unchanged to
         :func:`~.pipeline.session.process_session` (as *include* / *exclude* /
-        *strict_parsing* / *write_parquet* / *write_nwb*). This layer adds no
-        behaviour of its own to any of them, so their semantics are documented
-        once, there.
+        *strict_parsing* / *write_parquet* / *write_nwb* / *write_sidecar*). This
+        layer adds no behaviour of its own to any of them, so their semantics are
+        documented once, there.
 
         Note that ``write_parquet=False`` leaves Phase 2 nothing to aggregate:
         :func:`aggregate` reads the per-session parquets back off disk.
@@ -113,6 +116,7 @@ def process_sessions(
             exclude=exclude_processors,
             write_parquet=write_parquet,
             write_nwb=write_nwb,
+            write_sidecar=write_sidecar,
         )
         return session_out
 
@@ -150,6 +154,36 @@ def _clear_previous_outputs(output_dir: Path, sessions_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _split_failed_sidecar_sessions(session_dirs: list[Path]) -> tuple[list[Path], list[Path]]:
+    """Split *session_dirs* into ``(kept, skipped)`` by each session's sidecar status.
+
+    A session with no ``output.metadata.json`` is always kept: the file only
+    exists when ``write_sidecar`` was used upstream, so a run without it is
+    unaffected by this check.
+
+    A session whose sidecar reports ``status != "ok"`` is skipped. Its parquet
+    files may be partial — only the processors that ran before one failed got
+    written — and partial rows must not reach an aggregate silently. This is the
+    one thing the sidecar buys the plain (non-container) path: without it, a
+    batch aborted mid-session leaves a directory that looks complete.
+    """
+    kept: list[Path] = []
+    skipped: list[Path] = []
+    for sd in session_dirs:
+        sidecar = sd / SIDECAR_NAME
+        if not sidecar.exists():
+            kept.append(sd)
+            continue
+        try:
+            status = json.loads(sidecar.read_text(encoding="utf-8")).get("status")
+        except (OSError, ValueError) as exc:
+            logger.warning("  %s: could not read sidecar (%s) — keeping session", sd.name, exc)
+            kept.append(sd)
+            continue
+        (kept if status == "ok" else skipped).append(sd)
+    return kept, skipped
+
+
 def aggregate(sessions_dir: Path, output_dir: Path) -> None:
     """Concatenate per-session parquets into experiment-level files.
 
@@ -161,9 +195,12 @@ def aggregate(sessions_dir: Path, output_dir: Path) -> None:
     than something a caller should decide per run.
 
     Per-session files are never deleted. Copying rows into an aggregate is not a
-    reason to destroy the source: the per-session files are what
-    ``--skip-processing`` re-aggregation reads back, and the only copies carrying
-    provenance in their parquet schema.
+    reason to destroy the source: the per-session files are what the ``aggregate``
+    subcommand reads back, and the only copies carrying provenance in their
+    parquet schema.
+
+    A session whose ``output.metadata.json`` reports a non-``ok`` status is
+    skipped — see :func:`_split_failed_sidecar_sessions`.
 
     Parameters
     ----------
@@ -179,6 +216,13 @@ def aggregate(sessions_dir: Path, output_dir: Path) -> None:
     session_dirs = sorted(d for d in sessions_dir.iterdir() if d.is_dir())
     if not session_dirs:
         logger.warning("No session directories found under %s", sessions_dir)
+        return
+
+    session_dirs, skipped = _split_failed_sidecar_sessions(session_dirs)
+    for sd in skipped:
+        logger.warning("  %s: sidecar reports a failed session — skipping from aggregation", sd.name)
+    if not session_dirs:
+        logger.warning("Every session was skipped as failed; nothing to aggregate.")
         return
 
     for table in AGGREGATED_TABLES:

@@ -16,6 +16,7 @@ import semver
 from contraqctor.contract import Dataset
 
 from .._base import AbstractProcessor, session_root
+from .._sidecar import SIDECAR_NAME, SidecarRecorder
 from ..processing import (
     EventsProcessor,
     LegacyPositionAndVelocityProcessor,
@@ -142,6 +143,7 @@ def process_session(
     on_error: Callable[[AbstractProcessor, Exception], None] | None = None,
     write_parquet: bool = True,
     write_nwb: bool = False,
+    write_sidecar: bool = False,
 ) -> dict[str, pd.DataFrame]:
     """Run every processor and write the outputs chosen by *write_parquet* / *write_nwb*.
 
@@ -198,6 +200,15 @@ def process_session(
         formats. Requires the AIND metadata JSON files in the session root; a
         session missing them fails the NWB step, and that failure propagates
         like any other. Defaults to ``False``.
+    write_sidecar:
+        When ``True``, write ``output_dir/output.metadata.json`` — a
+        self-describing record of what this run did (per-processor status, row
+        counts, warning counts, code and version provenance). Written even when
+        the session fails, which is the point: it is how the orchestration layer
+        learns *which* processor broke across a container boundary. It does not
+        change error behaviour — a failing processor still propagates, and the
+        sidecar records the session as ``status="error"`` on the way out.
+        Defaults to ``False``.
 
     Returns
     -------
@@ -207,43 +218,70 @@ def process_session(
         whose ``compute()`` raised and whose failure was absorbed by *on_error*
         (rather than re-raised) is simply absent from this dict.
     """
-    if isinstance(dataset, (str, Path)):
-        from aind_behavior_vr_foraging.data_contract import dataset as load_dataset
-
-        dataset = load_dataset(Path(dataset))
-
+    source_path = Path(dataset) if isinstance(dataset, (str, Path)) else None
     output_dir = Path(output_dir)
-    if write_parquet or write_nwb:
+    if write_parquet or write_nwb or write_sidecar:
         output_dir.mkdir(parents=True, exist_ok=True)
 
-    root = session_root(dataset)
-    selected = (
-        processors
-        if processors is not None
-        else create_processors(dataset, strict_parsing=strict_parsing, include=include, exclude=exclude)
+    recorder = SidecarRecorder(
+        output_dir / SIDECAR_NAME if write_sidecar else None,
+        # Known before the dataset opens, so a session that fails to load still
+        # names itself. Corrected below once the real root is resolved.
+        session_name=source_path.name if source_path is not None else "",
+        parameters={
+            "strict_parsing": strict_parsing,
+            "include": list(include),
+            "exclude": list(exclude),
+            "write_parquet": write_parquet,
+            "write_nwb": write_nwb,
+        },
     )
 
-    all_data: dict[str, pd.DataFrame] = {}
-    for proc in selected:
-        name = proc.output_name
-        logger.info("[%s] compute: %s → %s", root.name, proc.__class__.__name__, name)
-        try:
-            # compute() stamps provenance attrs automatically (see AbstractProcessor.compute)
-            df = proc.compute()
-        except Exception as exc:
-            if on_error is None:
-                raise
-            on_error(proc, exc)
-            continue
-        all_data[name] = df
-        if write_parquet:
-            _write_parquet(df, output_dir / f"{name}.parquet")
-            logger.info("[%s]   saved %d rows → %s.parquet", root.name, len(df), name)
-        else:
-            logger.info("[%s]   %d rows (parquet skipped)", root.name, len(df))
+    with recorder:
+        if isinstance(dataset, (str, Path)):
+            from aind_behavior_vr_foraging.data_contract import dataset as load_dataset
 
-    if write_nwb:
-        _write_nwb_zarr(dataset, root, output_dir, selected)
+            dataset = load_dataset(Path(dataset))
+        recorder.dataset_loaded(str(dataset.version))
+
+        root = session_root(dataset)
+        recorder.session_name = root.name
+        selected = (
+            processors
+            if processors is not None
+            else create_processors(dataset, strict_parsing=strict_parsing, include=include, exclude=exclude)
+        )
+
+        all_data: dict[str, pd.DataFrame] = {}
+        for proc in selected:
+            name = proc.output_name
+            logger.info("[%s] compute: %s → %s", root.name, proc.__class__.__name__, name)
+            try:
+                # compute() stamps provenance attrs automatically (see AbstractProcessor.compute)
+                df = proc.compute()
+            except Exception as exc:
+                recorder.error(name, exc)
+                if on_error is None:
+                    raise
+                on_error(proc, exc)
+                continue
+            all_data[name] = df
+            if write_parquet:
+                _write_parquet(df, output_dir / f"{name}.parquet")
+                logger.info("[%s]   saved %d rows → %s.parquet", root.name, len(df), name)
+            else:
+                logger.info("[%s]   %d rows (parquet skipped)", root.name, len(df))
+            recorder.ok(name, df, output_file=f"{name}.parquet" if write_parquet else None)
+            if name == SessionMetadataProcessor.__output_name__:
+                recorder.identify(df)
+
+        if write_nwb:
+            try:
+                dest = _write_nwb_zarr(dataset, root, output_dir, selected)
+            except Exception as exc:
+                recorder.nwb_error(exc)
+                raise
+            recorder.nwb_ok(dest)
 
     return all_data
 

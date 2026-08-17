@@ -3,6 +3,35 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-08-17 (orchestration layer)
+
+* **Architecture**: new `orchestration/` subpackage — SQLite job ledger, DocDB/local
+  session discovery, input staging and output stores, a `docker run` worker, and a
+  read-only dashboard — behind the `[orchestration]` extra and a second console
+  script, `vr-foraging-orchestrator`. Nothing in `pipeline/` or the base package
+  imports it, which is what keeps the processor image slim. It is a sibling of
+  `pipeline/`, not a child: `pipeline/` runs a session in-process, `orchestration/`
+  runs many of them as containers and remembers what it did.
+
+* **Architecture**: `process_session` gains `write_sidecar`, a third writer beside
+  `write_parquet`/`write_nwb`, producing `output.metadata.json` — per-processor
+  status, row and warning counts, code/container provenance. Written even when the
+  session fails, which is the point: it is the only channel for per-processor detail
+  across a container boundary. It changes no error behaviour — a failing processor
+  still propagates. `aggregate()` skips any session whose sidecar is not `ok`,
+  since its parquets may be partial.
+
+* **Convention**: a session's identity is its **input directory's name**, and the
+  orchestration layer upholds that by mounting each session at its true name
+  (`/mnt/{session_name}`, or `in/{session_name}` when staged). There is no
+  `--session-name` override. Getting it wrong raises nothing — every table is
+  stamped with the wrong session — so it is tested as an invariant.
+
+* **Convention**: list-valued CLI flags must be **repeated per value**
+  (`--exclude-processors a --exclude-processors b`). pydantic-settings gives a list
+  field an `append` action; the space-separated form exits 2. Previously documented
+  the wrong way round in `pipeline/cli.py`.
+
 ## 2026-08-16 (scoped `clean`)
 
 * **Architecture**: `process_sessions(clean=True)` no longer does

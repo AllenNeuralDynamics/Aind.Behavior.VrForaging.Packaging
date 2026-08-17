@@ -1,4 +1,4 @@
-# session_pipeline
+# session
 
 Per-session pipeline factory. Selects the correct processor set for a dataset
 version and provides helpers to run processors and write parquet outputs.

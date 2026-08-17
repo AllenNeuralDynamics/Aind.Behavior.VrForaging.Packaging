@@ -104,7 +104,7 @@ class RewardRateProcessor(AbstractProcessor):
         return nwb_file
 ```
 
-Then register it in [session_pipeline.create_processors](session.md) and export it
+Then register it in [session.create_processors](session.md) and export it
 from `processing/__init__.py`.
 
 # Design notes

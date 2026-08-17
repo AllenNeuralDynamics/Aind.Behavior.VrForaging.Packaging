@@ -1,4 +1,4 @@
-# export_pipeline
+# batch
 
 Multi-session export pipeline, and the `vr-foraging-packaging` command that drives it.
 Runs in two phases:
