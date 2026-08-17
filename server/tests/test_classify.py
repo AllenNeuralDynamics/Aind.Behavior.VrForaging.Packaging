@@ -3,8 +3,8 @@
 import json
 
 import pytest
-from aind_behavior_vr_foraging_server.config import ProcessorConfig
-from aind_behavior_vr_foraging_server.runner import (
+from processing_server.config import ProcessorConfig
+from processing_server.runner import (
     RunnerConfigError,
     RunResult,
     build_docker_args,
@@ -123,8 +123,8 @@ class TestBuildDockerArgs:
         rejects them by exiting 2, having processed nothing, with the reason only
         in the container log.
         """
-        from aind_behavior_vr_foraging_server.cli import build_parser
-        from aind_behavior_vr_foraging_server.runner import image_ref
+        from processing_server.cli import build_parser
+        from processing_server.runner import image_ref
 
         cfg = ProcessorConfig(digest="sha256:abc", write_nwb=True, exclude_processors=["sniffing", "licks"])
         argv = _args(cfg, input_path_in_container="/mnt/behavior_1_2025-01-01_00-00-00")

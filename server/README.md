@@ -1,4 +1,4 @@
-# aind-behavior-vr-foraging-server
+# processing-server
 
 Runs [`aind-behavior-vr-foraging-packaging`](../README.md) at scale: discover
 sessions, queue them in an inspectable ledger, process each one in an ephemeral

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
-from aind_behavior_vr_foraging_server.sidecar import (
+from processing_server.sidecar import (
     SIDECAR_NAME,
     CodeRef,
     ProcessorResult,

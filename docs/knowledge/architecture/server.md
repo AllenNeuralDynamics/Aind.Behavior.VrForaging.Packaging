@@ -2,7 +2,7 @@
 type: Component
 title: Containerized pipeline — how the server layer runs the processor
 description: How one session becomes one container, what the sidecar is for, where the trust boundaries are, and how to run the whole thing on a laptop without S3, DocDB or a registry.
-resource: server/src/aind_behavior_vr_foraging_server/
+resource: server/src/processing_server/
 tags: [architecture, server, docker, ledger, sidecar, testing, workspace]
 timestamp: 2026-08-17T00:00:00Z
 ---
@@ -15,7 +15,7 @@ timestamp: 2026-08-17T00:00:00Z
 
 Two distributions live in this repo, and the split is load-bearing:
 
-| | `aind-behavior-vr-foraging-packaging` | `aind-behavior-vr-foraging-server` |
+| | `aind-behavior-vr-foraging-packaging` | `processing-server` |
 |---|---|---|
 | Where | `src/` | `server/src/` |
 | Published | yes, to PyPI | **never** (`Private :: Do Not Upload`) |

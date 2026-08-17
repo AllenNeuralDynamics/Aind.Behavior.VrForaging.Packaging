@@ -51,7 +51,7 @@ src/aind_behavior_vr_foraging_packaging/     # PUBLISHED to PyPI
     ├── _session_metadata.py             # SessionMetadataProcessor (one row per session)
     └── _helper.py                       # slice_by_index, get_closest_from_timestamp
 
-server/src/aind_behavior_vr_foraging_server/   # NEVER published
+server/src/processing_server/   # NEVER published
 ├── sidecar.py            # output.metadata.json + SidecarRecorder
 ├── process.py            # what runs inside a container: one session + its sidecar
 ├── ledger.py  models.py  # SQLite job queue

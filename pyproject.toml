@@ -56,7 +56,7 @@ dev = [
     # are not published, so this cannot appear in the wheel's metadata. It exists
     # so one `uv sync` at the root gives both packages and one `pytest` run
     # covers both test suites.
-    'aind-behavior-vr-foraging-server',
+    'processing-server',
 ]
 
 [tool.uv]
@@ -71,7 +71,7 @@ default-groups = ['dev']
 members = ["server"]
 
 [tool.uv.sources]
-aind-behavior-vr-foraging-server = { workspace = true }
+processing-server = { workspace = true }
 
 [tool.ty.src]
 exclude = ["examples/**", "scripts/**", "docs/**", "scratch/**"]

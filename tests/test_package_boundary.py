@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 _PUBLISHED = Path(__file__).resolve().parents[1] / "src" / "aind_behavior_vr_foraging_packaging"
-_FORBIDDEN = "aind_behavior_vr_foraging_server"
+_FORBIDDEN = "processing_server"
 
 
 def _imported_modules(source: str) -> set[str]:

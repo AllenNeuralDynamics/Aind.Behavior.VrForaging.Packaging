@@ -55,7 +55,7 @@ jobs:
 
       - name: Build
         # Named explicitly, not bare `uv build`: this is a workspace, and
-        # `aind-behavior-vr-foraging-server` must never be built into a
+        # `processing-server` must never be built into a
         # distributable — this job's output is what reaches PyPI. Bare `uv build`
         # happens to build only the root package today; naming it keeps that true
         # if the workspace grows another member.
@@ -295,7 +295,7 @@ jobs:
 
       - name: Build
         # Named explicitly, not bare `uv build`: this is a workspace, and
-        # `aind-behavior-vr-foraging-server` must never be built into a
+        # `processing-server` must never be built into a
         # distributable — this job's output is what reaches PyPI. Bare `uv build`
         # happens to build only the root package today; naming it keeps that true
         # if the workspace grows another member.

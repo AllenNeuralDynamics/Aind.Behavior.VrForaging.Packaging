@@ -1,7 +1,7 @@
 """Unit tests for PipelineConfig — YAML loading, defaults, extra='forbid' (§13)."""
 
 import pytest
-from aind_behavior_vr_foraging_server.config import PipelineConfig
+from processing_server.config import PipelineConfig
 from pydantic import ValidationError
 
 

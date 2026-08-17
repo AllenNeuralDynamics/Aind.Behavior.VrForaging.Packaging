@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-from aind_behavior_vr_foraging_server.process import process_one_session
-from aind_behavior_vr_foraging_server.sidecar import SIDECAR_NAME
+from processing_server.process import process_one_session
+from processing_server.sidecar import SIDECAR_NAME
 
 
 def _proc(name: str, *, raises: bool = False) -> MagicMock:

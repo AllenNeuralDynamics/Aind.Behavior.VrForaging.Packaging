@@ -5,17 +5,22 @@ Add an entry here whenever you add, remove, or materially revise a concept.
 
 ## 2026-08-17 (orchestration → server)
 
-* **Naming**: the second distribution is now **`server`** throughout — directory,
-  module, distribution and command:
+* **Naming**: the second distribution is the **server**, and it no longer carries the
+  project's name. It is private and never published, so the
+  `aind-behavior-vr-foraging-` prefix bought nothing but length at every import site:
 
   | was | now |
   |---|---|
   | `orchestration/` | `server/` |
-  | `aind_behavior_vr_foraging_orchestration` | `aind_behavior_vr_foraging_server` |
-  | `aind-behavior-vr-foraging-orchestration` | `aind-behavior-vr-foraging-server` |
+  | `aind_behavior_vr_foraging_orchestration` | `processing_server` |
+  | `aind-behavior-vr-foraging-orchestration` | `processing-server` |
   | `vr-foraging-orchestrator` | `vr-foraging-server` |
   | `architecture/orchestration.md` | [architecture/server.md](architecture/server.md) |
   | `diagrams/orchestration.drawio` | `diagrams/server.drawio` |
+
+  The console script is the one thing that keeps the project prefix, deliberately.
+  An import path is only ever read inside this repo; a console script lands on a
+  shared PATH, where `processing-server` says nothing about whose server it is.
 
   Nothing about the design changed: the dependency still runs one way, server →
   packaging, still enforced by `tests/test_package_boundary.py`, and the layer still
@@ -65,7 +70,7 @@ Add an entry here whenever you add, remove, or materially revise a concept.
 ## 2026-08-17 (server layer)
 
 * **Architecture**: the repo is now a **`uv` workspace with two distributions**.
-  `aind-behavior-vr-foraging-server` lives in `server/`, is never
+  `processing-server` lives in `server/`, is never
   published (`Private :: Do Not Upload`, so an accidental `uv publish` fails rather
   than succeeds), and holds the SQLite job ledger, DocDB/local discovery, input
   staging and output stores, the `docker run` worker, and the dashboard. New concept:

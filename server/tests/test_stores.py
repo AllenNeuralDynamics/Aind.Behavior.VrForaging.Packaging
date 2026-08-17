@@ -4,10 +4,10 @@ import json
 from pathlib import Path
 
 import pytest
-from aind_behavior_vr_foraging_server.stores import StoreDataError
-from aind_behavior_vr_foraging_server.stores.input_local import LocalInputStore
-from aind_behavior_vr_foraging_server.stores.input_mount import MountInputStore
-from aind_behavior_vr_foraging_server.stores.output_local import LocalOutputStore
+from processing_server.stores import StoreDataError
+from processing_server.stores.input_local import LocalInputStore
+from processing_server.stores.input_mount import MountInputStore
+from processing_server.stores.output_local import LocalOutputStore
 
 
 def _make_session(root, name: str = "sess") -> "Path":

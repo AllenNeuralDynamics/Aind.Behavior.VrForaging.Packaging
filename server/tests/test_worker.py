@@ -8,13 +8,13 @@ from typing import Literal
 from unittest.mock import patch
 
 import pytest
-from aind_behavior_vr_foraging_server.config import PipelineConfig
-from aind_behavior_vr_foraging_server.runner import RunResult, Verdict
-from aind_behavior_vr_foraging_server.staging import InputManifest
-from aind_behavior_vr_foraging_server.stores import PreparedInput, PublishManifest, StoreTransientError
-from aind_behavior_vr_foraging_server.stores.input_local import LocalInputStore
-from aind_behavior_vr_foraging_server.stores.output_local import LocalOutputStore
-from aind_behavior_vr_foraging_server.worker import _LOG_STAGE_PREFIX, _WORKER_IMAGE_ENV, Worker
+from processing_server.config import PipelineConfig
+from processing_server.runner import RunResult, Verdict
+from processing_server.staging import InputManifest
+from processing_server.stores import PreparedInput, PublishManifest, StoreTransientError
+from processing_server.stores.input_local import LocalInputStore
+from processing_server.stores.output_local import LocalOutputStore
+from processing_server.worker import _LOG_STAGE_PREFIX, _WORKER_IMAGE_ENV, Worker
 
 _EMPTY_MANIFEST = InputManifest(store="local", available_files=0, available_bytes=0, include=[], exclude=[])
 
@@ -94,7 +94,7 @@ def _sidecar_payload(session_name: str = "sess_A") -> dict:
 def _completed_verdict(out_dir: Path) -> Verdict:
     """Stand in for a container that ran cleanly: write what it would have written
     (one table plus the sidecar) and report the verdict `classify` would return."""
-    from aind_behavior_vr_foraging_server.sidecar import SessionOutputMetadata
+    from processing_server.sidecar import SessionOutputMetadata
 
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "sites.parquet").write_bytes(b"x")
@@ -154,8 +154,8 @@ def _fake_container(verdict_factory=_completed_verdict, *, run=None) -> Iterator
         return verdict_factory(sidecar_path.parent)
 
     with (
-        patch("aind_behavior_vr_foraging_server.worker.runner.run", side_effect=run or default_run),
-        patch("aind_behavior_vr_foraging_server.worker.runner.classify", side_effect=fake_classify),
+        patch("processing_server.worker.runner.run", side_effect=run or default_run),
+        patch("processing_server.worker.runner.classify", side_effect=fake_classify),
     ):
         yield
 
