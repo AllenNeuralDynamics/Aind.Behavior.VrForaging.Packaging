@@ -54,7 +54,12 @@ jobs:
         run: uv run pytest
 
       - name: Build
-        run: uv build
+        # Named explicitly, not bare `uv build`: this is a workspace, and
+        # `aind-behavior-vr-foraging-orchestration` must never be built into a
+        # distributable — this job's output is what reaches PyPI. Bare `uv build`
+        # happens to build only the root package today; naming it keeps that true
+        # if the workspace grows another member.
+        run: uv build --package aind-behavior-vr-foraging-packaging
 
   # ╔─────────────────────────────────────────────────╗
   # │   ___                                            │
@@ -229,7 +234,12 @@ jobs:
           enable-cache: true
 
       - name: Build
-        run: uv build
+        # Named explicitly, not bare `uv build`: this is a workspace, and
+        # `aind-behavior-vr-foraging-orchestration` must never be built into a
+        # distributable — this job's output is what reaches PyPI. Bare `uv build`
+        # happens to build only the root package today; naming it keeps that true
+        # if the workspace grows another member.
+        run: uv build --package aind-behavior-vr-foraging-packaging
 
       - name: Upload wheels as artifact
         uses: actions/upload-artifact@v7
