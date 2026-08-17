@@ -39,8 +39,9 @@ nav = [
   ] },
   { "API Reference" = [
     { "Overview" = "api/index.md" },
-    { "Session pipeline" = "api/session-pipeline.md" },
-    { "Export pipeline" = "api/export-pipeline.md" },
+    { "Session pipeline" = "api/session.md" },
+    { "Export pipeline" = "api/batch.md" },
+    { "CLI" = "api/cli.md" },
     { "Processors" = "api/processors.md" },
     { "NWB export" = "api/nwb.md" },
   ] },

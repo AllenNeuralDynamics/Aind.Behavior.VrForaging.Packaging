@@ -21,9 +21,10 @@ raw session dir
       │
       ▼
   create_processors(dataset)          # picks processor variants by dataset version
-      │   [SiteTable, PositionAndVelocity, Licks, Sniffing, SoftwareEvents, Events]
+      │   [SessionMetadata, PositionAndVelocity, SiteTable, Licks, Sniffing,
+      │    SoftwareEvents, Events]
       │
-      ├─► proc.compute()  ──► pandas DataFrame  ──► one <name>.parquet   (run_session)
+      ├─► proc.compute()  ──► pandas DataFrame  ──► one <name>.parquet   (process_session)
       │                        (provenance stamped into df.attrs / parquet schema)
       │
       └─► proc.nwbize(nwb) ──► populates an NWBFile ──► .nwb.zarr (NwbSession)
@@ -35,7 +36,7 @@ raw session dir
   `dataset_version`, `processor`) into the DataFrame's `attrs`.
 - **DataFrame** — the common in-memory representation. One row per unit of the
   output (e.g. one site-table row = one *site*).
-- **Parquet** — `session_pipeline.run_session()` calls `compute()` on each processor and
+- **Parquet** — `pipeline.session.process_session()` calls `compute()` on each processor and
   writes a parquet per processor, promoting `df.attrs` to first-class parquet
   metadata (readable from DuckDB, Polars, R arrow, Spark, …).
 - **NWB** — `NwbSession` builds a single `NWBFile` from AIND metadata,
@@ -46,8 +47,8 @@ legacy processor variants.
 
 ## Examples
 
-- Runnable script covering the parquet workflows (all-at-once, single stream,
-  load-back): [scripts/example_parquet_pipeline.py](scripts/example_parquet_pipeline.py)
+- Walkthrough of the parquet workflows (all-at-once, single stream, load-back):
+  [docs/guides/session-from-disk.md](docs/guides/session-from-disk.md)
 - Query the local export with pandas and DuckDB: [docs/examples/query_export.py](docs/examples/query_export.py)
 - Query from S3 with DuckDB: [docs/examples/query_export_s3.py](docs/examples/query_export_s3.py)
 - Query from S3 with Polars: [docs/examples/query_export_s3_polars.py](docs/examples/query_export_s3_polars.py)
@@ -69,18 +70,18 @@ Then load a session and compute the sites table (one row per *site*):
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-from aind_behavior_vr_foraging_packaging.session_pipeline import get_site_table_processor
+from aind_behavior_vr_foraging_packaging.pipeline.session import resolve_site_table_processor
 
 ds = dataset("path/to/session")  # load the raw session
-sites_df = get_site_table_processor(ds).compute()
+sites_df = resolve_site_table_processor(ds).compute()
 
 sites_df.to_parquet("sites.parquet")  # optional: persist to disk
 print(f"{len(sites_df)} sites, {sites_df['has_reward'].sum()} rewarded")
 ```
 
-`get_site_table_processor` automatically picks the current or legacy variant
+`resolve_site_table_processor` automatically picks the current or legacy variant
 based on the dataset's schema version. To produce every table at once, use
-`run_session(ds, "output_dir")` instead — it writes `sites.parquet`,
+`process_session(ds, "output_dir")` instead — it writes `sites.parquet`,
 `position_velocity.parquet`, and the rest, and returns them keyed by name.
 
 ## Exporting a dataset collection
@@ -95,7 +96,7 @@ Then run the export pipeline across a folder of raw session directories
 (`--input-dir` must contain one subdirectory per session):
 
 ```bash
-uvx run aind-vr-export --input-dir /data/raw --output-dir /data/export
+uvx run vr-foraging-packaging batch --input-dir /data/raw --output-dir /data/export
 ```
 
 `--output-dir` receives the results:
@@ -111,23 +112,40 @@ uvx run aind-vr-export --input-dir /data/raw --output-dir /data/export
         └── ...
 ```
 
+### Subcommands
+
+| Command | What `--input-dir` is | What it does |
+| --- | --- | --- |
+| `session` | one raw session directory | Export that session's tables (and optionally NWB) |
+| `batch` | a folder of raw session directories | Export every session, then aggregate |
+| `aggregate` | a `sessions/` tree from an earlier run | Rebuild the experiment-level tables only |
+
 ### Common flags
+
+`session` and `batch` share the processor and output-format flags, since both
+run the per-session pipeline:
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--workers N` | `1` | Parallel threads for Phase 1 (per-session processing) |
-| `--exclude-processors a b` | *(none)* | Skip named processors, e.g. `sniffing software_events` |
 | `--include-processors a b` | *(all)* | Run only the listed processors |
-| `--dataset-tables a b` | `sites` | Tables to flatten across sessions in Phase 2 |
-| `--skip-processing` | `false` | Jump straight to Phase 2 (sessions/ already written) |
-| `--skip-aggregation` | `false` | Write only per-session parquets |
+| `--exclude-processors a b` | *(none)* | Skip named processors, e.g. `sniffing software_events` |
+| `--strict-parsing` | `false` | Treat a known data anomaly as fatal instead of degrading past it |
+| `--write-nwb` | `false` | Also write an NWB-Zarr store per session |
+| `--no-write-parquet` | *(parquet on)* | Skip the parquet tables (on `batch`, requires `--skip-aggregation`) |
 | `--log-file path` | *(none)* | Append a structured log to this path |
-| `--raise-on-error` | `false` | Abort on the first failure instead of logging and continuing |
+
+`batch` adds:
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--workers N` | `1` | Parallel threads for the per-session phase |
+| `--no-clean` | *(clean on)* | Keep `--output-dir` instead of wiping it first |
+| `--skip-aggregation` | `false` | Write only per-session outputs; aggregate later |
 
 ### Example: fast parallel run, skip sniffing
 
 ```bash
-uvx run aind-vr-export \
+uvx run vr-foraging-packaging \
     --input-dir /data/raw \
     --output-dir /data/export \
     --workers 8 \
@@ -140,13 +158,13 @@ uvx run aind-vr-export \
 Per-session parquets already written in `sessions/`:
 
 ```bash
-uvx run aind-vr-export \
+uvx run vr-foraging-packaging \
     --input-dir /data/raw \
     --output-dir /data/export \
     --skip-processing
 ```
 
-See `uvx run aind-vr-export --help` for the full flag reference.
+See `uvx run vr-foraging-packaging --help` for the full flag reference.
 
 ## Documentation
 

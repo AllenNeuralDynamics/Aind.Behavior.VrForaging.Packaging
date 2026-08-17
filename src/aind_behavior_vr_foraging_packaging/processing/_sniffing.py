@@ -7,7 +7,7 @@ import pandas as pd
 from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
 
-from .._base import AbstractProcessor
+from .._base import AbstractProcessor, cached_frame
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ class SniffingProcessor(AbstractProcessor):
         super().__init__(dataset=dataset, **kwargs)
         self._resampling_frequency_hz = resampling_frequency_hz
 
+    @cached_frame
     def _compute(self) -> pd.DataFrame:
         """Returns DataFrame with 'voltage' (V) indexed by harp time.
         Sampling rate stored in df.attrs['sampling_rate_hz'].

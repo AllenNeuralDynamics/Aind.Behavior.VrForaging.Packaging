@@ -4,7 +4,7 @@ title: Integration tests — end-to-end parsing against real S3 datasets
 description: Marker-gated pytest suite that downloads real sessions from public S3, runs the parquet/NWB/export pipelines end-to-end, and asserts scalar invariants declared in a validated YAML manifest.
 resource: tests/integration/
 tags: [testing, integration, s3, manifest, pydantic, caching, nwb, export]
-timestamp: 2026-08-09T00:00:00Z
+timestamp: 2026-08-16T00:00:00Z
 ---
 
 The integration tier (`tests/integration/`) runs the parser end-to-end against
@@ -20,7 +20,7 @@ suite is unaffected.
 | `model.py` | Pydantic models (`DatasetManifest`, `DatasetEntry`, `ExpectedInvariants`) with `extra="forbid"` so typos in the YAML fail loudly. |
 | `conftest.py` | S3 download + ETag caching; the `all_cached_session_paths` fixture that hands the whole cache to the export test. |
 | `test_datasets.py` | Two parametrized tests per manifest entry: site table, and the full parquet + NWB pipeline. |
-| `test_experiment_export.py` | `test_full_export_pipeline` — runs Phase 1 then Phase 2 of the [export pipeline](../architecture/export-pipeline.md) across *all* cached sessions at once and asserts the output tree. Skips when the cache is empty. |
+| `test_experiment_export.py` | Four tests running the [export pipeline](../architecture/batch.md) across *all* cached sessions at once: `test_full_export_pipeline` (both phases, asserts the output tree and that `session_id` joins from `session.parquet` to `sites.parquet`), plus `test_skip_aggregation_writes_only_sessions`, `test_exclude_processor`, and `test_rerun_aggregation_only`. Skip when the cache is empty. |
 
 # The tests
 
@@ -30,12 +30,13 @@ Both tests in `test_datasets.py` are parametrized over `_manifest.datasets`
 Every failure message includes the entry's `rationale` to speed triage.
 
 `test_sites_table` resolves the cached path, builds the version-correct
-processor via `get_site_table_processor`, computes the sites DataFrame, and
-asserts the declared invariants.
+processor via `resolve_site_table_processor` (honouring the entry's
+`strict_parsing`), computes the sites DataFrame, and asserts the declared
+invariants.
 
 `test_full_pipeline` runs both output targets over **one** loaded dataset, so
 the expensive site-table computation is not paid for twice. It calls
-`run_session` for parquet, then `NwbSession.run(*create_processors(ds))` for
+`process_session` for parquet, then `NwbSession.run(*create_processors(ds))` for
 NWB, and checks:
 
 - Identity fields (`session_id`, `identifier`, timezone-aware
@@ -55,10 +56,11 @@ NWB, and checks:
   the fact (see [nwb-packaging.md](../architecture/nwb-packaging.md)).
 - Optionally `pynwb.validate`, when the entry sets `expected.nwb_validates: true`.
 
-It deliberately uses `run_session`'s default `raise_on_error=False`: some
-sessions legitimately lack optional SoftwareEvents streams (e.g.
-`ForceGiveReward`, `PatchRewardAmount`), and an absent optional stream should
-not fail a smoke test.
+It deliberately uses `process_session`'s default `strict_parsing=False` rather
+than the entry's own value: some sessions legitimately lack optional
+SoftwareEvents streams (e.g. `ForceGiveReward`, `PatchRewardAmount`), and an
+absent optional stream should not fail a smoke test. `test_sites_table` is the
+one that honours `entry.strict_parsing`.
 
 # Caching (why re-runs are cheap)
 
@@ -80,7 +82,7 @@ any per-entry `exclude` globs.
 | `rationale` | yes | Why this dataset is in the suite; printed on failure. |
 | `exclude` | no | Glob patterns (case-insensitive) excluded from download. |
 | `expected` | no | Scalar invariants: `n_sites`, `n_choices`, `n_rewards`, `n_blocks`, `n_patches`, `nwb_validates`. Omit → smoke test only (must not crash / be empty). |
-| `raise_on_error` | no (default true) | Turn parser warnings into hard errors. |
+| `strict_parsing` | no (default **true**) | Make *known* data anomalies fatal in `test_sites_table` (see [error-policy.md](../conventions/error-policy.md)). The two legacy entries set it `false`. |
 | `xfail` / `xfail_reason` | no | Keep a known-broken dataset in the suite without blocking CI. |
 
 # Adding a dataset

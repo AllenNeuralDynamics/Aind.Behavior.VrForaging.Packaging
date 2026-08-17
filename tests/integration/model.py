@@ -62,7 +62,7 @@ class DatasetEntry(BaseModel):
         default=None,
         description="Optional scalar invariants to assert after parsing. If omitted, the dataset only gets the smoke test (parser must not crash).",
     )
-    raise_on_error: bool = Field(
+    strict_parsing: bool = Field(
         default=True,
         description="If true, turns warnings into hard errors. Useful for datasets where strict parsing is expected.",
     )

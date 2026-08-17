@@ -61,7 +61,7 @@ streams into a single tall table: columns `event_name` (str) and `data`
 - Payloads are polymorphic; parse back with `df["data"].apply(json.loads)`,
   or flatten one type with `pd.json_normalize`.
 - Streams contraqctor flags via `has_error` are skipped (or raise if
-  `raise_on_error`) — that is a *known* condition, already reported upstream. An
+  `strict_parsing`) — that is a *known* condition, already reported upstream. An
   event type that never fired is skipped as empty. Anything else — a stream that
   loads but lacks its `data` column, say — propagates; see
   [error-policy.md](../conventions/error-policy.md).
@@ -83,7 +83,7 @@ passthrough of a single raw stream.
   list, tags each source's rows with its `event_name`, and concatenates.
   Adding a new derived event is a self-contained addition: write one function,
   append one tuple.
-- A source that raises **propagates**, under either `raise_on_error` value. Each
+- A source that raises **propagates**, under either `strict_parsing` value. Each
   source owns its own expected-absence handling: when the streams it needs are
   not part of this dataset's schema version it returns an empty frame (as
   `parse_manual_water_delivery` does via `except (KeyError, FileNotFoundError)`),
@@ -112,5 +112,5 @@ passthrough of a single raw stream.
 `LegacyPositionAndVelocityProcessor` and `LegacySiteTableProcessor` handle
 datasets with schema version `< 0.6.0` (different odor-specification format,
 block-stream fallback, optional `PatchStateAtReward`, absent
-`IsStopped`/velocity). The [session pipeline](session-pipeline.md) selects them automatically;
+`IsStopped`/velocity). The [session pipeline](session.md) selects them automatically;
 licks, sniffing, software events, and events have no legacy variant.

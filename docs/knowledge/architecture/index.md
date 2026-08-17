@@ -3,19 +3,20 @@
 How the code is structured. The design is deliberately simple: a single
 abstract base class defines the processor contract, concrete processors each
 own one output, and a thin pipeline layer dispatches on dataset version and
-fans out. That layer comes in two tiers — one session
-([session-pipeline.md](session-pipeline.md)) and many
-([export-pipeline.md](export-pipeline.md)) — with the second built entirely on
-the first.
+fans out. That layer is the `pipeline/` package, in three tiers — one session
+([session.md](session.md)), many
+([batch.md](batch.md)), and the command line
+([cli.md](cli.md)) — each built entirely on the one before it.
 
 Read in this order:
 
 - [processor-abstraction.md](processor-abstraction.md) — `AbstractProcessor`: the contract every processor implements (`_compute`/`compute`, `nwbize`, `output_name`, provenance stamping).
-- [session-pipeline.md](session-pipeline.md) — `create_processors`, `run_session`, and the per-processor getters; version dispatch and parquet writing for **one** session.
+- [session.md](session.md) — `create_processors`, `process_session`, and the `resolve_*` per-processor getters; version dispatch and parquet writing for **one** session.
 - [site-table.md](site-table.md) — `SiteTableProcessor` and the `Site` model — the most complex processor and the core scientific output.
 - [continuous-and-event-streams.md](continuous-and-event-streams.md) — Position/velocity, licks, sniffing, and software events processors.
 - [nwb-packaging.md](nwb-packaging.md) — `NwbSession`: building the base `NWBFile`, stamping provenance, and driving `nwbize()`.
-- [export-pipeline.md](export-pipeline.md) — `process_sessions` / `aggregate` and the `aind-vr-export` CLI: **many** sessions into one queryable parquet export.
+- [batch.md](batch.md) — `process_sessions` / `aggregate`: **many** sessions into one queryable parquet export.
+- [cli.md](cli.md) — the `vr-foraging-packaging` command: one subcommand per pipeline function.
 - [data-contract-and-versioning.md](data-contract-and-versioning.md) — The `contraqctor` dataset, Harp streams, AIND metadata, and the three versions the code tracks.
 
 ## Package layout
@@ -23,18 +24,19 @@ Read in this order:
 ```
 src/aind_behavior_vr_foraging_packaging/
 ├── __init__.py           # __version__, __semver__ (pep440_to_semver)
-├── _base.py              # AbstractProcessor
+├── _base.py              # AbstractProcessor, DatasetProcessorError, cached_frame
 ├── _provenance.py        # PackagingProvenance — the only definition of the version keys
 ├── models.py             # Site (pydantic) — site table row schema
-├── session_pipeline.py   # create_processors, run_session, getters, parquet writer (one session)
-├── export_pipeline.py    # process_sessions, aggregate, Aggregator (many sessions)
-├── cli.py                # `aind-vr-export` entry point (pydantic-settings CliApp)
+├── pipeline/
+│   ├── session.py        # create_processors, process_session, resolve_* getters (one session)
+│   ├── export.py         # process_sessions, aggregate, AGGREGATED_TABLES (many sessions)
+│   └── cli.py            # `vr-foraging-packaging` — one subcommand per function above
 ├── acquisition/
 │   └── helper.py         # DataFrame → NWB-safe coercions
 ├── nwb_file/
 │   └── __init__.py       # NwbSession
 └── processing/
-    ├── _site_table.py                  # SiteTableProcessor + DatasetProcessorError
+    ├── _site_table.py                  # SiteTableProcessor
     ├── _legacy_site_table.py           # LegacySiteTableProcessor (schema < 0.6.0)
     ├── _position_and_velocity.py        # PositionAndVelocityProcessor
     ├── _legacy_position_and_velocity.py # LegacyPositionAndVelocityProcessor

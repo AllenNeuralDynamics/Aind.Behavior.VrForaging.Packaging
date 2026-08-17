@@ -7,7 +7,7 @@ processor's `nwbize()` to fill it, and writes the result as an NWB-Zarr store.
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-from aind_behavior_vr_foraging_packaging.session_pipeline import create_processors
+from aind_behavior_vr_foraging_packaging.pipeline.session import create_processors
 from aind_behavior_vr_foraging_packaging.nwb_file import NwbSession
 
 raw = "path/to/behavior_<subject>_<date>"

@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 class AcquisitionProcessor(AbstractProcessor):
     __output_name__ = "acquisition"
 
-    def __init__(self, dataset: data_contract.Dataset, *, raise_on_error: bool = False) -> None:
-        super().__init__(dataset, raise_on_error=raise_on_error)
+    def __init__(self, dataset: data_contract.Dataset, *, strict_parsing: bool = False) -> None:
+        super().__init__(dataset, strict_parsing=strict_parsing)
 
     def _compute(self) -> pd.DataFrame:
         """Returns a tall DataFrame of all acquisition streams.
@@ -28,7 +28,7 @@ class AcquisitionProcessor(AbstractProcessor):
                 if stream.is_collection:
                     continue
                 logger.debug("Stream %s has error: %s", stream.name, stream.collect_errors())
-                if self._raise_on_error:
+                if self._strict_parsing:
                     raise ValueError(f"Stream {stream.name} has error")
                 continue
             name = stream.resolved_name.replace("::", ".")
@@ -56,14 +56,14 @@ class AcquisitionProcessor(AbstractProcessor):
                 err = stream.collect_errors()
                 if err:
                     logger.debug("Collection stream %s has errors: %s", stream.name, err)
-                    if self._raise_on_error:
+                    if self._strict_parsing:
                         raise ValueError(f"Collection stream {stream.name} has errors: {err}")
                 continue
 
             name = stream.resolved_name.replace("::", ".")
             if stream.has_error:
                 logger.debug("Stream %s has error: %s", stream.name, stream.collect_errors())
-                if self._raise_on_error:
+                if self._strict_parsing:
                     raise ValueError(f"Stream {stream.name} has error: {stream.collect_errors()}")
                 continue
             if isinstance(stream, (data_contract.harp.HarpRegister, data_contract.csv.Csv)):
@@ -87,9 +87,9 @@ class AcquisitionProcessor(AbstractProcessor):
                 )
             else:
                 # A stream type nwbize() has not been taught to express: a known,
-                # nameable gap, so it is governed by raise_on_error.
+                # nameable gap, so it is governed by strict_parsing.
                 msg = f"Stream {stream.name} has unsupported type {type(stream)}"
-                if self._raise_on_error:
+                if self._strict_parsing:
                     raise TypeError(msg)
                 logger.warning("%s; skipping.", msg)
         return nwb_file

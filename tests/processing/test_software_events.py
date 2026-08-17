@@ -47,7 +47,7 @@ def _make_processor(streams: list) -> SoftwareEventsProcessor:
 
     proc = SoftwareEventsProcessor.__new__(SoftwareEventsProcessor)
     proc._dataset = dataset
-    proc._raise_on_error = False
+    proc._strict_parsing = False
     return proc
 
 
@@ -128,11 +128,11 @@ class TestSoftwareEventsCompute:
         df = proc.compute()
         assert list(df["event_name"]) == ["ActiveSite"]
 
-    @pytest.mark.parametrize("raise_on_error", [False, True])
-    def test_malformed_stream_propagates(self, raise_on_error):
+    @pytest.mark.parametrize("strict_parsing", [False, True])
+    def test_malformed_stream_propagates(self, strict_parsing):
         """A non-empty stream with the wrong schema must fail, not be silently dropped.
 
-        ``has_error`` is the *known* condition and stays governed by ``raise_on_error``
+        ``has_error`` is the *known* condition and stays governed by ``strict_parsing``
         (asserted separately). A stream that loads fine but has no ``data`` column is a
         bug or a corrupt file: swallowing the ``KeyError`` dropped the whole event type
         from the parquet while the pipeline still reported success.
@@ -141,20 +141,20 @@ class TestSoftwareEventsCompute:
         broken.data = pd.DataFrame({"not_data": [1]}, index=pd.Index([1.0], name="Time"))
 
         proc = _make_processor([broken])
-        proc._raise_on_error = raise_on_error
+        proc._strict_parsing = strict_parsing
         with pytest.raises(KeyError, match="data"):
             proc.compute()
 
-    @pytest.mark.parametrize("raise_on_error", [False, True])
-    def test_has_error_stream_is_governed_by_flag(self, raise_on_error):
+    @pytest.mark.parametrize("strict_parsing", [False, True])
+    def test_has_error_stream_is_governed_by_flag(self, strict_parsing):
         """``has_error`` is a known condition contraqctor already reported: flag decides."""
         bad = _make_sw_stream("Errored", [(1.0, {"a": 1})])
         bad.has_error = True
         bad.collect_errors.return_value = ["parse failed"]
 
         proc = _make_processor([bad])
-        proc._raise_on_error = raise_on_error
-        if raise_on_error:
+        proc._strict_parsing = strict_parsing
+        if strict_parsing:
             with pytest.raises(ValueError, match="Errored"):
                 proc.compute()
         else:

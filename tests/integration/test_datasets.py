@@ -14,10 +14,10 @@ from urllib.parse import urlparse
 import pandas as pd
 import pytest
 
-from aind_behavior_vr_foraging_packaging.session_pipeline import (
+from aind_behavior_vr_foraging_packaging.pipeline.session import (
     create_processors,
-    get_site_table_processor,
-    run_session,
+    process_session,
+    resolve_site_table_processor,
 )
 
 from .conftest import CACHE_ROOT, _manifest
@@ -110,7 +110,7 @@ def test_sites_table(entry, request):
 
     try:
         ds = _load_dataset(entry)
-        processor = get_site_table_processor(ds, raise_on_error=entry.raise_on_error)
+        processor = resolve_site_table_processor(ds, strict_parsing=entry.strict_parsing)
         sites = processor.process_to_sites()
         sites_df = pd.DataFrame([s.model_dump() for s in sites])
 
@@ -127,7 +127,7 @@ def test_sites_table(entry, request):
 def test_full_pipeline(entry, request, tmp_path):
     """Smoke-test the full pipeline, parquet and NWB: all 6 processors must run without crashing.
 
-    Exercises ``run_session`` and then ``NwbSession.run`` over the same loaded
+    Exercises ``process_session`` and then ``NwbSession.run`` over the same loaded
     dataset — both drive the same processors, so they share one load instead of
     paying for the site-table computation twice. Parquet files are written to
     ``tmp_path`` (auto-cleaned by pytest). Only the ``sites`` output is
@@ -142,7 +142,7 @@ def test_full_pipeline(entry, request, tmp_path):
     computed independently (``nwbize`` calls ``compute()`` itself), so matching
     metrics are what say the outputs have not drifted apart.
 
-    Uses ``run_session``'s default ``raise_on_error=False``: the pipeline runs
+    Uses ``process_session``'s default ``strict_parsing=False``: the pipeline runs
     every processor, and some sessions legitimately lack optional SoftwareEvents
     streams (e.g. ForceGiveReward, PatchRewardAmount). An absent optional stream
     should not fail this smoke test.
@@ -164,7 +164,7 @@ def test_full_pipeline(entry, request, tmp_path):
 
     try:
         ds = _load_dataset(entry)
-        outputs = run_session(ds, tmp_path)
+        outputs = process_session(ds, tmp_path)
         assert not outputs["sites"].empty, f"{entry.id}: sites table is unexpectedly empty"
 
         session = NwbSession(_session_path(entry), dataset=ds)

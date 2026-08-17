@@ -8,11 +8,11 @@ timestamp: 2026-08-09T00:00:00Z
 ---
 
 `NwbSession` (`nwb_file/__init__.py`) is the NWB counterpart to
-[`run_session`](session-pipeline.md). Where the session pipeline writes parquet,
+[`process_session`](session.md). Where the session pipeline writes parquet,
 `NwbSession` builds a single `NWBFile` and lets each processor contribute.
 
 It is used in two contexts: directly (scripts, notebooks), and automatically
-by the [export pipeline](export-pipeline.md) when `write_nwb=True` is passed
+by the [export pipeline](batch.md) when `write_nwb=True` is passed
 to `process_sessions`.
 
 # Lifecycle
@@ -20,7 +20,7 @@ to `process_sessions`.
 ```python
 from pathlib import Path
 from aind_behavior_vr_foraging_packaging.nwb_file import NwbSession
-from aind_behavior_vr_foraging_packaging.session_pipeline import create_processors
+from aind_behavior_vr_foraging_packaging.pipeline.session import create_processors
 
 session = NwbSession(Path("/path/to/session"))
 nwb = session.run(*create_processors(session.dataset))  # process() + nwbize() loop

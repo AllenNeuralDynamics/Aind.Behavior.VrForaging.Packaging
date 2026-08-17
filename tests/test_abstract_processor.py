@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -52,3 +53,61 @@ class _Named(AbstractProcessor):
 def test_output_name_uses_class_override():
     proc = _Named.__new__(_Named)
     assert proc.output_name == "my_stream"
+
+
+# ---------------------------------------------------------------------------
+# session_root — shared by SessionMetadataProcessor and process_session
+# ---------------------------------------------------------------------------
+
+
+def _dataset_with_stream_path(path):
+    ds = MagicMock()
+    ds.at.return_value.at.return_value.at.return_value.reader_params.path = path
+    return ds
+
+
+# Paths are written with forward slashes: pathlib reads those as separators on every
+# platform, while a `C:\...` literal is one opaque component off Windows.
+
+
+def test_session_root_from_standard_layout():
+    from aind_behavior_vr_foraging_packaging._base import session_root
+
+    ds = _dataset_with_stream_path("/data/behavior_815103_2025-11-05_22-52-21/behavior/Logs/session_input.json")
+    assert session_root(ds) == Path("/data/behavior_815103_2025-11-05_22-52-21")
+
+
+def test_session_root_anchors_on_behavior_not_depth():
+    """Found via the `behavior/` component, so nesting the log deeper still resolves
+    to the session root rather than to an inner directory."""
+    from aind_behavior_vr_foraging_packaging._base import session_root
+
+    ds = _dataset_with_stream_path("/data/my_session/behavior/Logs/nested/session_input.json")
+    assert session_root(ds).name == "my_session"
+
+
+def test_session_root_tolerates_a_root_named_like_the_anchor():
+    """`behavior_754559_...` is not `behavior`; the exact match must not eat it."""
+    from aind_behavior_vr_foraging_packaging._base import session_root
+
+    ds = _dataset_with_stream_path("/d/behavior_754559_2024-08-26_09-24-17/behavior/Logs/session_input.json")
+    assert session_root(ds).name == "behavior_754559_2024-08-26_09-24-17"
+
+
+def test_session_root_without_anchor_raises():
+    import pytest
+
+    from aind_behavior_vr_foraging_packaging._base import DatasetProcessorError, session_root
+
+    ds = _dataset_with_stream_path("/somewhere/else/session_input.json")
+    with pytest.raises(DatasetProcessorError, match="session root"):
+        session_root(ds)
+
+
+def test_session_root_without_a_path_raises():
+    import pytest
+
+    from aind_behavior_vr_foraging_packaging._base import DatasetProcessorError, session_root
+
+    with pytest.raises(DatasetProcessorError, match="source path"):
+        session_root(_dataset_with_stream_path(None))

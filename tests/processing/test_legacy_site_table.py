@@ -6,11 +6,11 @@ Integration with a real legacy dataset is covered by tests/integration/datasets.
 
 import pytest
 
+from aind_behavior_vr_foraging_packaging._base import DatasetProcessorError
 from aind_behavior_vr_foraging_packaging.processing._legacy_site_table import (
     _LEGACY_OLFACTOMETER_CHANNEL_COUNT,
     LegacySiteTableProcessor,
 )
-from aind_behavior_vr_foraging_packaging.processing._site_table import DatasetProcessorError
 
 
 def _uninit_processor() -> LegacySiteTableProcessor:

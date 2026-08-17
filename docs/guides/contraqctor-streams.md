@@ -114,7 +114,7 @@ Then slot it into the standard pipeline:
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-from aind_behavior_vr_foraging_packaging.session_pipeline import create_processors
+from aind_behavior_vr_foraging_packaging.pipeline.session import create_processors
 
 ds = dataset("path/to/session")
 processors = create_processors(ds)

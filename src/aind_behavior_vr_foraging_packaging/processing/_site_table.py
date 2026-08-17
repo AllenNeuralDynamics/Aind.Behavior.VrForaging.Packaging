@@ -9,7 +9,7 @@ from aind_behavior_vr_foraging.task_logic import OdorMixture
 from contraqctor.contract.json import PydanticModel
 from pydantic import BaseModel, TypeAdapter
 
-from .._base import AbstractProcessor
+from .._base import AbstractProcessor, DatasetProcessorError, cached_frame
 from ..models import Site
 from ._helper import (
     get_closest_from_timestamp,
@@ -23,15 +23,11 @@ from ._position_and_velocity import PositionAndVelocityProcessor
 logger = logging.getLogger(__name__)
 
 
-class DatasetProcessorError(Exception):
-    pass
-
-
 class SiteTableProcessor(AbstractProcessor):
     __output_name__ = "sites"
 
-    def __init__(self, dataset: contraqctor.contract.Dataset, *, raise_on_error: bool = False) -> None:
-        super().__init__(dataset, raise_on_error=raise_on_error)
+    def __init__(self, dataset: contraqctor.contract.Dataset, *, strict_parsing: bool = False) -> None:
+        super().__init__(dataset, strict_parsing=strict_parsing)
 
         if self.provenance.dataset_semver != self.provenance.data_contract_semver:
             logger.warning(
@@ -327,7 +323,7 @@ class SiteTableProcessor(AbstractProcessor):
                 stops_before_choice = site_is_stopped[site_is_stopped["IsStopped"]]
                 if stops_before_choice.empty:
                     msg = f"Choice occurred at {choice_time} but no IsStopped=True event found in site interval [{this_timestamp}, {next_timestamp})"
-                    if self.raise_on_error:
+                    if self.strict_parsing:
                         raise DatasetProcessorError(msg)
                     else:
                         logger.warning(msg + ". Falling back to global search.")
@@ -352,7 +348,7 @@ class SiteTableProcessor(AbstractProcessor):
                     (odor_onset.index < this_timestamp) & (odor_onset.index >= this_timestamp - 0.002)
                 ]  # we use a 2ms conservative window
                 if odor_onset_before_site.empty:
-                    if self.raise_on_error:
+                    if self.strict_parsing:
                         raise DatasetProcessorError("No odor onset found in site interval")
                     else:
                         logger.warning("No odor onset found in site interval")
@@ -373,7 +369,7 @@ class SiteTableProcessor(AbstractProcessor):
                 reward_onset_time = np.nan
             else:
                 if len(site_water_delivery) == 0:
-                    if self.raise_on_error:
+                    if self.strict_parsing:
                         raise DatasetProcessorError(
                             "Valid reward metadata found but no water delivery in site interval"
                         )
@@ -443,6 +439,7 @@ class SiteTableProcessor(AbstractProcessor):
             sites.append(site)
         return sites
 
+    @cached_frame
     def _compute(self) -> pd.DataFrame:
         """Returns site table as a DataFrame with one row per site."""
         sites = self.process_to_sites()

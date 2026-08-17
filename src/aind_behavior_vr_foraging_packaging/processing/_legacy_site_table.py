@@ -7,8 +7,8 @@ import pandas as pd
 import semver
 from pydantic import BaseModel
 
-from .._base import AbstractProcessor
-from ._site_table import DatasetProcessorError, SiteTableProcessor
+from .._base import AbstractProcessor, DatasetProcessorError
+from ._site_table import SiteTableProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +39,10 @@ class LegacySiteTableProcessor(SiteTableProcessor):
     not the legacy stripped names (e.g., "HarpBehavior.PwmStart").
     """
 
-    def __init__(self, dataset: contraqctor.contract.Dataset, *, raise_on_error: bool = False) -> None:
+    def __init__(self, dataset: contraqctor.contract.Dataset, *, strict_parsing: bool = False) -> None:
 
         # Bypass SiteTableProcessor.__init__ — InputSchemas/Rig is not present in legacy datasets.
-        AbstractProcessor.__init__(self, dataset, raise_on_error=raise_on_error)
+        AbstractProcessor.__init__(self, dataset, strict_parsing=strict_parsing)
         if self.provenance.dataset_semver >= semver.Version(major=0, minor=6, patch=0):
             raise DatasetProcessorError(
                 f"LegacySiteTableProcessor only supports datasets < 0.6.0, "

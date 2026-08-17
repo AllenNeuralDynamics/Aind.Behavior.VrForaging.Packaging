@@ -1,7 +1,9 @@
 import abc
+import functools
 import re
 import typing as ty
 from functools import cached_property
+from pathlib import Path
 
 import pandas as pd
 from contraqctor.contract import Dataset
@@ -9,9 +11,83 @@ from contraqctor.contract import Dataset
 from ._provenance import PackagingProvenance
 
 
+class DatasetProcessorError(Exception):
+    """Raised by a processor for a data condition it explicitly checks for and names.
+
+    See :attr:`AbstractProcessor.strict_parsing` and
+    ``docs/knowledge/conventions/error-policy.md``.
+    """
+
+
+def session_root(dataset: Dataset) -> Path:
+    """Return the session's root directory, derived from the Session stream's path.
+
+    The contraqctor ``Dataset`` does not carry the root it was loaded from, so it
+    is recovered by walking up from ``<root>/behavior/Logs/session_input.json``.
+    Anchors on the ``behavior/`` component rather than counting parents, so moving
+    the log deeper under ``behavior/`` cannot silently yield the wrong directory.
+
+    The directory's ``name`` is the session's ``session_id`` everywhere in the
+    package, so a failure here is fatal rather than degradable.
+    """
+    stream = dataset.at("Behavior").at("InputSchemas").at("Session")
+    raw_path = getattr(stream.reader_params, "path", None)
+    if raw_path is None:
+        raise DatasetProcessorError("Session stream exposes no source path to take the session directory from")
+
+    path = Path(raw_path)
+    for parent in path.parents:
+        if parent.name.lower() == "behavior":
+            return parent.parent
+
+    raise DatasetProcessorError(
+        f"Session stream path {str(path)!r} has no 'behavior' component to locate the session root from"
+    )
+
+
 def _class_name_to_snake(name: str) -> str:
     """Convert a CamelCase class name to snake_case, e.g. ``LicksProcessor`` → ``licks_processor``."""
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
+
+def cached_frame(fn: ty.Callable[[ty.Any], pd.DataFrame]) -> ty.Callable[[ty.Any], pd.DataFrame]:
+    """Memoize a processor's :meth:`~AbstractProcessor._compute` for the instance's lifetime.
+
+    Opt-in per processor — deliberately *not* applied by :class:`AbstractProcessor`
+    to everything. Decorate ``_compute`` only where both hold:
+
+    1. ``nwbize()`` re-enters ``compute()``, so the frame is built twice per
+       session whenever ``--write-nwb`` is set, and
+    2. building it is expensive enough for that to matter.
+
+    Five of the seven processors qualify; ``SoftwareEventsProcessor`` builds its
+    NWB tables straight from the raw streams and ``SessionMetadataProcessor`` has
+    no ``nwbize`` at all, so neither gains anything.
+
+    Each call returns a **copy**, so the invariant documented on
+    :meth:`AbstractProcessor.nwbize` — that ``compute()`` and ``nwbize()`` share
+    no state — still holds exactly. Callers may mutate what they get back without
+    reaching into the cache or into each other. Copying a frame is far cheaper
+    than re-parsing the underlying streams, so the saving survives.
+
+    The cache lives on the instance (``self.__dict__``), and processors are
+    constructed per session by
+    :func:`~aind_behavior_vr_foraging_packaging.pipeline.session.create_processors`,
+    so it dies with the session. There is no cross-session staleness to manage and
+    nothing to invalidate. An exception is *not* cached: a failed ``_compute``
+    leaves the cache empty and the next call retries.
+    """
+
+    key = getattr(fn, "__name__", "_compute")
+
+    @functools.wraps(fn)
+    def wrapper(self: ty.Any) -> pd.DataFrame:
+        cache: dict[str, pd.DataFrame] = self.__dict__.setdefault("_frame_cache", {})
+        if key not in cache:
+            cache[key] = fn(self)
+        return cache[key].copy()
+
+    return wrapper
 
 
 class AbstractProcessor(abc.ABC):
@@ -28,9 +104,9 @@ class AbstractProcessor(abc.ABC):
         """
         return self.__class__.__output_name__ or _class_name_to_snake(type(self).__name__)
 
-    def __init__(self, dataset: Dataset, *, raise_on_error: bool = False) -> None:
+    def __init__(self, dataset: Dataset, *, strict_parsing: bool = False) -> None:
         self._dataset = dataset
-        self._raise_on_error = raise_on_error
+        self._strict_parsing = strict_parsing
 
     @property
     def dataset(self) -> Dataset:
@@ -78,15 +154,22 @@ class AbstractProcessor(abc.ABC):
         Default implementation is a no-op. Override in subclasses that have
         an NWB representation. May call ``compute()`` internally; the two
         methods are intentionally independent (no shared state).
+
+        That independence costs a second full ``_compute()`` per session when
+        both outputs are written (``--write-nwb``). Processors for which that
+        is expensive decorate ``_compute`` with
+        :func:`~aind_behavior_vr_foraging_packaging._base.cached_frame`, which
+        removes the recomputation while preserving the no-shared-state
+        guarantee — every call still hands back its own copy.
         """
         return nwb_file
 
-    def with_raise_errors(self, raise_on_error: bool = True) -> ty.Self:
-        self._raise_on_error = raise_on_error
+    def with_strict_parsing(self, strict_parsing: bool = True) -> ty.Self:
+        self._strict_parsing = strict_parsing
         return self
 
     @property
-    def raise_on_error(self) -> bool:
+    def strict_parsing(self) -> bool:
         """Whether *known* data anomalies raise instead of being logged and worked around.
 
         The flag covers only anomalies a processor explicitly checks for and can name,
@@ -94,12 +177,12 @@ class AbstractProcessor(abc.ABC):
 
             if <specific condition detected>:
                 msg = "<what was violated>"
-                if self.raise_on_error:
+                if self.strict_parsing:
                     raise DatasetProcessorError(msg)
                 logger.warning("%s; <what is used instead>.", msg)
 
         It does **not** gate general exceptions. Never write
-        ``except Exception: ... if self.raise_on_error: raise`` — with the flag off (the
+        ``except Exception: ... if self.strict_parsing: raise`` — with the flag off (the
         default) that swallows real bugs, API drift and corrupt files as though they were
         data quirks, dropping the processor's output while the run still reports success.
         Catch only the exception types that signal an *expected* condition, narrowly —
@@ -111,8 +194,8 @@ class AbstractProcessor(abc.ABC):
         rather than consult this flag: there is no degraded output to fall back to.
 
         Isolating one failure from the rest of a run is the caller's job, not the flag's.
-        :func:`~aind_behavior_vr_foraging_packaging.export_pipeline.process_sessions`
+        :func:`~aind_behavior_vr_foraging_packaging.pipeline.batch.process_sessions`
         catches whatever a processor raises, so a single bad session or processor never
         aborts a batch.
         """
-        return self._raise_on_error
+        return self._strict_parsing
