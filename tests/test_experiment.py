@@ -38,7 +38,10 @@ def _mock_dataset() -> MagicMock:
 
 
 class TestAnyProcessorFailureFailsTheSession:
-    def test_session_dropped_and_directory_removed_when_a_processor_fails(self, tmp_path):
+    def test_processor_failure_propagates(self, tmp_path):
+        """A processor raising aborts the run rather than yielding a partial
+        session: anything escaping compute() is unexpected by definition (the
+        strict_parsing convention), so there is nothing safe to salvage."""
         raw = tmp_path / "raw" / "sess_A"
         raw.mkdir(parents=True)
         procs = [_mock_proc("session"), _mock_proc("sites"), _mock_proc("licks", raises=True)]
@@ -46,11 +49,9 @@ class TestAnyProcessorFailureFailsTheSession:
         with (
             patch("aind_behavior_vr_foraging.data_contract.dataset", return_value=_mock_dataset()),
             patch("aind_behavior_vr_foraging_packaging.export_pipeline.create_processors", return_value=procs),
+            pytest.raises(ValueError, match="licks blew up"),
         ):
-            written = process_sessions([raw], tmp_path / "out", raise_on_error=False)
-
-        assert written == []
-        assert not (tmp_path / "out" / "sessions" / "sess_A").exists()
+            process_sessions([raw], tmp_path / "out")
 
     def test_session_kept_when_every_processor_succeeds(self, tmp_path):
         raw = tmp_path / "raw" / "sess_A"
@@ -61,26 +62,15 @@ class TestAnyProcessorFailureFailsTheSession:
             patch("aind_behavior_vr_foraging.data_contract.dataset", return_value=_mock_dataset()),
             patch("aind_behavior_vr_foraging_packaging.export_pipeline.create_processors", return_value=procs),
         ):
-            written = process_sessions([raw], tmp_path / "out", raise_on_error=False)
+            written = process_sessions([raw], tmp_path / "out")
 
         assert written == [tmp_path / "out" / "sessions" / "sess_A"]
         assert (tmp_path / "out" / "sessions" / "sess_A" / "sites.parquet").exists()
 
-    def test_raise_on_error_true_propagates_immediately(self, tmp_path):
-        raw = tmp_path / "raw" / "sess_A"
-        raw.mkdir(parents=True)
-        procs = [_mock_proc("session"), _mock_proc("sites", raises=True)]
-
-        with (
-            patch("aind_behavior_vr_foraging.data_contract.dataset", return_value=_mock_dataset()),
-            patch("aind_behavior_vr_foraging_packaging.export_pipeline.create_processors", return_value=procs),
-            pytest.raises(ValueError, match="blew up"),
-        ):
-            process_sessions([raw], tmp_path / "out", raise_on_error=True)
-
-    def test_processor_construction_failure_is_isolated_from_other_sessions(self, tmp_path):
-        """A bad rig config crashing create_processors() for one session must not
-        abort the rest of a multi-session batch."""
+    def test_processor_construction_failure_propagates(self, tmp_path):
+        """A bad rig config crashing create_processors() aborts the batch — it is
+        not isolated per session. Constructing a processor list is not a data
+        anomaly, so strict_parsing has no say in it."""
         good = tmp_path / "raw" / "sess_good"
         bad = tmp_path / "raw" / "sess_bad"
         good.mkdir(parents=True)
@@ -102,11 +92,9 @@ class TestAnyProcessorFailureFailsTheSession:
                 "aind_behavior_vr_foraging_packaging.export_pipeline.create_processors",
                 side_effect=_create_processors,
             ),
+            pytest.raises(RuntimeError, match="malformed rig config"),
         ):
-            written = process_sessions([bad, good], tmp_path / "out", raise_on_error=False)
-
-        assert written == [tmp_path / "out" / "sessions" / "sess_good"]
-        assert not (tmp_path / "out" / "sessions" / "sess_bad").exists()
+            process_sessions([bad, good], tmp_path / "out")
 
 
 # ---------------------------------------------------------------------------
@@ -215,6 +203,19 @@ def test_aggregate_session_id_column_present(tmp_path):
 
     df = pd.read_parquet(tmp_path / "sites.parquet")
     assert "session_id" in df.columns
+
+
+def test_aggregate_session_id_joins_across_tables(tmp_path):
+    """session.parquet and the flat tables key on the same value: the directory name."""
+    sessions_dir = tmp_path / "sessions"
+    _write_fake_session(sessions_dir, "behavior_815103_2025-11-05_22-52-21", "815103")
+
+    aggregate(sessions_dir, tmp_path, Aggregator(rules=[AggregationRule("sites")]))
+
+    sessions = pd.read_parquet(tmp_path / "session.parquet")
+    sites = pd.read_parquet(tmp_path / "sites.parquet")
+    assert set(sessions["session_id"]) == set(sites["session_id"].unique())
+    assert set(sites["session_id"].unique()) == {"behavior_815103_2025-11-05_22-52-21"}
 
 
 def test_aggregate_rerun_is_idempotent(tmp_path):

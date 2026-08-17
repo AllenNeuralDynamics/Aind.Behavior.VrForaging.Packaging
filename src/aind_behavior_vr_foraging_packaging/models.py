@@ -89,12 +89,14 @@ class SessionMetadata(BaseModel):
     to type-check and document the ``session.parquet`` output.
     """
 
-    session_id: str = Field(description="Session folder name (AIND naming convention).")
+    session_id: str = Field(
+        description="Session directory name (AIND naming convention); the join key for every other table.",
+    )
     subject_id: str = Field(
-        description="Subject identifier loaded from the session metadata (session_output.json or contraqctor stream).",
+        description="Subject identifier, from the contraqctor Behavior/InputSchemas/Session stream.",
     )
     date: datetime.datetime = Field(
-        description="Session start datetime loaded from the session metadata (session_output.json or contraqctor stream).",
+        description="Session start datetime, from the contraqctor Behavior/InputSchemas/Session stream.",
     )
     dataset_version: str = Field(
         description="Dataset schema version recorded in the session (from tasklogic_input.json).",

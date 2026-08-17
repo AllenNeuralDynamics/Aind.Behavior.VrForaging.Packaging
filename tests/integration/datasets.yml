@@ -65,7 +65,7 @@ datasets:
       n_blocks: 1
   - id: behavior_808728_2025-12-10_20-40-41
     uri: s3://aind-open-data/behavior_808728_2025-12-10_20-40-41/
-    raise_on_error: false
+    strict_parsing: false
     rationale: |
       Single-site dataset for subject 808728.
     expected:
@@ -77,14 +77,14 @@ datasets:
 
   - id: behavior_754559_2024-08-26_09-24-17
     uri: s3://aind-open-data/behavior_754559_2024-08-26_09-24-17/
-    raise_on_error: false
+    strict_parsing: false
     rationale: |
       Legacy dataset (schema version 0.4.0) for subject 754559.
       Also tests creation of nwb with v1 metadata using jsons in bucket
 
   - id: 716458_2024-05-13_09-03-55
     uri: s3://aind-open-data/716458_2024-05-13_09-03-55/
-    raise_on_error: false
+    strict_parsing: false
     rationale: |
       Legacy dataset (schema version 0.3.0) for subject 716458.
       Tests LegacyTrialTableProcessor: block-stream fallback to ActivePatch,

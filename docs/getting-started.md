@@ -34,29 +34,29 @@ Load a raw session directory and compute the sites table (one row per *site*):
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-from aind_behavior_vr_foraging_packaging.session_pipeline import get_site_table_processor
+from aind_behavior_vr_foraging_packaging.session_pipeline import resolve_site_table_processor
 
-ds = dataset("path/to/session")                    # load the raw session
-sites_df = get_site_table_processor(ds).compute()  # version-dispatch automatic
+ds = dataset("path/to/session")                        # load the raw session
+sites_df = resolve_site_table_processor(ds).compute()  # version-dispatch automatic
 
 print(f"{len(sites_df)} sites, {sites_df['has_reward'].sum()} rewarded")
-sites_df.to_parquet("sites.parquet")               # optional: persist to disk
+sites_df.to_parquet("sites.parquet")                   # optional: persist to disk
 ```
 
-`get_site_table_processor` automatically picks the current or legacy
+`resolve_site_table_processor` automatically picks the current or legacy
 `SiteTableProcessor` based on the dataset's schema version.
 
 ## Quick start — all tables at once
 
-To produce every table in a single call, use `run_session`. It writes one
+To produce every table in a single call, use `process_session`. It writes one
 parquet per processor and returns them keyed by name:
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-from aind_behavior_vr_foraging_packaging.session_pipeline import run_session
+from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
 
 ds = dataset("path/to/session")
-results = run_session(ds, output_dir="output/")
+results = process_session(ds, output_dir="output/")
 # → output/sites.parquet, output/position_velocity.parquet, …
 
 print(results.keys())

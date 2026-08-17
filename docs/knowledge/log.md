@@ -3,6 +3,72 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-08-16 (documentation sweep)
+
+An audit against the source found the bundle had drifted on every rename and
+policy change below. Corrected across
+[export-pipeline.md](architecture/export-pipeline.md),
+[session-pipeline.md](architecture/session-pipeline.md),
+[processor-abstraction.md](architecture/processor-abstraction.md),
+[nwb-packaging.md](architecture/nwb-packaging.md),
+[architecture/index.md](architecture/index.md), [overview.md](overview.md),
+[error-policy.md](conventions/error-policy.md),
+[tooling-and-style.md](conventions/tooling-and-style.md),
+[unit-tests.md](testing/unit-tests.md),
+[integration-tests.md](testing/integration-tests.md), plus `README.md` and the
+user-facing pages under `docs/guides/`, `docs/api/` and `docs/getting-started.md`:
+
+* `run_session` → `process_session`; `get_*_processor` → `resolve_*_processor`.
+* The `session_path` argument, gone from `create_processors` and
+  `process_session`, was still documented as required for `session.parquet`.
+* **`raise_on_error` no longer exists anywhere in the codebase.** Several pages
+  still documented it as a live orchestration flag, including a signature and a
+  "two flags, deliberately separate" table. `strict_parsing` is now the only
+  flag; [error-policy.md](conventions/error-policy.md) says so explicitly so the
+  next reader who greps for the old name gets an answer.
+* **Nothing is isolated any more.** The claim that "a processor that raises is
+  logged while the rest of the session continues" and that `export_pipeline`
+  holds "the package's only legitimate broad catches" was false in both
+  directions — that module now contains no `except` at all. The one remaining
+  tolerance mechanism, `process_session`'s opt-in `on_error` callback, was
+  undocumented; it now is.
+* `SessionMetadata` gained version *columns*, so the claim that the
+  experiment-level export "carries no provenance at all" was wrong:
+  `session.parquet` is precisely where per-session provenance survives Phase 2.
+* `cached_frame` was undocumented; added to
+  [processor-abstraction.md](architecture/processor-abstraction.md), and the
+  "expect Phase 1 to take roughly twice as long with `write_nwb=True`" estimate
+  it invalidated was corrected.
+* Dead paths: `scripts/example_parquet_pipeline.py` and the top-level
+  `examples/` directory were removed in `fe30e8e`; scripts now live in
+  `docs/examples/`.
+
+## 2026-08-16 (strict_parsing rename)
+
+* **Conventions**: `raise_on_error` renamed to `strict_parsing` on the
+  processor layer. The old name promised general exception gating and did the
+  opposite. A separate orchestration-level `raise_on_error` was briefly added to
+  `export_pipeline` and then removed once the pipeline settled on propagating
+  every failure, which left it with one caller and no meaningful `False` case.
+  Only `--strict-parsing` is exposed on the CLI. See
+  [error-policy.md](conventions/error-policy.md).
+* **Processors**: Added the opt-in `cached_frame` decorator on `_compute`, used
+  by the five processors whose `nwbize()` re-enters `compute()` and therefore
+  built every frame twice under `--write-nwb`. Returns a copy per call, so the
+  no-shared-state guarantee documented on `nwbize` still holds.
+* **Processors**: `SessionMetadataProcessor` lost its `session_path` argument
+  and its `session_output.json` fallback, and is now unconditionally included
+  by `create_processors`. `session_id` is the session directory's name;
+  `subject` and `date` come from the contraqctor Session stream. The stream's
+  own `session_name` is ignored — it is `null` on pre-0.6 datasets (verified on
+  0.3.0 and 0.4.0) and, where populated, formatted differently from the
+  directory (`815103_2025-11-05T225221Z` vs `behavior_815103_2025-11-05_22-52-21`),
+  which split the `session_id` join key between `session.parquet` and every
+  aggregated table. See [session-pipeline.md](architecture/session-pipeline.md).
+* **Architecture**: `DatasetProcessorError` moved from `processing/_site_table.py`
+  to `_base.py`, next to the `strict_parsing` flag that governs it. It is still
+  re-exported from `processing/__init__.py`.
+
 ## 2026-08-14 (error-policy audit)
 
 * **Conventions**: Added [error-policy.md](conventions/error-policy.md) — a new

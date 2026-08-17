@@ -1,10 +1,10 @@
 ---
 type: Component
 title: AbstractProcessor — the processor contract
-description: The abstract base class every processor implements; defines compute()/_compute(), nwbize(), output_name, and provenance stamping.
+description: The abstract base class every processor implements; defines compute()/_compute(), nwbize(), output_name, provenance stamping, and the opt-in cached_frame decorator.
 resource: src/aind_behavior_vr_foraging_packaging/_base.py
-tags: [architecture, processor, base-class, contract, provenance]
-timestamp: 2026-08-09T00:00:00Z
+tags: [architecture, processor, base-class, contract, provenance, caching]
+timestamp: 2026-08-16T00:00:00Z
 ---
 
 Every unit of parsing logic is a subclass of `AbstractProcessor`
@@ -25,9 +25,9 @@ The contract a subclass must satisfy and may extend:
 | `output_name` | property | `__output_name__` if set, else snake_case of the class name. |
 | `dataset` | property | The loaded contraqctor Dataset. |
 | `provenance` | `cached_property` | A `PackagingProvenance` carrying all three versions; cached so `compute()` and any version checks share one instance (see [versioning](data-contract-and-versioning.md)). |
-| `raise_on_error` / `with_raise_errors(...)` | error policy | Governs **known** data anomalies only — those a processor names explicitly and can degrade past. `True` raises `DatasetProcessorError`; `False` (default) logs a warning and falls back. It does *not* gate general exceptions, which always propagate. See [error-policy.md](../conventions/error-policy.md). |
+| `strict_parsing` / `with_strict_parsing(...)` | error policy | Governs **known** data anomalies only — those a processor names explicitly and can degrade past. `True` raises `DatasetProcessorError`; `False` (default) logs a warning and falls back. It does *not* gate general exceptions, which always propagate. See [error-policy.md](../conventions/error-policy.md). |
 
-Construction is uniform: `Processor(dataset, *, raise_on_error=False)`.
+Construction is uniform: `Processor(dataset, *, strict_parsing=False)`.
 Subclasses add their own keyword-only options (e.g. `sampling_rate_hz`,
 `refractory_period_s`, `resampling_frequency_hz`).
 
@@ -46,9 +46,42 @@ its own:
 Only the last is defined here; the other three come from `_provenance.py`, so
 adding a provenance field never means editing this class.
 
-`run_session` later promotes `df.attrs` to first-class parquet metadata, so
+`process_session` later promotes `df.attrs` to first-class parquet metadata, so
 provenance survives a round-trip to disk and is readable from DuckDB, Polars,
 R arrow, Spark, etc. See [session-pipeline.md](session-pipeline.md).
+
+# `cached_frame` — opt-in memoization
+
+`compute()` and `nwbize()` share no state, and every `nwbize()` implementation
+re-enters `compute()`. Under `--write-nwb` that means each frame is built twice.
+`cached_frame` is a decorator applied to `_compute` to remove the second build:
+
+```python
+from .._base import AbstractProcessor, cached_frame
+
+
+class LicksProcessor(AbstractProcessor):
+    @cached_frame
+    def _compute(self) -> pd.DataFrame: ...
+```
+
+It is **opt-in per processor**, not built into `AbstractProcessor`, because two
+of the seven gain nothing: `SoftwareEventsProcessor` builds its NWB tables
+straight from the raw streams, and `SessionMetadataProcessor` has no `nwbize` at
+all. The other five use it; the two legacy subclasses inherit `_compute`
+unchanged and so inherit the caching too.
+
+Two properties keep it from weakening the contract above:
+
+- **Every call returns a copy**, so the no-shared-state guarantee still holds
+  exactly and callers can mutate what they get back. Copying a frame is far
+  cheaper than re-parsing the streams.
+- **Failures are not cached.** An exception leaves the cache empty and the next
+  call retries.
+
+The cache lives on the instance, and `create_processors` builds a fresh
+processor per session, so it dies with the session. There is no cross-session
+staleness and nothing to invalidate.
 
 # Examples
 
@@ -78,7 +111,7 @@ from `processing/__init__.py`.
 
 - `compute()` and `nwbize()` are intentionally independent — no shared state.
   `nwbize()` may call `compute()` internally, but neither depends on the other
-  having run.
+  having run. `cached_frame` preserves this, since it hands back a copy.
 - Keeping one output per processor is what makes the fan-out in
   [session-pipeline.md](session-pipeline.md) trivial and makes each output independently
   testable.

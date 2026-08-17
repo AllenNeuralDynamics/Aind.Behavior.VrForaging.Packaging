@@ -6,7 +6,7 @@ Auto-generated reference for every public function and class in the package.
 
 | Module | Description |
 |--------|-------------|
-| [`session_pipeline`](session-pipeline.md) | Per-session pipeline factory and `run_session` |
+| [`session_pipeline`](session-pipeline.md) | Per-session pipeline factory and `process_session` |
 | [`export_pipeline`](export-pipeline.md) | Multi-session export: `process_sessions` and `aggregate` |
 | [`processors`](processors.md) | `AbstractProcessor` base class and all processor implementations |
 | [`nwb`](nwb.md) | `NwbSession` — build and write NWB-Zarr files |
@@ -16,9 +16,9 @@ Auto-generated reference for every public function and class in the package.
 ### session_pipeline
 
 - [`create_processors`](session-pipeline.md#aind_behavior_vr_foraging_packaging.session_pipeline.create_processors) — return the ordered processor list for a dataset
-- [`get_site_table_processor`](session-pipeline.md#aind_behavior_vr_foraging_packaging.session_pipeline.get_site_table_processor) — return the correct site-table processor
-- [`get_position_velocity_processor`](session-pipeline.md#aind_behavior_vr_foraging_packaging.session_pipeline.get_position_velocity_processor) — return the correct position/velocity processor
-- [`run_session`](session-pipeline.md#aind_behavior_vr_foraging_packaging.session_pipeline.run_session) — run all processors and write parquets
+- [`resolve_site_table_processor`](session-pipeline.md#aind_behavior_vr_foraging_packaging.session_pipeline.resolve_site_table_processor) — return the correct site-table processor
+- [`resolve_position_velocity_processor`](session-pipeline.md#aind_behavior_vr_foraging_packaging.session_pipeline.resolve_position_velocity_processor) — return the correct position/velocity processor
+- [`process_session`](session-pipeline.md#aind_behavior_vr_foraging_packaging.session_pipeline.process_session) — run all processors and write parquets
 
 ### export_pipeline
 
@@ -31,6 +31,7 @@ Auto-generated reference for every public function and class in the package.
 ### processors
 
 - [`AbstractProcessor`](processors.md#aind_behavior_vr_foraging_packaging._base.AbstractProcessor) — base class for all processors
+- [`SessionMetadataProcessor`](processors.md#aind_behavior_vr_foraging_packaging.processing.SessionMetadataProcessor)
 - [`SiteTableProcessor`](processors.md#aind_behavior_vr_foraging_packaging.processing.SiteTableProcessor)
 - [`PositionAndVelocityProcessor`](processors.md#aind_behavior_vr_foraging_packaging.processing.PositionAndVelocityProcessor)
 - [`LicksProcessor`](processors.md#aind_behavior_vr_foraging_packaging.processing.LicksProcessor)

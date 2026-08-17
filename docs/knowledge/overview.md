@@ -27,10 +27,11 @@ contraqctor Dataset  ◄── aind_behavior_vr_foraging.data_contract.dataset(p
       ├─► create_processors(dataset)         # version-dispatched processor list
       │        │
       │        ▼
-      │   [SiteTable, PositionAndVelocity, Licks, Sniffing, SoftwareEvents]
+      │   [SessionMetadata, PositionAndVelocity, SiteTable,
+      │    Licks, Sniffing, SoftwareEvents, Events]
       │        │
       │        ├─► proc.compute()  ──► pandas DataFrame (+ provenance in df.attrs)
-      │        │        └─► run_session(...) writes one <output_name>.parquet each
+      │        │        └─► process_session(...) writes one <output_name>.parquet each
       │        │
       │        └─► proc.nwbize(nwb) ─► writes into the NWBFile
       │
@@ -39,7 +40,7 @@ contraqctor Dataset  ◄── aind_behavior_vr_foraging.data_contract.dataset(p
 
 Two output targets share the same processors:
 
-- **Parquet** — [session_pipeline.run_session](architecture/session-pipeline.md)
+- **Parquet** — [session_pipeline.process_session](architecture/session-pipeline.md)
   calls `compute()` on each processor and writes a parquet per processor,
   stamping provenance metadata into the parquet schema.
 - **NWB** — [NwbSession](architecture/nwb-packaging.md) builds a base `NWBFile`

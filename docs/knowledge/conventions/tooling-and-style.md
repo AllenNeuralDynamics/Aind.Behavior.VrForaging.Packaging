@@ -38,8 +38,8 @@ core pynwb at that version, replacing the former `ndx-events` extension.
 
 # Examples: PEP 723 inline scripts
 
-Everything in `examples/` is a self-contained script carrying its own dependency
-block, so it runs without a project install:
+Everything in `docs/examples/` is a self-contained script carrying its own
+dependency block, so it runs without a project install:
 
 ```python
 # /// script
@@ -49,7 +49,7 @@ block, so it runs without a project install:
 ```
 
 ```bash
-uv run examples/query_export_s3_polars.py    # uv resolves the block per-run
+uv run docs/examples/query_export_s3_polars.py    # uv resolves the block per-run
 ```
 
 This is what keeps query backends out of the published distribution. Two backends
@@ -74,8 +74,8 @@ to fix formatting before committing.
 CI runs `uv run ty check` (Astral's type checker). Keep annotations accurate;
 new public functions should be fully typed. Python target is 3.11+ (CI matrix:
 3.11, 3.12, 3.13 on Ubuntu, Windows, macOS). `[tool.ty.src]` excludes
-`examples/**` and `scripts/**` — those are illustrative snippets, so keep
-type-checked code out of them.
+`examples/**`, `scripts/**` and `docs/**` — those are illustrative snippets, so
+keep type-checked code out of them.
 
 # Spelling: codespell
 
@@ -97,7 +97,7 @@ See [testing/index.md](../testing/index.md) for the full harness. Style rules:
   `__init__`. Follow this when adding one.
 - Google-style docstrings with explicit units in field/param descriptions
   (e.g. "(unit: cm/s)").
-- Error policy is explicit and threaded via `raise_on_error`, which covers
+- Error policy is explicit and threaded via `strict_parsing`, which covers
   **named data anomalies only** — never a bare `except Exception`. Catch narrowly,
   let general failures propagate, and raise `DatasetProcessorError` for hard
   parsing failures. The rules and the anti-pattern are in

@@ -31,7 +31,7 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
     # ------------------------------------------------------------------ #
     # Phase 1
     # ------------------------------------------------------------------ #
-    written = process_sessions(all_cached_session_paths, output_dir, raise_on_error=False)
+    written = process_sessions(all_cached_session_paths, output_dir)
 
     assert len(written) == len(all_cached_session_paths), (
         f"Expected {len(all_cached_session_paths)} session dirs, got {len(written)}"
@@ -72,7 +72,7 @@ def test_skip_aggregation_writes_only_sessions(all_cached_session_paths: list[Pa
         pytest.skip("No cached session data available")
 
     output_dir = tmp_path / "export"
-    process_sessions(all_cached_session_paths, output_dir, raise_on_error=False)
+    process_sessions(all_cached_session_paths, output_dir)
 
     assert (output_dir / "sessions").exists()
     assert not (output_dir / "session.parquet").exists(), "session.parquet should not exist when aggregation is skipped"
@@ -89,7 +89,6 @@ def test_exclude_processor(all_cached_session_paths: list[Path], tmp_path: Path)
         all_cached_session_paths,
         output_dir,
         exclude_processors=["sniffing"],
-        raise_on_error=False,
     )
 
     sessions_dir = output_dir / "sessions"
@@ -110,7 +109,7 @@ def test_rerun_aggregation_only(all_cached_session_paths: list[Path], tmp_path: 
     sessions_dir = output_dir / "sessions"
 
     # Phase 1
-    process_sessions(all_cached_session_paths, output_dir, raise_on_error=False)
+    process_sessions(all_cached_session_paths, output_dir)
 
     # Phase 2 — first run
     aggregate(sessions_dir, output_dir, DEFAULT_AGGREGATOR)

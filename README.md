@@ -21,9 +21,10 @@ raw session dir
       │
       ▼
   create_processors(dataset)          # picks processor variants by dataset version
-      │   [SiteTable, PositionAndVelocity, Licks, Sniffing, SoftwareEvents, Events]
+      │   [SessionMetadata, PositionAndVelocity, SiteTable, Licks, Sniffing,
+      │    SoftwareEvents, Events]
       │
-      ├─► proc.compute()  ──► pandas DataFrame  ──► one <name>.parquet   (run_session)
+      ├─► proc.compute()  ──► pandas DataFrame  ──► one <name>.parquet   (process_session)
       │                        (provenance stamped into df.attrs / parquet schema)
       │
       └─► proc.nwbize(nwb) ──► populates an NWBFile ──► .nwb.zarr (NwbSession)
@@ -35,7 +36,7 @@ raw session dir
   `dataset_version`, `processor`) into the DataFrame's `attrs`.
 - **DataFrame** — the common in-memory representation. One row per unit of the
   output (e.g. one site-table row = one *site*).
-- **Parquet** — `session_pipeline.run_session()` calls `compute()` on each processor and
+- **Parquet** — `session_pipeline.process_session()` calls `compute()` on each processor and
   writes a parquet per processor, promoting `df.attrs` to first-class parquet
   metadata (readable from DuckDB, Polars, R arrow, Spark, …).
 - **NWB** — `NwbSession` builds a single `NWBFile` from AIND metadata,
@@ -46,8 +47,8 @@ legacy processor variants.
 
 ## Examples
 
-- Runnable script covering the parquet workflows (all-at-once, single stream,
-  load-back): [scripts/example_parquet_pipeline.py](scripts/example_parquet_pipeline.py)
+- Walkthrough of the parquet workflows (all-at-once, single stream, load-back):
+  [docs/guides/session-from-disk.md](docs/guides/session-from-disk.md)
 - Query the local export with pandas and DuckDB: [docs/examples/query_export.py](docs/examples/query_export.py)
 - Query from S3 with DuckDB: [docs/examples/query_export_s3.py](docs/examples/query_export_s3.py)
 - Query from S3 with Polars: [docs/examples/query_export_s3_polars.py](docs/examples/query_export_s3_polars.py)
@@ -69,18 +70,18 @@ Then load a session and compute the sites table (one row per *site*):
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-from aind_behavior_vr_foraging_packaging.session_pipeline import get_site_table_processor
+from aind_behavior_vr_foraging_packaging.session_pipeline import resolve_site_table_processor
 
 ds = dataset("path/to/session")  # load the raw session
-sites_df = get_site_table_processor(ds).compute()
+sites_df = resolve_site_table_processor(ds).compute()
 
 sites_df.to_parquet("sites.parquet")  # optional: persist to disk
 print(f"{len(sites_df)} sites, {sites_df['has_reward'].sum()} rewarded")
 ```
 
-`get_site_table_processor` automatically picks the current or legacy variant
+`resolve_site_table_processor` automatically picks the current or legacy variant
 based on the dataset's schema version. To produce every table at once, use
-`run_session(ds, "output_dir")` instead — it writes `sites.parquet`,
+`process_session(ds, "output_dir")` instead — it writes `sites.parquet`,
 `position_velocity.parquet`, and the rest, and returns them keyed by name.
 
 ## Exporting a dataset collection

@@ -19,8 +19,8 @@ def _make_mock_proc(name: str) -> MagicMock:
     return m
 
 
-def test_run_session_saves_parquet_per_processor(tmp_path):
-    """run_session() saves one parquet per processor using proc.effective_output_name."""
+def test_process_session_saves_parquet_per_processor(tmp_path):
+    """process_session() saves one parquet per processor, named by proc.output_name."""
     from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
 
     mock_dataset = MagicMock()
@@ -36,7 +36,7 @@ def test_run_session_saves_parquet_per_processor(tmp_path):
     assert (tmp_path / "sites.parquet").exists()
 
 
-def test_run_session_returns_all_dataframes(tmp_path):
+def test_process_session_returns_all_dataframes(tmp_path):
     from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
 
     mock_dataset = MagicMock()
@@ -52,7 +52,7 @@ def test_run_session_returns_all_dataframes(tmp_path):
 
 
 def test_parquet_metadata_written_to_schema(tmp_path):
-    """run_session() embeds provenance in parquet schema metadata (not just pandas attrs)."""
+    """process_session() embeds provenance in parquet schema metadata (not just pandas attrs)."""
     import pyarrow.parquet as pq
 
     from aind_behavior_vr_foraging_packaging.session_pipeline import process_session

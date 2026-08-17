@@ -19,11 +19,11 @@ from aind_behavior_vr_foraging_packaging.processing._helper import (
 # ---------------------------------------------------------------------------
 
 
-def _make_processor(raise_on_error: bool = False) -> EventsProcessor:
+def _make_processor(strict_parsing: bool = False) -> EventsProcessor:
     proc = EventsProcessor.__new__(EventsProcessor)
     proc._dataset = MagicMock()
     proc._dataset.version = "0.6.0"  # required by AbstractProcessor.compute() for dataset_version
-    proc._raise_on_error = raise_on_error
+    proc._strict_parsing = strict_parsing
     return proc
 
 
@@ -205,16 +205,16 @@ class TestEventsCompute:
         assert df.empty
         assert set(df.columns) == {"event_name", "data"}
 
-    @pytest.mark.parametrize("raise_on_error", [False, True])
-    def test_failing_source_propagates_regardless_of_flag(self, monkeypatch, raise_on_error):
+    @pytest.mark.parametrize("strict_parsing", [False, True])
+    def test_failing_source_propagates_regardless_of_flag(self, monkeypatch, strict_parsing):
         """An exception from a source is a real failure, not a known data anomaly.
 
-        ``raise_on_error`` governs *named* data anomalies only. A source that raises
+        ``strict_parsing`` governs *named* data anomalies only. A source that raises
         has hit a bug or a corrupt file, and must never be silently skipped — doing so
         drops the event type from the output while the pipeline still reports success.
         Expected absence is the source's own job to handle by returning an empty frame.
         """
-        proc = _make_processor(raise_on_error=raise_on_error)
+        proc = _make_processor(strict_parsing=strict_parsing)
 
         def _boom(ds):
             raise ValueError("no stream")

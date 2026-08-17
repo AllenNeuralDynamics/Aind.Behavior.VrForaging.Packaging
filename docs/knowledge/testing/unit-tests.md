@@ -1,16 +1,24 @@
 ---
 type: Test Suite
 title: Unit tests — data-free alignment logic
-description: Fast pytest tests over synthetic frames and mocked streams — site-table merge/index logic, per-processor behaviour, and the error-policy contract — with no dataset dependency.
-resource: tests/processing/
-tags: [testing, unit, pytest, site-table, error-policy, regression]
-timestamp: 2026-08-14T00:00:00Z
+description: Fast pytest tests over synthetic frames and mocked streams — site-table merge/index logic, per-processor behaviour, the error-policy contract, and the cached_frame memoization contract — with no dataset dependency.
+resource: tests/
+tags: [testing, unit, pytest, site-table, error-policy, regression, caching]
+timestamp: 2026-08-16T00:00:00Z
 ---
 
-The unit tier lives under `tests/` (currently `tests/processing/`) and runs on
-every `uv run pytest`. It contains **no dataset dependency** — tests build
-small synthetic `sites`/`patches`/`blocks` DataFrames and exercise the exact
-pandas operations used by the production code.
+The unit tier lives under `tests/` and runs on every `uv run pytest`. It
+contains **no dataset dependency** — tests build small synthetic
+`sites`/`patches`/`blocks` DataFrames and exercise the exact pandas operations
+used by the production code.
+
+Per-processor tests are in `tests/processing/`; the layers above them are
+tested at the `tests/` root — `test_abstract_processor.py`,
+`test_cached_frame.py`, `test_pipeline.py` (session pipeline),
+`test_experiment.py` (export pipeline and aggregation), `test_cli.py`, and
+`test_nwb_session.py`. The dataset-backed tier is
+[integration-tests.md](integration-tests.md), deselected by default via the
+`integration` marker.
 
 # Approach
 
@@ -41,7 +49,7 @@ The known-anomaly vs. general-failure split
 ([conventions/error-policy.md](../conventions/error-policy.md)) is only real if
 tests enforce it, since the difference is invisible on well-formed data — every
 one of these tests passes both before and after a regression *on real sessions*.
-Two shapes, both parametrized over `raise_on_error` in `[False, True]`:
+Two shapes, both parametrized over `strict_parsing` in `[False, True]`:
 
 - **A general failure must propagate under both values.** A source that raises
   (`test_events.py::test_failing_source_propagates_regardless_of_flag`); a
@@ -51,10 +59,21 @@ Two shapes, both parametrized over `raise_on_error` in `[False, True]`:
   (`test_software_events.py::test_has_error_stream_is_governed_by_flag`) — raise
   when `True`, skip when `False`.
 
-Fallbacks driven by *expected absence* get the same treatment: in
-`test_session_metadata.py`, `KeyError` and `FileNotFoundError` fall back to
-`session_output.json` while `RuntimeError` propagates **even when a valid JSON
-file is present** — the fallback must not mask a real stream failure.
+`test_session_metadata.py` covers the third case, *raise unconditionally*: a
+Session stream that fails to load propagates whatever it raised
+(`test_unloadable_stream_propagates`, over `KeyError` / `FileNotFoundError` /
+`RuntimeError`), and a session root that cannot be recovered from the stream's
+path raises regardless of the flag
+(`test_unrecoverable_root_is_fatal_regardless_of_strict_parsing`). There is no
+second source to fall back to for either.
+
+`tests/test_cached_frame.py` pins the memoization contract from
+[processor-abstraction.md](../architecture/processor-abstraction.md): computed
+once across repeated calls, provenance stamped on every call, a distinct object
+per call, mutations that do not leak into the cache or between callers,
+per-instance rather than per-class, failures not cached, and an undecorated
+processor still recomputing — the last proving the decorator is genuinely
+opt-in.
 
 # Conventions
 
