@@ -19,12 +19,20 @@ import logging
 import sys
 import uuid
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from .config import PipelineConfig
-from .ledger import Ledger
-from .models import Job
-from .worker import Worker
+if TYPE_CHECKING:
+    from .config import PipelineConfig
+    from .ledger import Ledger
+    from .models import Job
+    from .worker import Worker
 
+# Nothing host-side is imported at module scope, deliberately. `process` runs in
+# an offline container with no ledger, no daemon and no credentials, and it is the
+# only subcommand that runs there — importing the ledger (sqlite3), the sources
+# (requests/urllib3) and the stores (boto3) to service it would mean the container
+# loads a networking stack it is forbidden from using. Every host-side command
+# imports what it needs inside its own function instead.
 logger = logging.getLogger(__name__)
 
 
@@ -37,11 +45,21 @@ def _setup_logging(level: str = "INFO") -> None:
         root.addHandler(handler)
 
 
-def _load_config(path: Path) -> PipelineConfig:
+def _load_config(path: Path) -> "PipelineConfig":
+    from .config import PipelineConfig
+
     return PipelineConfig.from_yaml(path)
 
 
-def _worker(config: PipelineConfig, *, worker_id: str = "cli") -> Worker:
+def _ledger(path: Path | str) -> "Ledger":
+    from .ledger import Ledger
+
+    return Ledger(path)
+
+
+def _worker(config: "PipelineConfig", *, worker_id: str = "cli") -> "Worker":
+    from .worker import Worker
+
     return Worker(config, worker_id=worker_id)
 
 
@@ -127,7 +145,7 @@ def cmd_work(args: argparse.Namespace) -> None:
 
 
 def cmd_status(args: argparse.Namespace) -> None:
-    with Ledger(_load_config(args.config).worker.ledger) as ledger:
+    with _ledger(_load_config(args.config).worker.ledger) as ledger:
         jobs = ledger.list_jobs(release=args.release, status=args.kind if args.kind != "session" else None)
         counts: dict[str, int] = {}
         for j in jobs:
@@ -145,7 +163,7 @@ def cmd_status(args: argparse.Namespace) -> None:
 
 
 def cmd_show(args: argparse.Namespace) -> None:
-    with Ledger(_load_config(args.config).worker.ledger) as ledger:
+    with _ledger(_load_config(args.config).worker.ledger) as ledger:
         job = ledger.get_job(args.job_id) if args.job_id else ledger.get_latest_job_for_session(args.session)
         if job is None:
             print("No such job/session.")
@@ -161,7 +179,7 @@ def cmd_show(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _select_jobs_for_rerun(ledger: Ledger, args: argparse.Namespace) -> list[Job]:
+def _select_jobs_for_rerun(ledger: "Ledger", args: argparse.Namespace) -> list["Job"]:
     if args.session:
         job = ledger.get_latest_job_for_session(args.session)
         return [job] if job else []
@@ -184,7 +202,7 @@ def cmd_rerun(args: argparse.Namespace) -> None:
     if args.all and not args.confirm:
         print("Refusing `rerun --all` without `--confirm` — this is deliberate (§6.2).")
         sys.exit(1)
-    with Ledger(_load_config(args.config).worker.ledger) as ledger:
+    with _ledger(_load_config(args.config).worker.ledger) as ledger:
         targets = _select_jobs_for_rerun(ledger, args)
         if not targets:
             print("No matching jobs.")
@@ -205,7 +223,7 @@ def cmd_rerun(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_sessions(ledger: Ledger, args: argparse.Namespace) -> list[str]:
+def _resolve_sessions(ledger: "Ledger", args: argparse.Namespace) -> list[str]:
     if args.session:
         return [args.session]
     if args.tag:
@@ -216,7 +234,7 @@ def _resolve_sessions(ledger: Ledger, args: argparse.Namespace) -> list[str]:
 
 
 def cmd_tag(args: argparse.Namespace) -> None:
-    with Ledger(_load_config(args.config).worker.ledger) as ledger:
+    with _ledger(_load_config(args.config).worker.ledger) as ledger:
         sessions = _resolve_sessions(ledger, args)
         if not sessions:
             print("No matching sessions.")
@@ -234,7 +252,7 @@ def cmd_tag(args: argparse.Namespace) -> None:
 
 
 def cmd_priority(args: argparse.Namespace) -> None:
-    with Ledger(_load_config(args.config).worker.ledger) as ledger:
+    with _ledger(_load_config(args.config).worker.ledger) as ledger:
         sessions = _resolve_sessions(ledger, args)
         jobs = [ledger.get_latest_job_for_session(s) for s in sessions]
         jobs = [j for j in jobs if j is not None]
@@ -265,7 +283,7 @@ def cmd_aggregate(args: argparse.Namespace) -> None:
     from .stores import get_output_store
 
     config = _load_config(args.config)
-    with Ledger(config.worker.ledger) as ledger:
+    with _ledger(config.worker.ledger) as ledger:
         active = ledger.count_active(config.release)
         if active > 0 and not args.force:
             print(f"Gate closed: {active} session job(s) for release {config.release!r} are still in flight.")
@@ -307,7 +325,7 @@ def cmd_aggregate(args: argparse.Namespace) -> None:
 
 
 def cmd_reap(args: argparse.Namespace) -> None:
-    with Ledger(_load_config(args.config).worker.ledger) as ledger:
+    with _ledger(_load_config(args.config).worker.ledger) as ledger:
         n = ledger.reap_expired_leases()
         print(f"Reaped {n} expired lease(s).")
 
@@ -341,7 +359,7 @@ def cmd_reconcile(args: argparse.Namespace) -> None:
     release_prefix = f"{config.output.uri.rstrip('/')}/{config.release}/sessions/"
 
     adopted = 0
-    with Ledger(config.worker.ledger) as ledger:
+    with _ledger(config.worker.ledger) as ledger:
         for session_name, sidecar in output_store.iter_completed(release_prefix):
             existing = ledger.get_latest_job_for_session(session_name)
             if existing is not None:
@@ -374,7 +392,7 @@ def cmd_reconcile(args: argparse.Namespace) -> None:
 
 
 def cmd_export(args: argparse.Namespace) -> None:
-    with Ledger(_load_config(args.config).worker.ledger) as ledger:
+    with _ledger(_load_config(args.config).worker.ledger) as ledger:
         jobs = ledger.list_jobs(release=args.release, limit=100_000)
     if not jobs:
         print("No jobs to export.")
