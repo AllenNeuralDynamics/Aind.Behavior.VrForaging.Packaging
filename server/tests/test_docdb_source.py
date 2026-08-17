@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from aind_behavior_vr_foraging_orchestration.sources.docdb import DocDbSource
+from aind_behavior_vr_foraging_server.sources.docdb import DocDbSource
 
 
 def _record(name, *, created, acquisition_start=None, session_start=None, project=None, subject=None, loc=None):

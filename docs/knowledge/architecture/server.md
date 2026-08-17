@@ -1,13 +1,13 @@
 ---
 type: Component
-title: Containerized pipeline — how the orchestration layer runs the processor
+title: Containerized pipeline — how the server layer runs the processor
 description: How one session becomes one container, what the sidecar is for, where the trust boundaries are, and how to run the whole thing on a laptop without S3, DocDB or a registry.
-resource: orchestration/src/aind_behavior_vr_foraging_orchestration/
-tags: [architecture, orchestration, docker, ledger, sidecar, testing, workspace]
+resource: server/src/aind_behavior_vr_foraging_server/
+tags: [architecture, server, docker, ledger, sidecar, testing, workspace]
 timestamp: 2026-08-17T00:00:00Z
 ---
 
-> **Editable diagram:** [`docs/diagrams/orchestration.drawio`](../../diagrams/orchestration.drawio)
+> **Editable diagram:** [`docs/diagrams/server.drawio`](../../diagrams/server.drawio)
 > — three pages (runtime, packages, provenance). Opens in
 > [app.diagrams.net](https://app.diagrams.net) or the VS Code *Draw.io Integration*
 > extension. The ASCII sketch below is the same runtime picture, kept inline so
@@ -15,9 +15,9 @@ timestamp: 2026-08-17T00:00:00Z
 
 Two distributions live in this repo, and the split is load-bearing:
 
-| | `aind-behavior-vr-foraging-packaging` | `aind-behavior-vr-foraging-orchestration` |
+| | `aind-behavior-vr-foraging-packaging` | `aind-behavior-vr-foraging-server` |
 |---|---|---|
-| Where | `src/` | `orchestration/src/` |
+| Where | `src/` | `server/src/` |
 | Published | yes, to PyPI | **never** (`Private :: Do Not Upload`) |
 | Answers | *turn this session into tables* | *run 4700 of those, and remember what happened* |
 | Knows about | nothing below it | the packaging package |
@@ -41,7 +41,7 @@ import would otherwise hide.
                        │                  │ claim (atomic, leased)                   │
                        │                  ▼                                          │
                        │            ┌───────────┐                                    │
-                       │            │  worker   │  vr-foraging-orchestrator work      │
+                       │            │  worker   │  vr-foraging-server work            │
                        │            └─────┬─────┘                                    │
                        │                  │                                          │
                        │   1. stage       │   mount (default) or download to         │
@@ -52,8 +52,8 @@ import would otherwise hide.
                        │   5. classify ◀──┤              │   ┌── CONTAINER ────────┐  │
                        │      exit code   │              └──▶│ --network=none      │  │
                        │      × sidecar   │                  │                     │  │
-                       │                  │                  │ vr-foraging-        │  │
-                       │   6. publish ────┼──▶ S3 or local    │ orchestrator        │  │
+                       │                  │                  │ vr-foraging-server  │  │
+                       │   6. publish ────┼──▶ S3 or local    │                     │  │
                        │      output      │                  │   process           │  │
                        │                  │                  │                     │  │
                        │   7. record ─────┘                  │  ├ load dataset     │  │
@@ -194,7 +194,7 @@ nobody), so the distinction is for triage: it is the column you sort by to tell
 
 # Running it locally
 
-No S3, no DocDB, no registry, no ledger server. Everything below works on a
+No S3, no DocDB, no registry, no database service. Everything below works on a
 laptop against the integration cache.
 
 ## 1. One session, no container at all
@@ -205,7 +205,7 @@ The fastest loop. `process` is just a Python entry point:
 uv sync                            # both workspace members, editable
 SESSION=$(ls -d tests/integration/.cache/*/*/ | head -1)
 
-uv run vr-foraging-orchestrator process \
+uv run vr-foraging-server process \
     --input-dir "$SESSION" --output-dir /tmp/out
 
 cat /tmp/out/output.metadata.json
@@ -262,12 +262,12 @@ allowed to be unreproducible is allowed to be unreproducible on both sides. A
 laptop could not satisfy either.
 
 ```bash
-uv run vr-foraging-orchestrator doctor   --config /tmp/vrf/config.yaml
-uv run vr-foraging-orchestrator ingest   --config /tmp/vrf/config.yaml --dry-run
-uv run vr-foraging-orchestrator ingest   --config /tmp/vrf/config.yaml
-uv run vr-foraging-orchestrator work     --config /tmp/vrf/config.yaml --once
-uv run vr-foraging-orchestrator status   --config /tmp/vrf/config.yaml
-uv run vr-foraging-orchestrator serve    --config /tmp/vrf/config.yaml   # :8080
+uv run vr-foraging-server doctor   --config /tmp/vrf/config.yaml
+uv run vr-foraging-server ingest   --config /tmp/vrf/config.yaml --dry-run
+uv run vr-foraging-server ingest   --config /tmp/vrf/config.yaml
+uv run vr-foraging-server work     --config /tmp/vrf/config.yaml --once
+uv run vr-foraging-server status   --config /tmp/vrf/config.yaml
+uv run vr-foraging-server serve    --config /tmp/vrf/config.yaml   # :8080
 ```
 
 Run `doctor` first, always. It checks the work volume is writable, the Docker
@@ -287,8 +287,8 @@ When a single job misbehaves, run exactly it in the foreground and keep the
 evidence:
 
 ```bash
-uv run vr-foraging-orchestrator work --config … --job-id <id> --keep-work
-uv run vr-foraging-orchestrator show --config … --job-id <id>   # row + event history
+uv run vr-foraging-server work --config … --job-id <id> --keep-work
+uv run vr-foraging-server show --config … --job-id <id>   # row + event history
 ls /work/<id>/out                                               # only with --keep-work
 ```
 
@@ -301,10 +301,10 @@ read it. The container's own log is published rather than left local — `show`'
 
 | Suite | Covers |
 |-------|--------|
-| `orchestration/tests/test_process.py` | the container's command: sidecar on success, on a processor failure, and when the dataset never opens |
-| `orchestration/tests/test_classify.py` | the truth table above, plus the argv fed to the **real** parser |
-| `orchestration/tests/test_worker.py` | claim → run → publish with a fake runner; the session-name invariant; work-directory lifetime, the sweeper's state ownership, the disk guard, log publishing, worker provenance |
-| `orchestration/tests/test_ledger.py` | claim races, lease reaping, rerun semantics, the additive column migration |
+| `server/tests/test_process.py` | the container's command: sidecar on success, on a processor failure, and when the dataset never opens |
+| `server/tests/test_classify.py` | the truth table above, plus the argv fed to the **real** parser |
+| `server/tests/test_worker.py` | claim → run → publish with a fake runner; the session-name invariant; work-directory lifetime, the sweeper's state ownership, the disk guard, log publishing, worker provenance |
+| `server/tests/test_ledger.py` | claim races, lease reaping, rerun semantics, the additive column migration |
 | `tests/test_package_boundary.py` | the one-way dependency |
 
 Only `runner.run`/`runner.classify` are faked — the ledger, both local stores,
@@ -327,4 +327,4 @@ flag must be repeated per value.
 - [session.md](session.md) — `process_session`, and the `on_output`/`on_error` hooks
 - [batch.md](batch.md) — `aggregate`, and its `include` predicate
 - [error-policy.md](../conventions/error-policy.md) — why any processor failure fails the whole session
-- [`orchestration/README.md`](../../../orchestration/README.md) — module-by-module map
+- [`server/README.md`](../../../server/README.md) — module-by-module map

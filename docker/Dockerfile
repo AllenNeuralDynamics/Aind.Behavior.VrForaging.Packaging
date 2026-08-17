@@ -1,7 +1,7 @@
 # Processor image (§12). One image, one ENTRYPOINT, three uses:
-#   vr-foraging-orchestrator process       — one session (what the worker launches)
-#   vr-foraging-orchestrator work          — the worker itself
-#   vr-foraging-orchestrator serve         — the dashboard
+#   vr-foraging-server process       — one session (what the worker launches)
+#   vr-foraging-server work          — the worker itself
+#   vr-foraging-server serve         — the dashboard
 #
 # `vr-foraging-packaging` (the published CLI) is on PATH too, for a human poking
 # around inside the image; nothing launches it.
@@ -20,11 +20,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
 WORKDIR /app
 # Both workspace members' manifests, so the dependency layer can be resolved and
 # cached before any source is copied. `--all-packages` is what makes uv install
-# the orchestration member alongside the root one.
+# the server member alongside the root one.
 COPY pyproject.toml uv.lock ./
-COPY orchestration/pyproject.toml ./orchestration/
+COPY server/pyproject.toml ./server/
 # `--no-install-workspace`, not `--no-install-project`: the latter excludes only the
-# ROOT package, so uv still tried to build the orchestration member here — where
+# ROOT package, so uv still tried to build the server member here — where
 # nothing but the manifests has been copied yet. Its setuptools_scm reads
 # `root = ".."`, so with no `.git` in the context the build died with "unable to
 # detect version". Nothing outside a release builds this image, so the break stayed
@@ -61,6 +61,6 @@ RUN useradd -u 10001 -m runner
 # its own work volume. `doctor`'s first check fails, and every job after it would.
 RUN mkdir -p /work /var/lib/vrf && chown runner:runner /work /var/lib/vrf
 USER runner
-# The orchestrator, not the packaging CLI: the sidecar belongs to the
-# orchestration layer, so `process` is the command that writes one.
-ENTRYPOINT ["vr-foraging-orchestrator"]
+# The server, not the packaging CLI: the sidecar belongs to the
+# server layer, so `process` is the command that writes one.
+ENTRYPOINT ["vr-foraging-server"]

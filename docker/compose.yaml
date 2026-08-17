@@ -1,10 +1,10 @@
 # Deployment sketch for the session-processing pipeline (§4, §13).
 #
-# One image, three entrypoints — `vr-foraging-orchestrator process` (the default
+# One image, three entrypoints — `vr-foraging-server process` (the default
 # ENTRYPOINT's subcommand, used by the ephemeral processor containers the worker
-# launches), `vr-foraging-orchestrator work`, and `… serve`.
+# launches), `vr-foraging-server work`, and `… serve`.
 #
-# Before a real run: `docker compose run --rm worker vr-foraging-orchestrator doctor
+# Before a real run: `docker compose run --rm worker vr-foraging-server doctor
 # --config /etc/vrf/config.yaml` — the §4(a) volume-visibility assertion plus
 # credential/Docker-daemon reachability checks.
 #
@@ -58,7 +58,7 @@
 services:
   worker:
     image: ${VRF_IMAGE:?set VRF_IMAGE to a digest-pinned image ref — see the header}
-    command: ["vr-foraging-orchestrator", "work", "--config", "/etc/vrf/config.yaml"]
+    command: ["vr-foraging-server", "work", "--config", "/etc/vrf/config.yaml"]
     environment:
       # Nothing can discover the image it was started from, so the worker has to be
       # told what it is. Read on every heartbeat into `workers.worker_image`.
@@ -94,7 +94,7 @@ services:
     # loss. No VRF_WORKER_IMAGE_URI — it never claims a job, so it has no provenance
     # to record.
     image: ${VRF_IMAGE:?}
-    command: ["vr-foraging-orchestrator", "serve", "--config", "/etc/vrf/config.yaml"]
+    command: ["vr-foraging-server", "serve", "--config", "/etc/vrf/config.yaml"]
     volumes:
       - vrf_ledger:/var/lib/vrf:ro
       - ./config.yaml:/etc/vrf/config.yaml:ro

@@ -56,22 +56,22 @@ dev = [
     # are not published, so this cannot appear in the wheel's metadata. It exists
     # so one `uv sync` at the root gives both packages and one `pytest` run
     # covers both test suites.
-    'aind-behavior-vr-foraging-orchestration',
+    'aind-behavior-vr-foraging-server',
 ]
 
 [tool.uv]
 default-groups = ['dev']
 
-# `orchestration/` is a separate distribution that is never published (see its own
+# `server/` is a separate distribution that is never published (see its own
 # pyproject). A workspace member rather than an extra of this package, so its
 # dependencies — boto3, DocDB, pyyaml — cannot leak into the published wheel, and
 # the import direction is enforced by packaging rather than by convention: this
 # package genuinely cannot import from it.
 [tool.uv.workspace]
-members = ["orchestration"]
+members = ["server"]
 
 [tool.uv.sources]
-aind-behavior-vr-foraging-orchestration = { workspace = true }
+aind-behavior-vr-foraging-server = { workspace = true }
 
 [tool.ty.src]
 exclude = ["examples/**", "scripts/**", "docs/**", "scratch/**"]
@@ -93,17 +93,17 @@ skip = '.git,*.pdf,*.svg,uv.lock,site'
 ignore-words-list = 'nd,setuptools'
 
 [tool.pytest.ini_options]
-addopts = "--strict-markers --tb=short --cov=src --cov=orchestration/src --cov-report=term-missing --cov-fail-under=0 -m 'not integration'"
+addopts = "--strict-markers --tb=short --cov=src --cov=server/src --cov-report=term-missing --cov-fail-under=0 -m 'not integration'"
 markers = [
   "integration: integration tests that download data from S3 (run with `-m integration`)",
 ]
 # Both workspace members. One pytest invocation, one config, two distributions.
-testpaths = ["tests", "orchestration/tests"]
+testpaths = ["tests", "server/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 
 [project.scripts]
-# `vr-foraging-orchestrator` belongs to the orchestration distribution — see
-# orchestration/pyproject.toml.
+# `vr-foraging-server` belongs to the server distribution — see
+# server/pyproject.toml.
 vr-foraging-packaging = "aind_behavior_vr_foraging_packaging.pipeline.cli:main"

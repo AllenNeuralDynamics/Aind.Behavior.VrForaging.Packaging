@@ -183,7 +183,7 @@ def aggregate(
 
         Exists because *this* function cannot tell a complete session from one
         abandoned partway through — both are just a directory of parquets. A
-        caller that does know can say so. The orchestration layer passes a
+        caller that does know can say so. The server layer passes a
         predicate that reads each session's ``output.metadata.json``.
     """
     sessions_dir = Path(sessions_dir)

@@ -1,4 +1,4 @@
-"""``vr-foraging-orchestrator`` — the orchestration CLI (§14).
+"""``vr-foraging-server`` — the server CLI (§14).
 
 Two audiences in one command, split by whether ``--config`` is needed:
 
@@ -136,7 +136,7 @@ def cmd_work(args: argparse.Namespace) -> None:
                 print(f"Job {args.job_id} is not pending (already claimed, or does not exist).")
                 return
             worker.process_job(job)
-            print(f"Processed {args.job_id} — see `vr-foraging-orchestrator show --job-id {args.job_id}`.")
+            print(f"Processed {args.job_id} — see `vr-foraging-server show --job-id {args.job_id}`.")
             return
         worker.run_forever(once=args.once)
     finally:
@@ -431,7 +431,7 @@ def _add_config_arg(p: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="vr-foraging-orchestrator", description=__doc__)
+    parser = argparse.ArgumentParser(prog="vr-foraging-server", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
     # `process` takes no --config: it is what runs INSIDE a processor container,

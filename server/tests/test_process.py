@@ -1,4 +1,4 @@
-"""Unit tests for `vr-foraging-orchestrator process` — what runs in the container.
+"""Unit tests for `vr-foraging-server process` — what runs in the container.
 
 The seam being tested is the one the split created: `process_one_session` drives
 the published `process_session` through its generic hooks and turns the result
@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-from aind_behavior_vr_foraging_orchestration.process import process_one_session
-from aind_behavior_vr_foraging_orchestration.sidecar import SIDECAR_NAME
+from aind_behavior_vr_foraging_server.process import process_one_session
+from aind_behavior_vr_foraging_server.sidecar import SIDECAR_NAME
 
 
 def _proc(name: str, *, raises: bool = False) -> MagicMock:

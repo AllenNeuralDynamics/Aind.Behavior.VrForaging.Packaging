@@ -195,7 +195,7 @@ def process_session(
         of what happened, processor by processor, which is more than the return
         value can say: a run that fails partway returns nothing at all.
 
-        Deliberately generic. The orchestration layer builds its
+        Deliberately generic. The server layer builds its
         ``output.metadata.json`` on top of this pair, and this function stays
         unaware of that file, its schema, and the package that defines it.
     write_parquet:

@@ -1,4 +1,4 @@
-# aind-behavior-vr-foraging-orchestration
+# aind-behavior-vr-foraging-server
 
 Runs [`aind-behavior-vr-foraging-packaging`](../README.md) at scale: discover
 sessions, queue them in an inspectable ledger, process each one in an ephemeral
@@ -29,9 +29,9 @@ uv sync                 # both packages, editable
 | `runner.py` | `docker run` argv, log capture, and the exit-code × sidecar verdict |
 | `worker.py` | Claim → stage → run → classify → publish → record |
 | `dashboard.py` | One sortable table of sessions, with each run's log linked from its row |
-| `cli.py` | `vr-foraging-orchestrator` |
+| `cli.py` | `vr-foraging-server` |
 
-The dependency runs one way — orchestration → packaging — which is why the
+The dependency runs one way — server → packaging — which is why the
 sidecar lives here. `pipeline/session.py` reports per-processor outcomes through
 a generic `on_output`/`on_error` callback pair and knows nothing about this
 package or its file format.
@@ -39,5 +39,5 @@ package or its file format.
 ## See also
 
 - [`docker/`](../docker/) — the image, the compose sketch, and `smoke-test.sh`
-- [`docs/knowledge/architecture/orchestration.md`](../docs/knowledge/architecture/orchestration.md) —
+- [`docs/knowledge/architecture/server.md`](../docs/knowledge/architecture/server.md) —
   how the containerized pipeline fits together, and how to run it locally

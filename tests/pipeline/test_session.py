@@ -394,7 +394,7 @@ def _run(tmp_path, procs, **kwargs):
 
 class TestObservationHooks:
     """Deliberately generic: these carry no notion of a sidecar or a file format.
-    The orchestration package builds `output.metadata.json` on top of them, and
+    The server package builds `output.metadata.json` on top of them, and
     this module stays unaware that it exists."""
 
     def test_on_output_fires_per_processor_with_the_written_path(self, tmp_path):
@@ -428,7 +428,7 @@ class TestObservationHooks:
         assert seen == ["session"]
 
     def test_an_on_error_that_reraises_still_aborts_the_run(self, tmp_path):
-        """How the orchestration recorder uses it: note the failure, then let it
+        """How the server recorder uses it: note the failure, then let it
         through. Recording is not tolerance."""
         seen = []
 

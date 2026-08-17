@@ -15,8 +15,8 @@ resolution-markers = [
 
 [manifest]
 members = [
-    "aind-behavior-vr-foraging-orchestration",
     "aind-behavior-vr-foraging-packaging",
+    "aind-behavior-vr-foraging-server",
 ]
 
 [[package]]
@@ -68,24 +68,6 @@ data = [
 ]
 
 [[package]]
-name = "aind-behavior-vr-foraging-orchestration"
-source = { editable = "orchestration" }
-dependencies = [
-    { name = "aind-behavior-vr-foraging-packaging" },
-    { name = "aind-data-access-api" },
-    { name = "boto3" },
-    { name = "pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "aind-behavior-vr-foraging-packaging", editable = "." },
-    { name = "aind-data-access-api", specifier = ">=1.0" },
-    { name = "boto3", specifier = ">=1.26" },
-    { name = "pyyaml" },
-]
-
-[[package]]
 name = "aind-behavior-vr-foraging-packaging"
 source = { editable = "." }
 dependencies = [
@@ -105,7 +87,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "aind-behavior-vr-foraging-orchestration" },
+    { name = "aind-behavior-vr-foraging-server" },
     { name = "codespell" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -134,7 +116,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "aind-behavior-vr-foraging-orchestration", editable = "orchestration" },
+    { name = "aind-behavior-vr-foraging-server", editable = "server" },
     { name = "codespell" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -144,6 +126,24 @@ dev = [
 docs = [
     { name = "mkdocstrings", extras = ["python"], specifier = ">=0.27" },
     { name = "zensical", specifier = ">=0.0.43" },
+]
+
+[[package]]
+name = "aind-behavior-vr-foraging-server"
+source = { editable = "server" }
+dependencies = [
+    { name = "aind-behavior-vr-foraging-packaging" },
+    { name = "aind-data-access-api" },
+    { name = "boto3" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aind-behavior-vr-foraging-packaging", editable = "." },
+    { name = "aind-data-access-api", specifier = ">=1.0" },
+    { name = "boto3", specifier = ">=1.26" },
+    { name = "pyyaml" },
 ]
 
 [[package]]

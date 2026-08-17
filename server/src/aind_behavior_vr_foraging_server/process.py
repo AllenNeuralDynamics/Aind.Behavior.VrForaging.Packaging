@@ -1,6 +1,6 @@
 """What runs *inside* a processor container: one session, plus its sidecar.
 
-``vr-foraging-orchestrator process`` is the container's command. It is a thin
+``vr-foraging-server process`` is the container's command. It is a thin
 wrapper over :func:`~aind_behavior_vr_foraging_packaging.pipeline.session.process_session`
 — the packaging library does all the parsing and writing — that adds the one
 thing the worker cannot get any other way: a record of *which* processor did

@@ -7,7 +7,7 @@ tags: [architecture, pipeline, parquet, version-dispatch]
 timestamp: 2026-08-16T00:00:00Z
 ---
 
-`pipeline/session.py` is the thin orchestration layer for **one** session. It
+`pipeline/session.py` is the thin server layer for **one** session. It
 answers two questions: *which* processors apply to a given dataset, and *how* to
 run them to parquet. Running many sessions and combining their outputs is a
 separate layer — see [batch.md](batch.md).

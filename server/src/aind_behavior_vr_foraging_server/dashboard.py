@@ -173,7 +173,7 @@ def render_index(
   <input type="hidden" name="confirm" value="0">
 </form>"""
 
-    return f"""<!doctype html><html><head><title>vr-foraging-orchestrator</title><style>{_STYLE}</style></head>
+    return f"""<!doctype html><html><head><title>vr-foraging-server</title><style>{_STYLE}</style></head>
 <body>
 <h1>Session queue</h1>
 {_worker_header(ledger)}

@@ -96,7 +96,7 @@ There is now exactly one flag in the package, and its scope is narrow:
 |---|---|---|
 | `strict_parsing` | `AbstractProcessor` and every processor; `create_processors`, `process_session`, `process_sessions`, and the CLI's `--strict-parsing` | Is a *known, anticipated* anomaly fatal, or do we degrade past it? |
 
-A second, orchestration-level `raise_on_error` existed briefly on
+A second, server-level `raise_on_error` existed briefly on
 `pipeline.batch` to choose between propagating and carrying on. It was removed
 once the pipeline settled on propagating unconditionally (below), which left it
 with a single caller and no meaningful `False` case. **It exists nowhere in the

@@ -3,11 +3,34 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-08-17 (orchestration → server)
+
+* **Naming**: the second distribution is now **`server`** throughout — directory,
+  module, distribution and command:
+
+  | was | now |
+  |---|---|
+  | `orchestration/` | `server/` |
+  | `aind_behavior_vr_foraging_orchestration` | `aind_behavior_vr_foraging_server` |
+  | `aind-behavior-vr-foraging-orchestration` | `aind-behavior-vr-foraging-server` |
+  | `vr-foraging-orchestrator` | `vr-foraging-server` |
+  | `architecture/orchestration.md` | [architecture/server.md](architecture/server.md) |
+  | `diagrams/orchestration.drawio` | `diagrams/server.drawio` |
+
+  Nothing about the design changed: the dependency still runs one way, server →
+  packaging, still enforced by `tests/test_package_boundary.py`, and the layer still
+  owns the ledger, discovery, stores, the worker and the dashboard.
+
+  Note that the entries **below this one describe the same package under its old
+  name**. Their identifiers and paths have been updated so links and code references
+  still resolve — a change log that points at files nobody can open is worse than one
+  whose prose is a little anachronistic — but the history itself is untouched.
+
 ## 2026-08-17 (work-volume lifetime, log uniformity, worker provenance)
 
 * **Architecture**: documented and fixed what happens to a session's bytes on the
   work volume after publishing, in
-  [orchestration.md](architecture/orchestration.md#what-lives-on-the-work-volume-and-for-how-long).
+  [server.md](architecture/server.md#what-lives-on-the-work-volume-and-for-how-long).
   Cleanup now runs on **entry** to `process_job` as well as in a `finally`. The entry
   half is the load-bearing one and the only correctness fix here: `job_id` is stable
   across attempts, so an attempt killed mid-write left partial output at exactly the
@@ -39,23 +62,23 @@ Add an entry here whenever you add, remove, or materially revise a concept.
   `worker.keep_work_dir` / `work --keep-work` for reading a failed job's directory
   before it disappears.
 
-## 2026-08-17 (orchestration layer)
+## 2026-08-17 (server layer)
 
 * **Architecture**: the repo is now a **`uv` workspace with two distributions**.
-  `aind-behavior-vr-foraging-orchestration` lives in `orchestration/`, is never
+  `aind-behavior-vr-foraging-server` lives in `server/`, is never
   published (`Private :: Do Not Upload`, so an accidental `uv publish` fails rather
   than succeeds), and holds the SQLite job ledger, DocDB/local discovery, input
   staging and output stores, the `docker run` worker, and the dashboard. New concept:
-  [orchestration.md](architecture/orchestration.md), with a diagram and a local-run
+  [server.md](architecture/server.md), with a diagram and a local-run
   guide.
 
-  The dependency runs **one way** — orchestration → packaging — and
+  The dependency runs **one way** — server → packaging — and
   `tests/test_package_boundary.py` enforces it by walking the AST of every published
   module, including function bodies where a lazy import would hide. Two packages
   rather than an extra: an extra would put boto3 and DocDB in the published wheel's
   metadata and leave the import direction to convention.
 
-* **Architecture**: the `output.metadata.json` sidecar belongs to the orchestration
+* **Architecture**: the `output.metadata.json` sidecar belongs to the server
   package, not to `pipeline/`. `process_session` instead grew a generic
   `on_output(processor, frame, path)` hook beside the existing `on_error`, and knows
   nothing about sidecars, JSON, or containers. `SidecarRecorder` plugs into both.
@@ -67,14 +90,14 @@ Add an entry here whenever you add, remove, or materially revise a concept.
 * **Architecture**: `aggregate()` takes an `include: Callable[[Path], bool]`
   predicate instead of reading sidecars itself. It cannot tell a complete session
   from one abandoned partway through — both are a directory of parquets — so a
-  caller that can, says so. Orchestration passes `session_completed_ok`.
+  caller that can, says so. Server passes `session_completed_ok`.
 
-* **Architecture**: the container runs `vr-foraging-orchestrator process`, and that
+* **Architecture**: the container runs `vr-foraging-server process`, and that
   is the image's `ENTRYPOINT`. `vr-foraging-packaging` is still on PATH inside the
   image for a human poking around, but nothing launches it.
 
 * **Convention**: a session's identity is its **input directory's name**, and the
-  orchestration layer upholds that by mounting each session at its true name
+  server layer upholds that by mounting each session at its true name
   (`/mnt/{session_name}`, or `in/{session_name}` when staged). There is no
   `--session-name` override. Getting it wrong raises nothing — every table is
   stamped with the wrong session — so it is tested as an invariant.
@@ -232,7 +255,7 @@ user-facing pages under `docs/guides/`, `docs/api/` and `docs/getting-started.md
 * The `session_path` argument, gone from `create_processors` and
   `process_session`, was still documented as required for `session.parquet`.
 * **`raise_on_error` no longer exists anywhere in the codebase.** Several pages
-  still documented it as a live orchestration flag, including a signature and a
+  still documented it as a live server flag, including a signature and a
   "two flags, deliberately separate" table. `strict_parsing` is now the only
   flag; [error-policy.md](conventions/error-policy.md) says so explicitly so the
   next reader who greps for the old name gets an answer.
@@ -257,7 +280,7 @@ user-facing pages under `docs/guides/`, `docs/api/` and `docs/getting-started.md
 
 * **Conventions**: `raise_on_error` renamed to `strict_parsing` on the
   processor layer. The old name promised general exception gating and did the
-  opposite. A separate orchestration-level `raise_on_error` was briefly added to
+  opposite. A separate server-level `raise_on_error` was briefly added to
   `pipeline.batch` and then removed once the pipeline settled on propagating
   every failure, which left it with one caller and no meaningful `False` case.
   Only `--strict-parsing` is exposed on the CLI. See

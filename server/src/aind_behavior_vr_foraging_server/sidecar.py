@@ -123,7 +123,7 @@ class SessionOutputMetadata(BaseModel):
     staged: dict[str, Any] = {}
     """What §10's store made available, when known (``input_store``, byte counts, …)."""
 
-    # ---- orchestration context, when run under the worker ----
+    # ---- server context, when run under the worker ----
     job_id: str | None = None
     worker_id: str | None = None
 
@@ -236,7 +236,7 @@ class SidecarRecorder:
 
     A context manager rather than a function so the file is written on the way
     out either way — a processor that raises still leaves a sidecar naming it,
-    which is the only channel the orchestration layer has for per-processor
+    which is the only channel the server layer has for per-processor
     detail across the container boundary.
 
     Recording does not alter control flow: an exception still propagates, and

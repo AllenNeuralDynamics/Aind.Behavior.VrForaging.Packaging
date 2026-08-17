@@ -55,7 +55,7 @@ jobs:
 
       - name: Build
         # Named explicitly, not bare `uv build`: this is a workspace, and
-        # `aind-behavior-vr-foraging-orchestration` must never be built into a
+        # `aind-behavior-vr-foraging-server` must never be built into a
         # distributable — this job's output is what reaches PyPI. Bare `uv build`
         # happens to build only the root package today; naming it keeps that true
         # if the workspace grows another member.
@@ -85,7 +85,7 @@ jobs:
   # as that was the only thing building the Dockerfile, a broken Dockerfile was
   # invisible until release day — and one shipped exactly that way: `uv sync
   # --no-install-project` excludes only the workspace ROOT, so the dependency-cache
-  # layer still tried to build the orchestration member before `.git` was copied, and
+  # layer still tried to build the server member before `.git` was copied, and
   # setuptools_scm could not detect a version. Nothing caught it for weeks.
   #
   # No registry, no digest, no `latest`: the artefact is thrown away and only the
@@ -295,7 +295,7 @@ jobs:
 
       - name: Build
         # Named explicitly, not bare `uv build`: this is a workspace, and
-        # `aind-behavior-vr-foraging-orchestration` must never be built into a
+        # `aind-behavior-vr-foraging-server` must never be built into a
         # distributable — this job's output is what reaches PyPI. Bare `uv build`
         # happens to build only the root package today; naming it keeps that true
         # if the workspace grows another member.
