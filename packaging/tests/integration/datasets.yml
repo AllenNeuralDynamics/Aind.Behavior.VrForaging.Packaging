@@ -2,7 +2,7 @@
 #
 # Default exclusions (always applied, in addition to per-entry `exclude`):
 #   **/*.mp4, **/*.avi, **/*.mkv
-# See DEFAULT_EXCLUDES in tests/integration/conftest.py.
+# See DEFAULT_EXCLUDES in packaging/tests/integration/conftest.py.
 #
 # Schema (every field):
 # datasets:

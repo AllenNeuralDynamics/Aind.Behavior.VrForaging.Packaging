@@ -2,7 +2,7 @@
 type: Component
 title: Continuous and event stream processors
 description: Position/velocity, licks, sniffing, software-events, and events processors — the non-site outputs and their NWB representations.
-resource: src/aind_behavior_vr_foraging_packaging/processing/
+resource: packaging/src/aind_behavior_vr_foraging_packaging/processing/
 tags: [architecture, processor, position, velocity, licks, sniffing, software-events, events]
 timestamp: 2026-07-08T00:00:00Z
 ---

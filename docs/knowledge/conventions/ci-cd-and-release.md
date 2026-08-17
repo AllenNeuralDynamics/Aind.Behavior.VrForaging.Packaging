@@ -28,8 +28,8 @@ Runs `uv run pytest -m integration` on ubuntu, only when:
 - a PR carries the `run-integration` label, or
 - a release is published.
 
-It restores/saves `tests/integration/.cache` keyed on
-`hashFiles('tests/integration/datasets.yml')`, so the cache invalidates when
+It restores/saves `packaging/tests/integration/.cache` keyed on
+`hashFiles('packaging/tests/integration/datasets.yml')`, so the cache invalidates when
 the manifest changes. See
 [testing/integration-tests.md](../testing/integration-tests.md).
 

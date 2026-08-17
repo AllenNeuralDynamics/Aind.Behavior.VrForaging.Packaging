@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
+
 from processing_server.process import process_one_session
 from processing_server.sidecar import SIDECAR_NAME
 

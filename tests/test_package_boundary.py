@@ -1,7 +1,7 @@
 """The published package must not depend on the unpublished one.
 
 `server/` is a separate distribution that is never uploaded to PyPI. If
-anything under `src/` imports it, the published wheel becomes installable but
+anything under `packaging/src/` imports it, the published wheel is installable but
 broken for everyone outside this repo — and the failure appears at *their* import
 time, not in our CI, which has both packages on the path.
 
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-_PUBLISHED = Path(__file__).resolve().parents[1] / "src" / "aind_behavior_vr_foraging_packaging"
+_PUBLISHED = Path(__file__).resolve().parents[1] / "packaging" / "src" / "aind_behavior_vr_foraging_packaging"
 _FORBIDDEN = "processing_server"
 
 

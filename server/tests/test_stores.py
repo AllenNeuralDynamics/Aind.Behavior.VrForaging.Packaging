@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from processing_server.stores import StoreDataError
 from processing_server.stores.input_local import LocalInputStore
 from processing_server.stores.input_mount import MountInputStore

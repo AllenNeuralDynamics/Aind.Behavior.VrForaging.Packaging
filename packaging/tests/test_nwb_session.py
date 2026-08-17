@@ -4,7 +4,7 @@ These cover what the session itself owns — provenance and caching — over a
 base file handed in directly. Deriving that base file from the AIND metadata jsons
 belongs to ``aind_nwb_utils.create_base_nwb_file``; a synthetic copy of those jsons
 here could only drift from the schema, so the real ones are exercised against real
-sessions in ``tests/integration/test_datasets.py``.
+sessions in ``packaging/tests/integration/test_datasets.py``.
 """
 
 from datetime import datetime, timezone

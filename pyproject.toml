@@ -1,43 +1,15 @@
-[build-system]
-requires = ["setuptools>=77", "setuptools-scm>=8"]
-build-backend = "setuptools.build_meta"
+# Workspace root. Deliberately has no [project]: it builds nothing and is never
+# published, so neither distribution's metadata can pick up the other's dependencies
+# or the shared dev tooling.
+#
+#   packaging/  aind-behavior-vr-foraging-packaging  → PyPI
+#   server/     processing-server                    → never published
+#
+# The dependency runs one way, server → packaging, enforced by
+# tests/test_package_boundary.py.
 
-[project]
-name = "aind-behavior-vr-foraging-packaging"
-description = "Parses and packages AIND VR Foraging behavioral sessions into tabular (parquet) and NWB outputs."
-authors = [
-    {name = "Bruno Cruz", email = "bruno.cruz@alleninstitute.org"},
-    ]
-license = "MIT"
-dynamic = ["version"]
-requires-python = ">=3.11"
-classifiers = [
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Operating System :: Microsoft :: Windows",
-]
-readme = {file = "README.md", content-type = "text/markdown"}
-
-dependencies = [
-    "aind-behavior-vr-foraging[data] >= 1.2.1",
-    "hdmf-zarr",
-    "numpy>=2",
-    "pandas",
-    "pyarrow>=14.0.0",
-    "pydantic-settings>=2.10.1",
-    "pydantic>=2.10",
-    "pynwb>=4.1",
-    "scipy",
-    "pydantic-settings",
-    "aind-nwb-utils>=0.2.9",
-]
-
-[project.urls]
-Documentation = "https://allenneuraldynamics.github.io/Aind.Behavior.VrForaging.Packaging/"
-Repository = "https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging/"
-Issues = "https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging/issues"
-Changelog = "https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging/releases"
+[tool.uv.workspace]
+members = ["packaging", "server"]
 
 [dependency-groups]
 
@@ -52,26 +24,19 @@ dev = [
     'pytest-cov',
     'codespell',
     'ty',
-    # A dev-group entry, not a runtime dependency or an extra: dependency groups
-    # are not published, so this cannot appear in the wheel's metadata. It exists
-    # so one `uv sync` at the root gives both packages and one `pytest` run
-    # covers both test suites.
+    # Here rather than in packaging's dev group: this root publishes nothing, so the
+    # server cannot reach the wheel's metadata from here. A bare `uv sync` then gives
+    # both members and one `pytest` run covers both suites.
     'processing-server',
 ]
 
 [tool.uv]
 default-groups = ['dev']
 
-# `server/` is a separate distribution that is never published (see its own
-# pyproject). A workspace member rather than an extra of this package, so its
-# dependencies — boto3, DocDB, pyyaml — cannot leak into the published wheel, and
-# the import direction is enforced by packaging rather than by convention: this
-# package genuinely cannot import from it.
-[tool.uv.workspace]
-members = ["server"]
-
 [tool.uv.sources]
 processing-server = { workspace = true }
+
+# One config for both members, so a lint rule or a marker cannot drift between them.
 
 [tool.ty.src]
 exclude = ["examples/**", "scripts/**", "docs/**", "scratch/**"]
@@ -79,6 +44,9 @@ exclude = ["examples/**", "scripts/**", "docs/**", "scratch/**"]
 [tool.ruff]
 line-length = 120
 target-version = 'py311'
+# Both members' source roots, so isort knows what is first-party. Without this, ruff
+# only auto-detects a top-level `src/` and sorts both packages as third-party.
+src = ["packaging/src", "server/src"]
 
 [tool.ruff.lint]
 extend-select = ['Q', 'RUF100', 'C90', 'I']
@@ -86,24 +54,17 @@ extend-ignore = ["BLE001"]
 mccabe = { max-complexity = 14 }
 pydocstyle = { convention = 'google' }
 
-[tool.setuptools_scm]
-
 [tool.codespell]
 skip = '.git,*.pdf,*.svg,uv.lock,site'
 ignore-words-list = 'nd,setuptools'
 
 [tool.pytest.ini_options]
-addopts = "--strict-markers --tb=short --cov=src --cov=server/src --cov-report=term-missing --cov-fail-under=0 -m 'not integration'"
+addopts = "--strict-markers --tb=short --cov=packaging/src --cov=server/src --cov-report=term-missing --cov-fail-under=0 -m 'not integration'"
 markers = [
   "integration: integration tests that download data from S3 (run with `-m integration`)",
 ]
-# Both workspace members. One pytest invocation, one config, two distributions.
-testpaths = ["tests", "server/tests"]
+# Both members, plus the root suite for workspace-level invariants.
+testpaths = ["tests", "packaging/tests", "server/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-
-[project.scripts]
-# `vr-foraging-server` belongs to the server distribution — see
-# server/pyproject.toml.
-vr-foraging-packaging = "aind_behavior_vr_foraging_packaging.pipeline.cli:main"

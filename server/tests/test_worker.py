@@ -8,6 +8,7 @@ from typing import Literal
 from unittest.mock import patch
 
 import pytest
+
 from processing_server.config import PipelineConfig
 from processing_server.runner import RunResult, Verdict
 from processing_server.staging import InputManifest

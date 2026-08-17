@@ -210,7 +210,7 @@ Integration tests run the parser end-to-end against real datasets stored in a pu
 uv run pytest -m integration
 ```
 
-The first run downloads datasets (~100 MB per dataset) to `tests/integration/.cache/`. Subsequent runs reuse the cache when the S3 ETag matches. The cache directory is gitignored.
+The first run downloads datasets (~100 MB per dataset) to `packaging/tests/integration/.cache/`. Subsequent runs reuse the cache when the S3 ETag matches. The cache directory is gitignored.
 
 > [!IMPORTANT]
 > **On Windows, enable long paths first.** `test_full_pipeline` writes an NWB-Zarr
@@ -240,7 +240,7 @@ The integration job runs automatically on push to `main` and on `release: publis
 
 **Adding a dataset:**
 
-Add an entry to `tests/integration/datasets.yml`. The manifest schema and full field documentation are in `tests/integration/model.py` (Pydantic model). The `rationale` field is required and is printed alongside any test failure to make triage fast.
+Add an entry to `packaging/tests/integration/datasets.yml`. The manifest schema and full field documentation are in `packaging/tests/integration/model.py` (Pydantic model). The `rationale` field is required and is printed alongside any test failure to make triage fast.
 
 ### Lock files
 

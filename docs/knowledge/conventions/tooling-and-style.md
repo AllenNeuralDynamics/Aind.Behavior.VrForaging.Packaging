@@ -21,7 +21,7 @@ uv version <x.y.z>      # set the project version (used by release)
 
 Dev dependencies live in the `dev` dependency group (default group): `ruff`,
 `pytest`, `pytest-cov`, `codespell`, `ty`, and `boto3`. `boto3` is there because
-`tests/integration/conftest.py` imports it at module scope — conftest files are
+`packaging/tests/integration/conftest.py` imports it at module scope — conftest files are
 imported at *collection* time, so deselecting integration tests with
 `-m 'not integration'` does not make it optional.
 

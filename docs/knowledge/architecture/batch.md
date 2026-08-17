@@ -2,7 +2,7 @@
 type: Component
 title: Batch pipeline — many sessions to a queryable export
 description: pipeline/batch.py runs the session pipeline over many session directories, writes per-session parquets, optionally writes one NWB-Zarr store per session, and concatenates chosen tables into flat per-experiment parquet files; driven by the vr-foraging-packaging CLI.
-resource: src/aind_behavior_vr_foraging_packaging/pipeline/batch.py
+resource: packaging/src/aind_behavior_vr_foraging_packaging/pipeline/batch.py
 tags: [architecture, pipeline, parquet, nwb, export, cli, aggregation]
 timestamp: 2026-08-16T00:00:00Z
 ---

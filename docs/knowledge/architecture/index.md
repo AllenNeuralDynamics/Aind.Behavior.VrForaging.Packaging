@@ -26,7 +26,7 @@ Two distributions, one repo (a `uv` workspace). The dependency runs one way —
 server → packaging — and `tests/test_package_boundary.py` enforces it.
 
 ```
-src/aind_behavior_vr_foraging_packaging/     # PUBLISHED to PyPI
+packaging/src/aind_behavior_vr_foraging_packaging/     # PUBLISHED to PyPI
 ├── __init__.py           # __version__, __semver__ (pep440_to_semver)
 ├── _base.py              # AbstractProcessor, DatasetProcessorError, cached_frame
 ├── _provenance.py        # PackagingProvenance — the only definition of the version keys

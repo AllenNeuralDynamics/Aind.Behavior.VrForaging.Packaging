@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
+
 from processing_server.sidecar import (
     SIDECAR_NAME,
     CodeRef,
@@ -183,7 +184,7 @@ def _proc(name: str):
 
 class TestSidecarRecorder:
     """The status roll-up, which is what the ledger sorts on. Ordinary success and
-    per-processor failures are covered end-to-end in tests/pipeline/test_session.py;
+    per-processor failures are covered end-to-end in packaging/tests/pipeline/test_session.py;
     these are the cases only reachable at this level."""
 
     def _recorder(self, tmp_path, **kwargs) -> SidecarRecorder:

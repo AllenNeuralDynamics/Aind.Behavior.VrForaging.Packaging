@@ -14,7 +14,7 @@ default:
 
 ```toml
 [tool.pytest.ini_options]
-addopts = "--strict-markers --tb=short --cov=src --cov-report=term-missing --cov-fail-under=0 -m 'not integration'"
+addopts = "--strict-markers --tb=short --cov=packaging/src --cov-report=term-missing --cov-fail-under=0 -m 'not integration'"
 markers = ["integration: integration tests that download data from S3 (run with `-m integration`)"]
 testpaths = ["tests"]
 ```
@@ -25,5 +25,5 @@ So:
 - `uv run pytest -m integration` → integration tests only.
 
 `--strict-markers` means an unregistered marker is an error — register new
-markers in `pyproject.toml`. Coverage is measured (`--cov=src`) but not
+markers in `pyproject.toml`. Coverage is measured (`--cov=packaging/src`) but not
 enforced (`--cov-fail-under=0`).

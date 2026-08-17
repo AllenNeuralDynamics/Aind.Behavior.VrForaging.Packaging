@@ -19,7 +19,7 @@
 #
 #   # A local build against a cached integration session
 #   docker build -f docker/Dockerfile -t vrf:dev .
-#   ./docker/smoke-test.sh vrf:dev "$(find tests/integration/.cache -mindepth 2 -maxdepth 2 -type d | head -1)"
+#   ./docker/smoke-test.sh vrf:dev "$(find packaging/tests/integration/.cache -mindepth 2 -maxdepth 2 -type d | head -1)"
 #
 #   # A released image, checking it reports its own digest correctly
 #   ./docker/smoke-test.sh \

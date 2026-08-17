@@ -1,8 +1,9 @@
 """Unit tests for PipelineConfig — YAML loading, defaults, extra='forbid' (§13)."""
 
 import pytest
-from processing_server.config import PipelineConfig
 from pydantic import ValidationError
+
+from processing_server.config import PipelineConfig
 
 
 def _write(tmp_path, text: str):

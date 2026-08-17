@@ -19,6 +19,20 @@ members = [
     "processing-server",
 ]
 
+[manifest.dependency-groups]
+dev = [
+    { name = "codespell" },
+    { name = "processing-server", editable = "server" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+    { name = "ty" },
+]
+docs = [
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.27" },
+    { name = "zensical", specifier = ">=0.0.43" },
+]
+
 [[package]]
 name = "aind-behavior-curriculum"
 version = "0.0.42"
@@ -69,7 +83,7 @@ data = [
 
 [[package]]
 name = "aind-behavior-vr-foraging-packaging"
-source = { editable = "." }
+source = { editable = "packaging" }
 dependencies = [
     { name = "aind-behavior-vr-foraging", extra = ["data"] },
     { name = "aind-nwb-utils" },
@@ -85,20 +99,6 @@ dependencies = [
     { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "codespell" },
-    { name = "processing-server" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-    { name = "ty" },
-]
-docs = [
-    { name = "mkdocstrings", extra = ["python"] },
-    { name = "zensical" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "aind-behavior-vr-foraging", extras = ["data"], specifier = ">=1.2.1" },
@@ -108,24 +108,9 @@ requires-dist = [
     { name = "pandas" },
     { name = "pyarrow", specifier = ">=14.0.0" },
     { name = "pydantic", specifier = ">=2.10" },
-    { name = "pydantic-settings" },
     { name = "pydantic-settings", specifier = ">=2.10.1" },
     { name = "pynwb", specifier = ">=4.1" },
     { name = "scipy" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "codespell" },
-    { name = "processing-server", editable = "server" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-    { name = "ty" },
-]
-docs = [
-    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.27" },
-    { name = "zensical", specifier = ">=0.0.43" },
 ]
 
 [[package]]
@@ -1585,7 +1570,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aind-behavior-vr-foraging-packaging", editable = "." },
+    { name = "aind-behavior-vr-foraging-packaging", editable = "packaging" },
     { name = "aind-data-access-api", specifier = ">=1.0" },
     { name = "boto3", specifier = ">=1.26" },
     { name = "pyyaml" },

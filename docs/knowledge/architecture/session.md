@@ -2,7 +2,7 @@
 type: Component
 title: Session pipeline — version dispatch, fan-out, and parquet output
 description: pipeline/session.py selects the correct processor set for a dataset version, runs them over one session via process_session, and writes provenance-stamped parquet files.
-resource: src/aind_behavior_vr_foraging_packaging/pipeline/session.py
+resource: packaging/src/aind_behavior_vr_foraging_packaging/pipeline/session.py
 tags: [architecture, pipeline, parquet, version-dispatch]
 timestamp: 2026-08-16T00:00:00Z
 ---

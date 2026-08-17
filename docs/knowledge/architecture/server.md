@@ -214,7 +214,7 @@ The fastest loop. `process` is just a Python entry point:
 
 ```bash
 uv sync                            # both workspace members, editable
-SESSION=$(ls -d tests/integration/.cache/*/*/ | head -1)
+SESSION=$(ls -d packaging/tests/integration/.cache/*/*/ | head -1)
 
 uv run vr-foraging-server process \
     --input-dir "$SESSION" --output-dir /tmp/out
@@ -250,7 +250,7 @@ Point the config at local directories and let the worker launch real containers:
 release: local-test
 ingestion:
   type: local                      # a directory scan instead of DocDB
-  root: /abs/path/to/tests/integration/.cache
+  root: /abs/path/to/packaging/tests/integration/.cache
 input:
   store: local
   copy_files: false                # pass through; no staging copy

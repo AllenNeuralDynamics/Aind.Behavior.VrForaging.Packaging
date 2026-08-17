@@ -2,12 +2,12 @@
 type: Test Suite
 title: Integration tests — end-to-end parsing against real S3 datasets
 description: Marker-gated pytest suite that downloads real sessions from public S3, runs the parquet/NWB/export pipelines end-to-end, and asserts scalar invariants declared in a validated YAML manifest.
-resource: tests/integration/
+resource: packaging/tests/integration/
 tags: [testing, integration, s3, manifest, pydantic, caching, nwb, export]
 timestamp: 2026-08-16T00:00:00Z
 ---
 
-The integration tier (`tests/integration/`) runs the parser end-to-end against
+The integration tier (`packaging/tests/integration/`) runs the parser end-to-end against
 real datasets in the public `aind-open-data` S3 bucket. It is gated behind the
 `integration` marker (`pytestmark = pytest.mark.integration`) so the default
 suite is unaffected.
@@ -64,7 +64,7 @@ one that honours `entry.strict_parsing`.
 
 # Caching (why re-runs are cheap)
 
-`conftest.py` downloads each dataset once into `tests/integration/.cache/`
+`conftest.py` downloads each dataset once into `packaging/tests/integration/.cache/`
 (gitignored). A warm cache is validated with **1 HEAD request**: it compares
 local total bytes and the ETag of a sentinel file (`data_description.json`)
 stored in `.cache/_etags.json`. Only a mismatch triggers a re-list/re-download.
@@ -87,7 +87,7 @@ any per-entry `exclude` globs.
 
 # Adding a dataset
 
-1. Add an entry to `tests/integration/datasets.yml` — `rationale` is required
+1. Add an entry to `packaging/tests/integration/datasets.yml` — `rationale` is required
    and should say what edge case or bug the dataset exercises.
 2. Fill `expected` invariants where known (compute them once from a trusted
    run). Leave off for a smoke-only entry.

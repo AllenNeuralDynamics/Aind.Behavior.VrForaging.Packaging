@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
 WORKDIR /app
 # Manifests first, so the dependency layer caches before any source is copied.
 COPY pyproject.toml uv.lock ./
+COPY packaging/pyproject.toml ./packaging/
 COPY server/pyproject.toml ./server/
 # `--no-install-workspace`, not `--no-install-project`: the latter excludes only the
 # root, so uv still tried to build the server member before `.git` was copied and died

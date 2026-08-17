@@ -3,7 +3,7 @@
 Runs against all locally cached sessions from ``datasets.yml``.
 Requires the ``integration`` marker::
 
-    uv run pytest -m integration tests/integration/test_experiment_export.py -v -s
+    uv run pytest -m integration packaging/tests/integration/test_experiment_export.py -v -s
 """
 
 from pathlib import Path

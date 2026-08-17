@@ -106,8 +106,8 @@ jobs:
       - name: Restore integration data cache
         uses: actions/cache@v6
         with:
-          path: tests/integration/.cache
-          key: integration-data-${{ hashFiles('tests/integration/datasets.yml') }}
+          path: packaging/tests/integration/.cache
+          key: integration-data-${{ hashFiles('packaging/tests/integration/datasets.yml') }}
           restore-keys: |
             integration-data-
 
@@ -117,7 +117,7 @@ jobs:
       - name: Run against one cached session and validate the sidecar
         run: |
           set -euo pipefail
-          SESSION_DIR=$(find tests/integration/.cache -mindepth 2 -maxdepth 2 -type d | head -n 1)
+          SESSION_DIR=$(find packaging/tests/integration/.cache -mindepth 2 -maxdepth 2 -type d | head -n 1)
           if [ -z "$SESSION_DIR" ]; then
             echo "No cached session available (cache miss) — the build itself still passed."
             exit 0
@@ -201,8 +201,8 @@ jobs:
       - name: Restore integration data cache
         uses: actions/cache@v6
         with:
-          path: tests/integration/.cache
-          key: integration-data-${{ hashFiles('tests/integration/datasets.yml') }}
+          path: packaging/tests/integration/.cache
+          key: integration-data-${{ hashFiles('packaging/tests/integration/datasets.yml') }}
           restore-keys: |
             integration-data-
 
@@ -211,7 +211,7 @@ jobs:
       - name: Run against one cached session and validate the sidecar
         run: |
           set -euo pipefail
-          SESSION_DIR=$(find tests/integration/.cache -mindepth 2 -maxdepth 2 -type d | head -n 1)
+          SESSION_DIR=$(find packaging/tests/integration/.cache -mindepth 2 -maxdepth 2 -type d | head -n 1)
           if [ -z "$SESSION_DIR" ]; then
             echo "No cached session available (cache miss) — skipping content assertions."
             exit 0
@@ -252,8 +252,8 @@ jobs:
       - name: Restore integration data cache
         uses: actions/cache@v6
         with:
-          path: tests/integration/.cache
-          key: integration-data-${{ hashFiles('tests/integration/datasets.yml') }}
+          path: packaging/tests/integration/.cache
+          key: integration-data-${{ hashFiles('packaging/tests/integration/datasets.yml') }}
           restore-keys: |
             integration-data-
 

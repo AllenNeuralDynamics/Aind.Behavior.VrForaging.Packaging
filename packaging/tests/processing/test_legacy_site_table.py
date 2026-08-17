@@ -1,7 +1,7 @@
 """Tests for LegacySiteTableProcessor.
 
 Pure-logic tests only — no contraqctor dataset required.
-Integration with a real legacy dataset is covered by tests/integration/datasets.yml.
+Integration with a real legacy dataset is covered by packaging/tests/integration/datasets.yml.
 """
 
 import pytest

@@ -3,6 +3,7 @@
 import json
 
 import pytest
+
 from processing_server.config import ProcessorConfig
 from processing_server.runner import (
     RunnerConfigError,

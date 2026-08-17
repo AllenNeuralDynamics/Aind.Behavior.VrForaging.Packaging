@@ -169,13 +169,13 @@ Add an entry here whenever you add, remove, or materially revise a concept.
   POSIX it would not have crashed — the log would simply have disappeared
   mid-run while the handler wrote on to a deleted inode. Scoping the delete also
   means `--output-dir ~/data` no longer erases unrelated contents of `~/data`.
-  Regression tests in `tests/pipeline/test_batch.py`.
+  Regression tests in `packaging/tests/pipeline/test_batch.py`.
 
 ## 2026-08-16 (pipeline package + subcommand CLI)
 
 * **Architecture**: `session_pipeline.py` and `export_pipeline.py` moved into a
   `pipeline/` package as `session.py` and `batch.py`, joined by `cli.py`. Tests
-  mirror it under `tests/pipeline/`, and the bundle pages were renamed to match
+  mirror it under `packaging/tests/pipeline/`, and the bundle pages were renamed to match
   (`session-pipeline.md` → [session.md](architecture/session.md),
   `export-pipeline.md` → [batch.md](architecture/batch.md), plus a new
   [cli.md](architecture/cli.md)).
@@ -388,7 +388,7 @@ user-facing pages under `docs/guides/`, `docs/api/` and `docs/getting-started.md
   "Examples: PEP 723 inline scripts" section. Query backends (`duckdb`,
   `polars`) are no longer distribution dependencies at all — each script in
   `examples/` declares its own via an inline `# /// script` block. `boto3`
-  moved into the `dev` group because `tests/integration/conftest.py` imports it
+  moved into the `dev` group because `packaging/tests/integration/conftest.py` imports it
   at collection time. Supersedes the `[db]` entry further down this section.
 * **Architecture**: Renamed `pipeline.md` → [session.md](architecture/session.md)
   to track the `pipeline.py` → `pipeline/session.py` rename and to disambiguate

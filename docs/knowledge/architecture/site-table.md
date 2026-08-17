@@ -2,7 +2,7 @@
 type: Component
 title: SiteTableProcessor and the Site model
 description: The core processor that reconstructs one row per site by aligning software events, hardware events, and continuous streams on the harp timeline.
-resource: src/aind_behavior_vr_foraging_packaging/processing/_site_table.py
+resource: packaging/src/aind_behavior_vr_foraging_packaging/processing/_site_table.py
 tags: [architecture, processor, site-table, site, alignment]
 timestamp: 2026-07-03T00:00:00Z
 ---

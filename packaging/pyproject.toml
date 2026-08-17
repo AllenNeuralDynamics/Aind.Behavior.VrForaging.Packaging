@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=77", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aind-behavior-vr-foraging-packaging"
+description = "Parses and packages AIND VR Foraging behavioral sessions into tabular (parquet) and NWB outputs."
+authors = [
+    {name = "Bruno Cruz", email = "bruno.cruz@alleninstitute.org"},
+    ]
+license = "MIT"
+dynamic = ["version"]
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: Microsoft :: Windows",
+]
+readme = {file = "README.md", content-type = "text/markdown"}
+
+dependencies = [
+    "aind-behavior-vr-foraging[data] >= 1.2.1",
+    "hdmf-zarr",
+    "numpy>=2",
+    "pandas",
+    "pyarrow>=14.0.0",
+    "pydantic-settings>=2.10.1",
+    "pydantic>=2.10",
+    "pynwb>=4.1",
+    "scipy",
+    "aind-nwb-utils>=0.2.9",
+]
+
+[project.urls]
+Documentation = "https://allenneuraldynamics.github.io/Aind.Behavior.VrForaging.Packaging/"
+Repository = "https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging/"
+Issues = "https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging/issues"
+Changelog = "https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging/releases"
+
+[project.scripts]
+vr-foraging-packaging = "aind_behavior_vr_foraging_packaging.pipeline.cli:main"
+
+[tool.setuptools_scm]
+# Tags live in the repo root, one version shared with the server distribution.
+root = ".."
