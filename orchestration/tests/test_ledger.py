@@ -3,9 +3,8 @@
 import threading
 
 import pytest
-
-from aind_behavior_vr_foraging_packaging.orchestration.ledger import Ledger, job_key
-from aind_behavior_vr_foraging_packaging.orchestration.models import Job
+from aind_behavior_vr_foraging_orchestration.ledger import Ledger, job_key
+from aind_behavior_vr_foraging_orchestration.models import Job
 
 
 def _make_ledger(tmp_path) -> Ledger:

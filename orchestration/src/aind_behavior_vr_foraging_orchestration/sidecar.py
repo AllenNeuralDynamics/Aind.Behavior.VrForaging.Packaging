@@ -1,17 +1,19 @@
 """``output.metadata.json`` sidecar: a small, self-owned reproducibility record.
 
 Written once per session, beside its parquet/NWB outputs, so every output tree
-is self-describing. Deliberately **not** built on ``aind-data-schema``: the
-processor image would then carry a schema dependency purely to describe itself,
-and the record has to survive being read by the orchestration layer across a
-container boundary. Every field here is machine-derivable at runtime; nothing
-requires a human to remember to set it.
+is self-describing. Deliberately **not** built on ``aind-data-schema``: this is a
+record of *how a run went*, not a published data asset, and it has to be readable
+by the worker across a container boundary with nothing but stdlib json. Every
+field here is machine-derivable at runtime; nothing requires a human to remember
+to set it.
 
-:class:`SidecarRecorder` is how one gets written — a context manager that
-:func:`~.pipeline.session.process_session` drives under ``write_sidecar=True``.
+It lives in this package, not in ``pipeline/``, because the dependency runs one
+way. :class:`SidecarRecorder` plugs into ``process_session``'s generic
+``on_output``/``on_error`` hooks; that function has never heard of this file.
 """
 
 import importlib.metadata
+import json
 import logging
 import os
 import platform
@@ -19,18 +21,22 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import aind_behavior_vr_foraging
 import pandas as pd
 from pydantic import BaseModel, ConfigDict
 
-from ._provenance import _PACKAGING_PKG, PackagingProvenance
+from aind_behavior_vr_foraging_packaging._provenance import _PACKAGING_PKG, PackagingProvenance
+from aind_behavior_vr_foraging_packaging.pipeline.batch import SESSION_TABLE
+
+if TYPE_CHECKING:
+    from aind_behavior_vr_foraging_packaging._base import AbstractProcessor
 
 logger = logging.getLogger(__name__)
 
 SIDECAR_NAME = "output.metadata.json"
-"""Filename, fixed. The orchestration layer looks for exactly this name."""
+"""Filename, fixed. The worker looks for exactly this name."""
 
 _SIDECAR_SCHEMA_VERSION = "1.0.0"
 _REPOSITORY = "https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging"
@@ -202,6 +208,29 @@ def write_sidecar(path: Path, metadata: SessionOutputMetadata) -> None:
     path.write_text(metadata.model_dump_json(indent=2), encoding="utf-8")
 
 
+def session_completed_ok(session_dir: Path) -> bool:
+    """Whether *session_dir* holds a complete session, per its own sidecar.
+
+    Shaped as ``aggregate``'s ``include`` predicate. A session that failed still
+    has a directory — deliberately, so the sidecar survives to be read — but its
+    parquets may cover only the processors that ran before one raised, and those
+    rows must not reach an aggregate silently.
+
+    Fails **open** in both ambiguous cases. No sidecar at all means the session
+    was produced by the plain ``vr-foraging-packaging`` CLI, which has no opinion
+    on this; an unreadable one is a reason to look at the log, not to discard a
+    session that may be perfectly good.
+    """
+    sidecar = session_dir / SIDECAR_NAME
+    if not sidecar.exists():
+        return True
+    try:
+        return json.loads(sidecar.read_text(encoding="utf-8")).get("status") == "ok"
+    except (OSError, ValueError) as exc:
+        logger.warning("%s: could not read sidecar (%s) — keeping session", session_dir.name, exc)
+        return True
+
+
 class SidecarRecorder:
     """Accumulates one session's outcome, writing the sidecar when the block ends.
 
@@ -265,7 +294,7 @@ class SidecarRecorder:
         """Note that the dataset opened, and at which schema version."""
         self._dataset_version = version
 
-    def identify(self, session_frame: pd.DataFrame) -> None:
+    def _identify(self, session_frame: pd.DataFrame) -> None:
         """Lift ``subject_id``/``date`` out of the computed ``session`` table.
 
         The sidecar repeats them so an output directory can be identified
@@ -279,21 +308,36 @@ class SidecarRecorder:
         if "date" in session_frame.columns and pd.notna(row["date"]):
             self._session_start = cast(datetime, pd.Timestamp(row["date"]).to_pydatetime())
 
-    def ok(self, name: str, frame: pd.DataFrame, *, output_file: str | None) -> None:
+    def on_output(self, proc: "AbstractProcessor", frame: pd.DataFrame, path: Path | None) -> None:
+        """Record one successful processor. Shaped to be passed straight to
+        :func:`~aind_behavior_vr_foraging_packaging.pipeline.session.process_session`
+        as its ``on_output`` hook."""
         self._results.append(
             ProcessorResult(
-                name=name,
+                name=proc.output_name,
                 status="ok",
                 rows=len(frame),
-                output_file=output_file,
+                output_file=path.name if path is not None else None,
                 warn_count=self._warnings.reset(),
             )
         )
+        if proc.output_name == SESSION_TABLE:
+            self._identify(frame)
 
-    def error(self, name: str, exc: BaseException) -> None:
+    def on_error(self, proc: "AbstractProcessor", exc: Exception) -> None:
+        """Record one failed processor, **then re-raise**.
+
+        ``process_session``'s contract is that an ``on_error`` returning normally
+        means "skip this processor and carry on". Recording a failure is not a
+        decision to tolerate it: a session missing a table is not a usable partial
+        result, so the exception continues on its way and the container exits
+        nonzero. The sidecar is the only thing that gains — it now names the
+        processor that broke.
+        """
         self._results.append(
-            ProcessorResult(name=name, status="error", error=str(exc), warn_count=self._warnings.reset())
+            ProcessorResult(name=proc.output_name, status="error", error=str(exc), warn_count=self._warnings.reset())
         )
+        raise exc
 
     def nwb_ok(self, dest: Path) -> None:
         self._nwb = ProcessorResult(name="nwb", status="ok", output_file=dest.name, warn_count=self._warnings.reset())

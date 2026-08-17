@@ -5,21 +5,37 @@ Add an entry here whenever you add, remove, or materially revise a concept.
 
 ## 2026-08-17 (orchestration layer)
 
-* **Architecture**: new `orchestration/` subpackage — SQLite job ledger, DocDB/local
-  session discovery, input staging and output stores, a `docker run` worker, and a
-  read-only dashboard — behind the `[orchestration]` extra and a second console
-  script, `vr-foraging-orchestrator`. Nothing in `pipeline/` or the base package
-  imports it, which is what keeps the processor image slim. It is a sibling of
-  `pipeline/`, not a child: `pipeline/` runs a session in-process, `orchestration/`
-  runs many of them as containers and remembers what it did.
+* **Architecture**: the repo is now a **`uv` workspace with two distributions**.
+  `aind-behavior-vr-foraging-orchestration` lives in `orchestration/`, is never
+  published (`Private :: Do Not Upload`, so an accidental `uv publish` fails rather
+  than succeeds), and holds the SQLite job ledger, DocDB/local discovery, input
+  staging and output stores, the `docker run` worker, and the dashboard. New concept:
+  [orchestration.md](architecture/orchestration.md), with a diagram and a local-run
+  guide.
 
-* **Architecture**: `process_session` gains `write_sidecar`, a third writer beside
-  `write_parquet`/`write_nwb`, producing `output.metadata.json` — per-processor
-  status, row and warning counts, code/container provenance. Written even when the
-  session fails, which is the point: it is the only channel for per-processor detail
-  across a container boundary. It changes no error behaviour — a failing processor
-  still propagates. `aggregate()` skips any session whose sidecar is not `ok`,
-  since its parquets may be partial.
+  The dependency runs **one way** — orchestration → packaging — and
+  `tests/test_package_boundary.py` enforces it by walking the AST of every published
+  module, including function bodies where a lazy import would hide. Two packages
+  rather than an extra: an extra would put boto3 and DocDB in the published wheel's
+  metadata and leave the import direction to convention.
+
+* **Architecture**: the `output.metadata.json` sidecar belongs to the orchestration
+  package, not to `pipeline/`. `process_session` instead grew a generic
+  `on_output(processor, frame, path)` hook beside the existing `on_error`, and knows
+  nothing about sidecars, JSON, or containers. `SidecarRecorder` plugs into both.
+
+  Recording is not tolerance: `SidecarRecorder.on_error` appends the failure and
+  then re-raises, so a failing processor still propagates and the container still
+  exits nonzero — the sidecar just names the culprit on the way past.
+
+* **Architecture**: `aggregate()` takes an `include: Callable[[Path], bool]`
+  predicate instead of reading sidecars itself. It cannot tell a complete session
+  from one abandoned partway through — both are a directory of parquets — so a
+  caller that can, says so. Orchestration passes `session_completed_ok`.
+
+* **Architecture**: the container runs `vr-foraging-orchestrator process`, and that
+  is the image's `ENTRYPOINT`. `vr-foraging-packaging` is still on PATH inside the
+  image for a human poking around, but nothing launches it.
 
 * **Convention**: a session's identity is its **input directory's name**, and the
   orchestration layer upholds that by mounting each session at its true name
@@ -31,6 +47,18 @@ Add an entry here whenever you add, remove, or materially revise a concept.
   (`--exclude-processors a --exclude-processors b`). pydantic-settings gives a list
   field an `append` action; the space-separated form exits 2. Previously documented
   the wrong way round in `pipeline/cli.py`.
+
+* **CI/CD**: the processor image is built and pushed to GHCR on **releases only**
+  (plus manual dispatch), not on pushes to `main`. A worker config pins
+  `processor.digest`, so every image reaching the registry is something an operator
+  may run for a whole campaign; tying that to a release keeps the runnable digests
+  equal to the released versions, and keeps `setuptools_scm` from stamping images
+  with `.dev` versions nobody can reproduce. `latest` now follows release events
+  rather than `is_default_branch`, which would otherwise never match again.
+
+* **Testing**: the post-build image check moved out of the workflow into
+  [`docker/smoke-test.sh`](../../docker/smoke-test.sh), so the same assertions can be
+  pointed at a local build or a released digest without a runner.
 
 ## 2026-08-16 (scoped `clean`)
 

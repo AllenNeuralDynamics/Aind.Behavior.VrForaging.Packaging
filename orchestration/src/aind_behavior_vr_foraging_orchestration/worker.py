@@ -16,12 +16,13 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .._provenance import _PACKAGING_PKG
-from .._sidecar import SIDECAR_NAME
+from aind_behavior_vr_foraging_packaging._provenance import _PACKAGING_PKG
+
 from . import runner
 from .config import PipelineConfig
 from .ledger import Ledger
 from .models import Job
+from .sidecar import SIDECAR_NAME
 from .sources import get_source
 from .stores import (
     InputStore,

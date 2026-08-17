@@ -1,10 +1,7 @@
-import json
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-
-from aind_behavior_vr_foraging_packaging._sidecar import SIDECAR_NAME
 
 
 def _make_mock_proc(name: str) -> MagicMock:
@@ -376,7 +373,7 @@ def test_process_session_accepts_a_path(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# write_sidecar — the container contract (see _sidecar.SidecarRecorder)
+# on_output / on_error — the generic observation hooks
 # ---------------------------------------------------------------------------
 
 
@@ -387,82 +384,61 @@ def _failing_proc(name: str) -> MagicMock:
     return m
 
 
-def _read_sidecar(output_dir):
-    return json.loads((output_dir / SIDECAR_NAME).read_text(encoding="utf-8"))
-
-
-def _run(tmp_path, procs, *, path_input=False, load_error=None, **kwargs):
-    """Run process_session over *procs*, patching dataset loading."""
+def _run(tmp_path, procs, **kwargs):
     from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
-    raw = tmp_path / "raw" / "sess_A"
-    ds = _dataset_rooted_at(raw)
-    load = patch(
-        "aind_behavior_vr_foraging.data_contract.dataset",
-        **({"side_effect": load_error} if load_error else {"return_value": ds}),
-    )
-    with (
-        load,
-        patch("aind_behavior_vr_foraging_packaging.pipeline.session.create_processors", return_value=procs),
-    ):
-        return process_session(raw if path_input or load_error else ds, tmp_path / "out", **kwargs)
+    ds = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
+    with patch("aind_behavior_vr_foraging_packaging.pipeline.session.create_processors", return_value=procs):
+        return process_session(ds, tmp_path / "out", **kwargs)
 
 
-class TestWriteSidecar:
-    def test_not_written_unless_asked(self, tmp_path):
-        _run(tmp_path, _named_procs("sites"))
-        assert not (tmp_path / "out" / SIDECAR_NAME).exists()
+class TestObservationHooks:
+    """Deliberately generic: these carry no notion of a sidecar or a file format.
+    The orchestration package builds `output.metadata.json` on top of them, and
+    this module stays unaware that it exists."""
 
-    def test_records_every_processor_on_success(self, tmp_path):
-        _run(tmp_path, _named_procs("session", "sites"), write_sidecar=True)
+    def test_on_output_fires_per_processor_with_the_written_path(self, tmp_path):
+        seen = []
+        _run(
+            tmp_path,
+            _named_procs("session", "sites"),
+            on_output=lambda p, df, path: seen.append((p.output_name, len(df), path)),
+        )
 
-        sidecar = _read_sidecar(tmp_path / "out")
-        assert sidecar["status"] == "ok"
-        assert {p["name"]: p["status"] for p in sidecar["processors"]} == {"session": "ok", "sites": "ok"}
-        assert all(p["output_file"] == f"{p['name']}.parquet" for p in sidecar["processors"])
-        assert sidecar["session_name"] == "sess_A"
-        assert sidecar["versions"]["dataset_version"] == "0.6.1"
+        assert [(n, rows) for n, rows, _ in seen] == [("session", 1), ("sites", 1)]
+        assert [path.name for _, _, path in seen] == ["session.parquet", "sites.parquet"]
 
-    def test_written_when_a_processor_raises_and_still_propagates(self, tmp_path):
-        """The whole point: the exception is *not* swallowed — the container must
-        exit nonzero — but the sidecar naming the culprit is on disk anyway, which
-        is the only way the worker learns which processor broke."""
-        procs = [*_named_procs("session"), _failing_proc("sites")]
+    def test_on_output_reports_no_path_when_parquet_is_off(self, tmp_path):
+        """The frame still comes through — only the file is absent, so a caller
+        recording outcomes can tell "computed" from "written"."""
+        seen = []
+        _run(tmp_path, _named_procs("sites"), write_parquet=False, on_output=lambda p, df, path: seen.append(path))
+
+        assert seen == [None]
+
+    def test_on_output_does_not_fire_for_a_processor_that_failed(self, tmp_path):
+        seen = []
         with pytest.raises(ValueError):
-            _run(tmp_path, procs, write_sidecar=True)
+            _run(
+                tmp_path,
+                [*_named_procs("session"), _failing_proc("sites")],
+                on_output=lambda p, df, path: seen.append(p.output_name),
+            )
 
-        sidecar = _read_sidecar(tmp_path / "out")
-        assert sidecar["status"] == "error"
-        assert {p["name"]: p["status"] for p in sidecar["processors"]} == {"session": "ok", "sites": "error"}
-        assert "sites" in [p["name"] for p in sidecar["processors"] if p["error"]]
+        assert seen == ["session"]
 
-    def test_written_when_the_dataset_never_loads(self, tmp_path):
-        """A session that cannot even be opened is the case most worth reporting,
-        and the one where the session name has to come from the input path since
-        there is no dataset to ask."""
-        with pytest.raises(ValueError):
-            _run(tmp_path, [], write_sidecar=True, load_error=ValueError("bad session"))
+    def test_an_on_error_that_reraises_still_aborts_the_run(self, tmp_path):
+        """How the orchestration recorder uses it: note the failure, then let it
+        through. Recording is not tolerance."""
+        seen = []
 
-        sidecar = _read_sidecar(tmp_path / "out")
-        assert sidecar["status"] == "error"
-        assert sidecar["processors"] == []
-        assert sidecar["session_name"] == "sess_A"
-        assert sidecar["versions"]["dataset_version"] == "unknown"
+        def record_and_reraise(proc, exc):
+            seen.append(proc.output_name)
+            raise exc
 
-    def test_records_the_flags_the_run_actually_used(self, tmp_path):
-        _run(tmp_path, _named_procs("sites"), write_sidecar=True, strict_parsing=True, exclude=["licks"])
+        procs = [*_named_procs("session"), _failing_proc("sites"), *_named_procs("licks")]
+        with pytest.raises(ValueError, match="sites blew up"):
+            _run(tmp_path, procs, on_error=record_and_reraise)
 
-        params = _read_sidecar(tmp_path / "out")["parameters"]
-        assert params["strict_parsing"] is True
-        assert params["exclude"] == ["licks"]
-
-    def test_carries_job_context_from_the_environment(self, tmp_path, monkeypatch):
-        """Set by the worker at `docker run` time, so a published output can be
-        traced back to the ledger row that produced it."""
-        monkeypatch.setenv("VRF_JOB_ID", "job-42")
-        monkeypatch.setenv("VRF_WORKER_ID", "worker-1")
-
-        _run(tmp_path, _named_procs("sites"), write_sidecar=True)
-
-        sidecar = _read_sidecar(tmp_path / "out")
-        assert (sidecar["job_id"], sidecar["worker_id"]) == ("job-42", "worker-1")
+        assert seen == ["sites"]
+        assert not (tmp_path / "out" / "licks.parquet").exists()  # never reached

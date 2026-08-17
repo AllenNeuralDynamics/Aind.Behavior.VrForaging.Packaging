@@ -1,11 +1,15 @@
 """``vr-foraging-orchestrator`` — the orchestration CLI (§14).
 
-``vr-foraging-packaging`` stays the per-session processor entrypoint and is what
-the container runs; this is the second console script, driving the ledger,
-discovery, and the worker around it. A separate script so the processor image
-never has to import this subpackage's dependencies.
+Two audiences in one command, split by whether ``--config`` is needed:
 
-Plain ``argparse`` subparsers here, unlike the processor CLI's pydantic-settings
+``process`` runs INSIDE a processor container — one session, one sidecar, no
+ledger and no network. It is the image's whole job, and it is here rather than in
+``vr-foraging-packaging`` because the sidecar belongs to this package.
+
+Everything else is host-side: discovery, the ledger, the worker that launches
+those containers, and the dashboard over the result.
+
+Plain ``argparse`` subparsers, unlike the packaging CLI's pydantic-settings
 models — these subcommands' argument shapes are too heterogeneous to share one.
 """
 
@@ -39,6 +43,34 @@ def _load_config(path: Path) -> PipelineConfig:
 
 def _worker(config: PipelineConfig, *, worker_id: str = "cli") -> Worker:
     return Worker(config, worker_id=worker_id)
+
+
+# ---------------------------------------------------------------------------
+# process — the container's own command
+# ---------------------------------------------------------------------------
+
+
+def cmd_process(args: argparse.Namespace) -> None:
+    """Process one session. Failures propagate, so the container exits nonzero —
+    and the sidecar naming the culprit is on disk regardless."""
+    from .process import process_one_session
+
+    metadata = process_one_session(
+        args.input_dir,
+        args.output_dir,
+        strict_parsing=args.strict_parsing,
+        include=args.include_processors,
+        exclude=args.exclude_processors,
+        write_parquet=args.write_parquet,
+        write_nwb=args.write_nwb,
+    )
+    logger.info(
+        "[%s] %s — %d processor(s), %d warning(s)",
+        metadata.session_name,
+        metadata.status,
+        len(metadata.processors),
+        metadata.warn_count,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -227,7 +259,9 @@ def cmd_priority(args: argparse.Namespace) -> None:
 
 
 def cmd_aggregate(args: argparse.Namespace) -> None:
-    from ..pipeline.batch import AGGREGATED_TABLES, aggregate
+    from aind_behavior_vr_foraging_packaging.pipeline.batch import AGGREGATED_TABLES, aggregate
+
+    from .sidecar import session_completed_ok
     from .stores import get_output_store
 
     config = _load_config(args.config)
@@ -260,7 +294,10 @@ def cmd_aggregate(args: argparse.Namespace) -> None:
 
     sessions_dir = Path(config.output.uri) / config.release / "sessions"
     out_dir = Path(config.output.uri) / config.release
-    aggregate(sessions_dir, out_dir)
+    # A session whose sidecar is not `ok` may have partial parquets on disk — only
+    # the processors that ran before one failed got written. `aggregate` cannot
+    # tell that from a directory listing, so we tell it.
+    aggregate(sessions_dir, out_dir, include=session_completed_ok)
     print(f"Aggregated {len(completed)} session(s) into {out_dir}: {', '.join(AGGREGATED_TABLES)}")
 
 
@@ -373,6 +410,19 @@ def _add_config_arg(p: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="vr-foraging-orchestrator", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
+
+    # `process` takes no --config: it is what runs INSIDE a processor container,
+    # where there is no ledger, no S3 and no daemon — only a mounted session and a
+    # place to write. Everything else here is host-side and needs the config.
+    p = sub.add_parser("process", help="Process ONE session and write its sidecar (runs in the container)")
+    p.add_argument("--input-dir", type=Path, required=True, help="One raw session root; its name is the session id")
+    p.add_argument("--output-dir", type=Path, required=True)
+    p.add_argument("--strict-parsing", action="store_true")
+    p.add_argument("--include-processors", action="append", default=[], metavar="NAME")
+    p.add_argument("--exclude-processors", action="append", default=[], metavar="NAME")
+    p.add_argument("--no-write-parquet", dest="write_parquet", action="store_false")
+    p.add_argument("--write-nwb", action="store_true")
+    p.set_defaults(func=cmd_process)
 
     p = sub.add_parser("ingest", help="Discover new sessions and enqueue jobs (§3, §6)")
     _add_config_arg(p)

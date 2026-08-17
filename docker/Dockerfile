@@ -1,6 +1,10 @@
-# Processor image (§12). One image, three entrypoints:
-#   vr-foraging-packaging     — the per-session processor (default ENTRYPOINT)
-#   vr-foraging-orchestrator work / serve — the worker / dashboard (compose overrides the command)
+# Processor image (§12). One image, one ENTRYPOINT, three uses:
+#   vr-foraging-orchestrator process       — one session (what the worker launches)
+#   vr-foraging-orchestrator work          — the worker itself
+#   vr-foraging-orchestrator serve         — the dashboard
+#
+# `vr-foraging-packaging` (the published CLI) is on PATH too, for a human poking
+# around inside the image; nothing launches it.
 #
 # Build context is the repo root (see docker-compose.yaml / CI workflow), and
 # `.dockerignore` deliberately does NOT exclude `.git` — setuptools_scm needs
@@ -14,10 +18,14 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS build
 # silently get a placeholder dev version instead of a real one (§12).
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
+# Both workspace members' manifests, so the dependency layer can be resolved and
+# cached before any source is copied. `--all-packages` is what makes uv install
+# the orchestration member alongside the root one.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project --no-dev --extra orchestration
+COPY orchestration/pyproject.toml ./orchestration/
+RUN uv sync --frozen --no-install-project --no-dev --all-packages
 COPY . .
-RUN uv sync --frozen --no-dev --extra orchestration
+RUN uv sync --frozen --no-dev --all-packages
 
 FROM python:3.13-slim-bookworm
 ARG GIT_COMMIT=unknown
@@ -34,12 +42,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app /app
 ENV PATH="/app/.venv/bin:$PATH"
-# Static `docker` CLI binary, not the daemon — needed only by the `worker`
-# entrypoint (`vr-foraging-orchestrator work`), which launches sibling processor
-# containers through the mounted docker.sock (§4a). Kept in the same image
-# as the processor entrypoint per the "one image, three entrypoints" design
-# (§13 compose), so this is a few MB the processor path never exercises.
+# Static `docker` CLI binary, not the daemon — needed only by `work`, which
+# launches sibling processor containers through the mounted docker.sock (§4a).
+# Kept in the same image per the one-image design (§13 compose), so this is a few
+# MB the `process` path never exercises.
 COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
 RUN useradd -u 10001 -m runner
 USER runner
-ENTRYPOINT ["vr-foraging-packaging"]
+# The orchestrator, not the packaging CLI: the sidecar belongs to the
+# orchestration layer, so `process` is the command that writes one.
+ENTRYPOINT ["vr-foraging-orchestrator"]

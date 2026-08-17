@@ -14,9 +14,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from .._sidecar import SIDECAR_NAME, SessionOutputMetadata
 from .config import ProcessorConfig
 from .models import ErrorKind
+from .sidecar import SIDECAR_NAME, SessionOutputMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -129,15 +129,14 @@ def build_docker_args(
         "-e",
         f"VRF_WORKER_ID={worker_id}",
         ref,
-        # The `session` subcommand, not `batch`: one session per container, and it
-        # never aggregates. Aggregation is a separate job kind (§11) over the
-        # published output tree, not per-session work.
-        "session",
+        # `process`: exactly one session, and it writes the sidecar. Aggregation is
+        # a separate job kind (§11) over the published output tree, never
+        # per-session work — nothing here can accidentally trigger it.
+        "process",
         "--input-dir",
         input_path_in_container,
         "--output-dir",
         f"/work/{job_id}/out",
-        "--write-sidecar",
     ]
     if processor.write_nwb:
         args.append("--write-nwb")

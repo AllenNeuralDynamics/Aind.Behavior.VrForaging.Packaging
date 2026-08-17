@@ -1,12 +1,41 @@
 # Deployment sketch for the session-processing pipeline (§4, §13).
-# One image, three entrypoints — `vr-foraging-packaging` (the default ENTRYPOINT, used
-# by ephemeral processor containers the worker launches, which pass it the
-# `session` subcommand), `vr-foraging-orchestrator work`, and
-# `vr-foraging-orchestrator serve`.
+#
+# One image, three entrypoints — `vr-foraging-orchestrator process` (the default
+# ENTRYPOINT's subcommand, used by the ephemeral processor containers the worker
+# launches), `vr-foraging-orchestrator work`, and `… serve`.
 #
 # Before a real run: `docker compose run --rm worker vr-foraging-orchestrator doctor
 # --config /etc/vrf/config.yaml` — the §4(a) volume-visibility assertion plus
 # credential/Docker-daemon reachability checks.
+#
+# ── AWS credentials ────────────────────────────────────────────────────────────
+# Only the WORKER needs them, and only for `input.store: s3` / `output.store: s3`.
+# The processor containers it launches run `--network=none` and never touch S3 at
+# all (§4c) — everything they read is on a mount or already staged.
+#
+# Pick ONE of the three blocks below. There is no default, deliberately: the right
+# answer differs between a laptop and a campaign host, and guessing produced a
+# silently-broken config once already.
+#
+#   (a) PRODUCTION — an instance role. Nothing to mount, nothing to set: botocore
+#       reads IMDS itself, and the credentials refresh forever. This is the only
+#       option that survives a multi-day campaign unattended.
+#
+#   (b) LOCAL DEV, SSO — `aws sso login --profile <p>` on the HOST first, then
+#       mount ~/.aws READ-WRITE (not `:ro`). The SSO *token* lives in
+#       ~/.aws/sso/cache/, and botocore has to write there when it refreshes an
+#       expired one; a read-only mount turns that into a hard failure partway
+#       through a run. Even then the token expires (typically 8–12 h) and cannot
+#       be renewed from inside a container — there is no browser. Fine for a few
+#       hundred sessions, not for 4700.
+#
+#   (c) ANY HOST, short-lived — resolve credentials on the host and pass the
+#       resulting keys in. Works with SSO, `assume-role`, anything:
+#
+#           aws configure export-credentials --profile <p> --format env-no-export > .aws.env
+#
+#       then use `env_file: .aws.env` below. Same expiry caveat as (b), but no
+#       mount and no profile name baked into the compose file. Do not commit it.
 
 services:
   worker:
@@ -17,10 +46,18 @@ services:
       - vrf_ledger:/var/lib/vrf
       - vrf_work:/work                              # SAME named volume the processor gets (§4a)
       - ./config.yaml:/etc/vrf/config.yaml:ro
-      - ${HOME}/.aws:/home/runner/.aws:ro            # or rely on an instance role instead
-      # - /data/raw:/data/raw:ro                     # identity-mapped; only for input.store: mount
-    environment:
-      - AWS_PROFILE=aind-scientist
+      # - /data/raw:/data/raw:ro                    # identity-mapped; only for input.store: mount
+      #
+      # (a) instance role: nothing here.
+      # (b) SSO: uncomment, and note the ABSENCE of `:ro` — see the header.
+      # - ${HOME}/.aws:/home/runner/.aws
+    # (b) SSO also needs the profile name, since ~/.aws/config may hold several:
+    # environment:
+    #   - AWS_PROFILE=your-sso-profile
+    #
+    # (c) exported credentials:
+    # env_file: .aws.env
+    #
     # The image runs as a fixed non-root user (§12's Dockerfile). Reading
     # /var/run/docker.sock generally needs the container's user in a group
     # matching the socket's GID on THIS host — find it with `stat -c '%g'

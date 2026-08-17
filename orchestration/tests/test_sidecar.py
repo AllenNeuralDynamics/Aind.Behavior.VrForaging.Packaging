@@ -1,12 +1,13 @@
-"""Unit tests for _sidecar.py — the output.metadata.json model and helpers (§9)."""
+"""Unit tests for sidecar.py — the output.metadata.json model and helpers (§9)."""
 
 import json
 import logging
+from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
-
-from aind_behavior_vr_foraging_packaging._sidecar import (
+from aind_behavior_vr_foraging_orchestration.sidecar import (
     SIDECAR_NAME,
     CodeRef,
     ProcessorResult,
@@ -14,6 +15,7 @@ from aind_behavior_vr_foraging_packaging._sidecar import (
     SidecarRecorder,
     _WarnCounter,
     build_code_ref,
+    session_completed_ok,
     write_sidecar,
 )
 
@@ -173,6 +175,12 @@ class TestWriteSidecar:
         assert data["schema_version"] == "1.0.0"
 
 
+def _proc(name: str):
+    """Minimal stand-in for an AbstractProcessor — the recorder only reads
+    ``output_name``."""
+    return SimpleNamespace(output_name=name)
+
+
 class TestSidecarRecorder:
     """The status roll-up, which is what the ledger sorts on. Ordinary success and
     per-processor failures are covered end-to-end in tests/pipeline/test_session.py;
@@ -196,7 +204,7 @@ class TestSidecarRecorder:
         rec = self._recorder(tmp_path)
         with pytest.raises(RuntimeError), rec:
             rec.dataset_loaded("0.6.1")
-            rec.ok("sites", pd.DataFrame({"x": [1]}), output_file="sites.parquet")
+            rec.on_output(_proc("sites"), pd.DataFrame({"x": [1]}), Path("sites.parquet"))
             raise RuntimeError("nwb write failed")
 
         written = json.loads((tmp_path / SIDECAR_NAME).read_text(encoding="utf-8"))
@@ -223,9 +231,34 @@ class TestSidecarRecorder:
             rec.dataset_loaded("0.6.1")
             log.warning("first")
             log.warning("second")
-            rec.ok("sites", pd.DataFrame({"x": [1]}), output_file="sites.parquet")
+            rec.on_output(_proc("sites"), pd.DataFrame({"x": [1]}), Path("sites.parquet"))
             log.warning("third")
-            rec.ok("licks", pd.DataFrame({"x": [1]}), output_file="licks.parquet")
+            rec.on_output(_proc("licks"), pd.DataFrame({"x": [1]}), Path("licks.parquet"))
 
         counts = {p.name: p.warn_count for p in rec.build().processors}
         assert counts == {"sites": 2, "licks": 1}
+
+
+class TestSessionCompletedOk:
+    """`aggregate`'s include predicate. Fails OPEN in both ambiguous cases."""
+
+    def _session(self, tmp_path, name: str, status: str | None) -> Path:
+        d = tmp_path / name
+        d.mkdir(parents=True)
+        if status is not None:
+            (d / SIDECAR_NAME).write_text(json.dumps({"status": status}), encoding="utf-8")
+        return d
+
+    @pytest.mark.parametrize(("status", "expected"), [("ok", True), ("error", False), ("partial", False)])
+    def test_reads_the_recorded_status(self, tmp_path, status, expected):
+        assert session_completed_ok(self._session(tmp_path, "s", status)) is expected
+
+    def test_no_sidecar_is_kept(self, tmp_path):
+        """Produced by the plain `vr-foraging-packaging` CLI, which has no opinion
+        on this — the check must not become an implicit requirement for a sidecar."""
+        assert session_completed_ok(self._session(tmp_path, "s", None)) is True
+
+    def test_unreadable_sidecar_is_kept(self, tmp_path):
+        d = self._session(tmp_path, "s", None)
+        (d / SIDECAR_NAME).write_text("{not json", encoding="utf-8")
+        assert session_completed_ok(d) is True

@@ -39,17 +39,6 @@ Repository = "https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Pa
 Issues = "https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging/issues"
 Changelog = "https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging/releases"
 
-[project.optional-dependencies]
-# Orchestration layer: ledger, discovery, stores, worker, dashboard. Not needed
-# to run `vr-foraging-packaging` itself, which is what the container executes.
-orchestration = [
-    "aind-data-access-api>=1.0",
-    "boto3>=1.26",
-    "pyyaml",
-    # dashboard: stdlib http.server is enough for one table + form POSTs;
-    # add fastapi/uvicorn only if the view needs to grow.
-]
-
 [dependency-groups]
 
 docs = [
@@ -63,13 +52,26 @@ dev = [
     'pytest-cov',
     'codespell',
     'ty',
-    'boto3>=1.26',
-    'aind-data-access-api>=1.0',
-    'pyyaml',
+    # A dev-group entry, not a runtime dependency or an extra: dependency groups
+    # are not published, so this cannot appear in the wheel's metadata. It exists
+    # so one `uv sync` at the root gives both packages and one `pytest` run
+    # covers both test suites.
+    'aind-behavior-vr-foraging-orchestration',
 ]
 
 [tool.uv]
 default-groups = ['dev']
+
+# `orchestration/` is a separate distribution that is never published (see its own
+# pyproject). A workspace member rather than an extra of this package, so its
+# dependencies — boto3, DocDB, pyyaml — cannot leak into the published wheel, and
+# the import direction is enforced by packaging rather than by convention: this
+# package genuinely cannot import from it.
+[tool.uv.workspace]
+members = ["orchestration"]
+
+[tool.uv.sources]
+aind-behavior-vr-foraging-orchestration = { workspace = true }
 
 [tool.ty.src]
 exclude = ["examples/**", "scripts/**", "docs/**", "scratch/**"]
@@ -91,15 +93,17 @@ skip = '.git,*.pdf,*.svg,uv.lock,site'
 ignore-words-list = 'nd,setuptools'
 
 [tool.pytest.ini_options]
-addopts = "--strict-markers --tb=short --cov=src --cov-report=term-missing --cov-fail-under=0 -m 'not integration'"
+addopts = "--strict-markers --tb=short --cov=src --cov=orchestration/src --cov-report=term-missing --cov-fail-under=0 -m 'not integration'"
 markers = [
   "integration: integration tests that download data from S3 (run with `-m integration`)",
 ]
-testpaths = ["tests"]
+# Both workspace members. One pytest invocation, one config, two distributions.
+testpaths = ["tests", "orchestration/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 
 [project.scripts]
+# `vr-foraging-orchestrator` belongs to the orchestration distribution — see
+# orchestration/pyproject.toml.
 vr-foraging-packaging = "aind_behavior_vr_foraging_packaging.pipeline.cli:main"
-vr-foraging-orchestrator = "aind_behavior_vr_foraging_packaging.orchestration.cli:main"

@@ -1,9 +1,8 @@
 """Unit tests for PipelineConfig — YAML loading, defaults, extra='forbid' (§13)."""
 
 import pytest
+from aind_behavior_vr_foraging_orchestration.config import PipelineConfig
 from pydantic import ValidationError
-
-from aind_behavior_vr_foraging_packaging.orchestration.config import PipelineConfig
 
 
 def _write(tmp_path, text: str):

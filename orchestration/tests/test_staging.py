@@ -1,7 +1,7 @@
 """Unit tests for the staging rule engine (§10) — pure metadata decisions, no I/O."""
 
-from aind_behavior_vr_foraging_packaging.orchestration.config import StagingConfig, StagingRule
-from aind_behavior_vr_foraging_packaging.orchestration.staging import (
+from aind_behavior_vr_foraging_orchestration.config import StagingConfig, StagingRule
+from aind_behavior_vr_foraging_orchestration.staging import (
     ObjectRef,
     build_manifest,
     missing_required,

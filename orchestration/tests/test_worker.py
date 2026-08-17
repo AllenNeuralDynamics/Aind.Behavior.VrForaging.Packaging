@@ -5,14 +5,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
-from aind_behavior_vr_foraging_packaging.orchestration.config import PipelineConfig
-from aind_behavior_vr_foraging_packaging.orchestration.runner import RunResult, Verdict
-from aind_behavior_vr_foraging_packaging.orchestration.staging import InputManifest
-from aind_behavior_vr_foraging_packaging.orchestration.stores import PreparedInput
-from aind_behavior_vr_foraging_packaging.orchestration.stores.input_local import LocalInputStore
-from aind_behavior_vr_foraging_packaging.orchestration.stores.output_local import LocalOutputStore
-from aind_behavior_vr_foraging_packaging.orchestration.worker import Worker
+from aind_behavior_vr_foraging_orchestration.config import PipelineConfig
+from aind_behavior_vr_foraging_orchestration.runner import RunResult, Verdict
+from aind_behavior_vr_foraging_orchestration.staging import InputManifest
+from aind_behavior_vr_foraging_orchestration.stores import PreparedInput
+from aind_behavior_vr_foraging_orchestration.stores.input_local import LocalInputStore
+from aind_behavior_vr_foraging_orchestration.stores.output_local import LocalOutputStore
+from aind_behavior_vr_foraging_orchestration.worker import Worker
 
 _EMPTY_MANIFEST = InputManifest(store="local", available_files=0, available_bytes=0, include=[], exclude=[])
 
@@ -152,7 +151,7 @@ class TestProcessJob:
             "staged": {},
         }
         sidecar_path.write_text(json.dumps(payload))
-        from aind_behavior_vr_foraging_packaging._sidecar import SessionOutputMetadata
+        from aind_behavior_vr_foraging_orchestration.sidecar import SessionOutputMetadata
 
         return Verdict(
             status="completed",
@@ -190,9 +189,9 @@ class TestProcessJob:
                 return self._completed_verdict(sidecar_path.parent)
 
             with (
-                patch("aind_behavior_vr_foraging_packaging.orchestration.worker.runner.run", side_effect=fake_run),
+                patch("aind_behavior_vr_foraging_orchestration.worker.runner.run", side_effect=fake_run),
                 patch(
-                    "aind_behavior_vr_foraging_packaging.orchestration.worker.runner.classify",
+                    "aind_behavior_vr_foraging_orchestration.worker.runner.classify",
                     side_effect=fake_classify,
                 ),
             ):

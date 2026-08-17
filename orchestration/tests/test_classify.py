@@ -3,9 +3,8 @@
 import json
 
 import pytest
-
-from aind_behavior_vr_foraging_packaging.orchestration.config import ProcessorConfig
-from aind_behavior_vr_foraging_packaging.orchestration.runner import (
+from aind_behavior_vr_foraging_orchestration.config import ProcessorConfig
+from aind_behavior_vr_foraging_orchestration.runner import (
     RunnerConfigError,
     RunResult,
     build_docker_args,
@@ -78,26 +77,29 @@ class TestBuildDockerArgs:
         assert f"PROCESSOR_IMAGE_URI={cfg.image}@sha256:abc" in args
         assert "VRF_JOB_ID=job1" in args
         assert "VRF_WORKER_ID=w1" in args
-        assert "--write-sidecar" in args
         assert "--write-nwb" in args
         assert "/work/job1/out" in args
 
-    def test_runs_the_session_subcommand_first(self):
-        """`session`, not `batch`, and it must be the first argument after the
-        image ref — the CLI dispatches on it. `batch` here would treat the one
-        mounted session as a *folder* of sessions and find nothing to do."""
+    def test_runs_the_process_subcommand_first(self):
+        """`process` must be the first argument after the image ref — the CLI
+        dispatches on it. It is the only subcommand that runs a single session and
+        writes a sidecar; `work` or `serve` here would start a whole worker inside
+        what is meant to be one ephemeral job."""
         cfg = ProcessorConfig(digest="sha256:abc")
         args = _args(cfg)
         image_at = args.index(f"{cfg.image}@sha256:abc")
-        assert args[image_at + 1] == "session"
+        assert args[image_at + 1] == "process"
 
-    def test_passes_no_session_name(self):
-        """Identity comes from the input directory's own name, so there is no
-        name argument to get out of sync. See `Worker._resolve_mount`."""
+    def test_passes_no_session_name_and_no_sidecar_flag(self):
+        """Identity comes from the input directory's own name, so there is no name
+        argument to get out of sync (`Worker._resolve_mount`). And `process` always
+        writes a sidecar — it is the reason the subcommand exists — so there is no
+        flag to forget either."""
         args = _args(ProcessorConfig(allow_unpinned=True))
         assert "--session-name" not in args
         assert "--single-session" not in args
         assert "--skip-aggregation" not in args
+        assert "--write-sidecar" not in args
 
     def test_extra_mount_added_for_out_of_volume_path(self):
         """`--mount` (not `-v host:container:ro`): a Windows host path has its own
@@ -114,31 +116,28 @@ class TestBuildDockerArgs:
         args = _args(ProcessorConfig(allow_unpinned=True))
         assert not any(a.startswith("PROCESSOR_IMAGE_URI=") for a in args)
 
-    def test_the_argv_actually_parses_as_the_processor_cli(self):
+    def test_the_argv_actually_parses_as_the_container_command(self):
         """The container contract, checked against the real parser rather than
         asserted flag by flag. Every other test here only proves a string is in a
         list; nothing but this catches an argument the CLI will reject — and it
         rejects them by exiting 2, having processed nothing, with the reason only
         in the container log.
         """
-        from aind_behavior_vr_foraging_packaging.orchestration.runner import image_ref
-        from aind_behavior_vr_foraging_packaging.pipeline.cli import Cli
+        from aind_behavior_vr_foraging_orchestration.cli import build_parser
+        from aind_behavior_vr_foraging_orchestration.runner import image_ref
 
         cfg = ProcessorConfig(digest="sha256:abc", write_nwb=True, exclude_processors=["sniffing", "licks"])
         argv = _args(cfg, input_path_in_container="/mnt/behavior_1_2025-01-01_00-00-00")
         container_args = argv[argv.index(image_ref(cfg)) + 1 :]
 
-        # Unpacked, not `Cli(_cli_parse_args=...)`: pydantic-settings accepts the
-        # underscore-prefixed runtime overrides through **kwargs, so they are not
-        # part of the generated __init__ signature a static checker sees.
-        cmd = Cli(**{"_cli_parse_args": container_args}).session
+        args = build_parser().parse_args(container_args)
 
-        assert cmd is not None
-        assert cmd.input_dir.name == "behavior_1_2025-01-01_00-00-00"  # the session id it will stamp
-        assert cmd.output_dir.as_posix().endswith("/work/job1/out")
-        assert cmd.write_sidecar is True
-        assert cmd.write_nwb is True
-        assert cmd.exclude_processors == ["sniffing", "licks"]
+        assert args.command == "process"
+        assert args.input_dir.name == "behavior_1_2025-01-01_00-00-00"  # the session id it will stamp
+        assert args.output_dir.as_posix().endswith("/work/job1/out")
+        assert args.write_nwb is True
+        assert args.write_parquet is True
+        assert args.exclude_processors == ["sniffing", "licks"]
 
     def test_exclude_processors_forwarded_one_flag_per_name(self):
         """Repeated, not space-separated. pydantic-settings gives a list field an

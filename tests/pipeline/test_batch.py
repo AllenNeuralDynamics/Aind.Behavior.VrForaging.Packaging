@@ -1,6 +1,5 @@
 """Unit tests for pipeline/batch.py — no real dataset I/O required."""
 
-import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -8,7 +7,6 @@ import pandas as pd
 import pytest
 
 from aind_behavior_vr_foraging_packaging._base import session_root
-from aind_behavior_vr_foraging_packaging._sidecar import SIDECAR_NAME
 from aind_behavior_vr_foraging_packaging.pipeline.batch import (
     AGGREGATED_TABLES,
     SESSION_TABLE,
@@ -162,53 +160,33 @@ def _write_fake_session(sessions_dir: Path, session_id: str, subject_id: str) ->
     pd.DataFrame({"t": range(5)}).to_parquet(d / "licks.parquet", index=False)
 
 
-def _write_sidecar_status(sessions_dir: Path, session_id: str, status: str) -> None:
-    (sessions_dir / session_id / SIDECAR_NAME).write_text(json.dumps({"status": status}), encoding="utf-8")
+class TestAggregateIncludePredicate:
+    """`aggregate` cannot tell a complete session from one abandoned partway
+    through — both are just a directory of parquets. A caller that can, says so."""
 
-
-class TestAggregateSkipsFailedSidecarSessions:
-    """A sidecar-bearing session that failed may have partial parquets on disk;
-    only the processors that ran before one raised got written. Aggregating those
-    rows would silently understate a session rather than omit it."""
-
-    def test_session_with_error_sidecar_is_excluded(self, tmp_path):
+    def test_excluded_sessions_are_left_out(self, tmp_path):
         sessions_dir = tmp_path / "sessions"
         _write_fake_session(sessions_dir, "sess_good", "sub1")
         _write_fake_session(sessions_dir, "sess_bad", "sub1")
-        _write_sidecar_status(sessions_dir, "sess_good", "ok")
-        _write_sidecar_status(sessions_dir, "sess_bad", "error")
 
-        aggregate(sessions_dir, tmp_path)
+        aggregate(sessions_dir, tmp_path, include=lambda d: d.name != "sess_bad")
 
         assert set(pd.read_parquet(tmp_path / "session.parquet")["session_id"]) == {"sess_good"}
 
-    def test_session_without_sidecar_is_kept(self, tmp_path):
-        """No sidecar means `write_sidecar` was never used, so this check has no
-        opinion — it must not turn into an implicit requirement for one."""
+    def test_no_predicate_aggregates_everything(self, tmp_path):
+        sessions_dir = tmp_path / "sessions"
+        _write_fake_session(sessions_dir, "sess_A", "sub1")
+        _write_fake_session(sessions_dir, "sess_B", "sub1")
+
+        aggregate(sessions_dir, tmp_path)
+
+        assert set(pd.read_parquet(tmp_path / "session.parquet")["session_id"]) == {"sess_A", "sess_B"}
+
+    def test_everything_excluded_writes_nothing_and_does_not_raise(self, tmp_path):
         sessions_dir = tmp_path / "sessions"
         _write_fake_session(sessions_dir, "sess_A", "sub1")
 
-        aggregate(sessions_dir, tmp_path)
-
-        assert set(pd.read_parquet(tmp_path / "session.parquet")["session_id"]) == {"sess_A"}
-
-    def test_unreadable_sidecar_keeps_the_session(self, tmp_path):
-        """Fail open: a corrupt sidecar is a reason to look at the log, not to
-        silently drop a session that may be perfectly good."""
-        sessions_dir = tmp_path / "sessions"
-        _write_fake_session(sessions_dir, "sess_A", "sub1")
-        (sessions_dir / "sess_A" / SIDECAR_NAME).write_text("{not json", encoding="utf-8")
-
-        aggregate(sessions_dir, tmp_path)
-
-        assert (tmp_path / "session.parquet").exists()
-
-    def test_all_sessions_failed_writes_nothing_and_does_not_raise(self, tmp_path):
-        sessions_dir = tmp_path / "sessions"
-        _write_fake_session(sessions_dir, "sess_bad", "sub1")
-        _write_sidecar_status(sessions_dir, "sess_bad", "error")
-
-        aggregate(sessions_dir, tmp_path)
+        aggregate(sessions_dir, tmp_path, include=lambda _: False)
 
         assert not (tmp_path / "session.parquet").exists()
 

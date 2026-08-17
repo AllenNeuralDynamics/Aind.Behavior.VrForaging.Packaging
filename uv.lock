@@ -13,6 +13,12 @@ resolution-markers = [
     "python_full_version < '3.12' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
+[manifest]
+members = [
+    "aind-behavior-vr-foraging-orchestration",
+    "aind-behavior-vr-foraging-packaging",
+]
+
 [[package]]
 name = "aind-behavior-curriculum"
 version = "0.0.42"
@@ -62,6 +68,24 @@ data = [
 ]
 
 [[package]]
+name = "aind-behavior-vr-foraging-orchestration"
+source = { editable = "orchestration" }
+dependencies = [
+    { name = "aind-behavior-vr-foraging-packaging" },
+    { name = "aind-data-access-api" },
+    { name = "boto3" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aind-behavior-vr-foraging-packaging", editable = "." },
+    { name = "aind-data-access-api", specifier = ">=1.0" },
+    { name = "boto3", specifier = ">=1.26" },
+    { name = "pyyaml" },
+]
+
+[[package]]
 name = "aind-behavior-vr-foraging-packaging"
 source = { editable = "." }
 dependencies = [
@@ -79,21 +103,12 @@ dependencies = [
     { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
 
-[package.optional-dependencies]
-pipeline = [
-    { name = "aind-data-access-api" },
-    { name = "boto3" },
-    { name = "pyyaml" },
-]
-
 [package.dev-dependencies]
 dev = [
-    { name = "aind-data-access-api" },
-    { name = "boto3" },
+    { name = "aind-behavior-vr-foraging-orchestration" },
     { name = "codespell" },
     { name = "pytest" },
     { name = "pytest-cov" },
-    { name = "pyyaml" },
     { name = "ruff" },
     { name = "ty" },
 ]
@@ -105,9 +120,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "aind-behavior-vr-foraging", extras = ["data"], specifier = ">=1.2.1" },
-    { name = "aind-data-access-api", marker = "extra == 'pipeline'", specifier = ">=1.0" },
     { name = "aind-nwb-utils", specifier = ">=0.2.9" },
-    { name = "boto3", marker = "extra == 'pipeline'", specifier = ">=1.26" },
     { name = "hdmf-zarr" },
     { name = "numpy", specifier = ">=2" },
     { name = "pandas" },
@@ -116,19 +129,15 @@ requires-dist = [
     { name = "pydantic-settings" },
     { name = "pydantic-settings", specifier = ">=2.10.1" },
     { name = "pynwb", specifier = ">=4.1" },
-    { name = "pyyaml", marker = "extra == 'pipeline'" },
     { name = "scipy" },
 ]
-provides-extras = ["pipeline"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "aind-data-access-api", specifier = ">=1.0" },
-    { name = "boto3", specifier = ">=1.26" },
+    { name = "aind-behavior-vr-foraging-orchestration", editable = "orchestration" },
     { name = "codespell" },
     { name = "pytest" },
     { name = "pytest-cov" },
-    { name = "pyyaml" },
     { name = "ruff" },
     { name = "ty" },
 ]
