@@ -16,9 +16,12 @@ _VALID = {
     "date": "2025-11-05T22:52:21Z",
 }
 
-#: Mirrors the real on-disk layout: <root>/behavior/Logs/session_input.json
-_STREAM_PATH = r"C:\data\behavior_815103_2025-11-05_22-52-21\behavior\Logs\session_input.json"
 _ROOT_NAME = "behavior_815103_2025-11-05_22-52-21"
+
+#: Mirrors the real on-disk layout: <root>/behavior/Logs/session_input.json.
+#: Forward slashes: pathlib reads those as separators on every platform, while a
+#: ``C:\...`` literal is one opaque component off Windows.
+_STREAM_PATH = f"/data/{_ROOT_NAME}/behavior/Logs/session_input.json"
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +79,7 @@ def test_stream_session_name_is_ignored_whatever_it_says(payload):
 def test_session_root_anchors_on_behavior_dir_not_depth():
     """A log nested deeper under ``behavior/`` still resolves to the session root."""
     df = SessionMetadataProcessor(
-        _make_dataset(stream_path=r"C:\data\my_session\behavior\Logs\nested\session_input.json")
+        _make_dataset(stream_path="/data/my_session/behavior/Logs/nested/session_input.json")
     )._compute()
     assert df["session_id"].iloc[0] == "my_session"
 
@@ -94,7 +97,7 @@ def test_pydantic_model_normalised_to_dict():
 
 
 def test_unrecoverable_root_raises():
-    proc = SessionMetadataProcessor(_make_dataset(stream_path=r"C:\somewhere\else\session_input.json"))
+    proc = SessionMetadataProcessor(_make_dataset(stream_path="/somewhere/else/session_input.json"))
     with pytest.raises(DatasetProcessorError, match="session root"):
         proc._compute()
 
