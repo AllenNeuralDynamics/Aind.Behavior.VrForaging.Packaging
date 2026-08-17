@@ -25,7 +25,7 @@ Generating the export
 ---------------------
 Run the CLI against a directory of raw session folders::
 
-    aind-vr-export --input-dir /data/raw --output-dir /data/export
+    vr-foraging-packaging --input-dir /data/raw --output-dir /data/export
 
 Or with the helper script (dev / scratch)::
 
@@ -38,7 +38,7 @@ project install.
 
 Run from the project root::
 
-    uv run aind-vr-export --input-dir /data/raw --output-dir ./export ` --log-file   ./export/run.log --workers 4
+    uv run vr-foraging-packaging --input-dir /data/raw --output-dir ./export ` --log-file   ./export/run.log --workers 4
     uv run examples/query_export.py
 """
 
@@ -52,7 +52,7 @@ EXPORT_DIR = Path("scratch/export")
 if not EXPORT_DIR.exists():
     raise SystemExit(
         f"Export directory not found: {EXPORT_DIR.resolve()}\n"
-        "Generate it first with: aind-vr-export --input-dir <raw> --output-dir scratch/export"
+        "Generate it first with: vr-foraging-packaging --input-dir <raw> --output-dir scratch/export"
     )
 
 

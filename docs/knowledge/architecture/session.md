@@ -1,16 +1,16 @@
 ---
 type: Component
 title: Session pipeline — version dispatch, fan-out, and parquet output
-description: session_pipeline.py selects the correct processor set for a dataset version, runs them over one session via process_session, and writes provenance-stamped parquet files.
-resource: src/aind_behavior_vr_foraging_packaging/session_pipeline.py
+description: pipeline/session.py selects the correct processor set for a dataset version, runs them over one session via process_session, and writes provenance-stamped parquet files.
+resource: src/aind_behavior_vr_foraging_packaging/pipeline/session.py
 tags: [architecture, pipeline, parquet, version-dispatch]
 timestamp: 2026-08-16T00:00:00Z
 ---
 
-`session_pipeline.py` is the thin orchestration layer for **one** session. It
+`pipeline/session.py` is the thin orchestration layer for **one** session. It
 answers two questions: *which* processors apply to a given dataset, and *how* to
 run them to parquet. Running many sessions and combining their outputs is a
-separate layer — see [export-pipeline.md](export-pipeline.md).
+separate layer — see [batch.md](batch.md).
 
 # Version dispatch
 
@@ -20,8 +20,8 @@ The single source of truth for legacy behavior is:
 _LEGACY_VERSION_CUTOFF = semver.Version(major=0, minor=6, patch=0)
 ```
 
-`create_processors(dataset, *, strict_parsing=False)` parses
-`dataset.version` and, if it is `< 0.6.0`, swaps in the legacy variants:
+`create_processors(dataset, *, strict_parsing=False, include=(), exclude=())`
+parses `dataset.version` and, if it is `< 0.6.0`, swaps in the legacy variants:
 
 | Concern | Current (`>= 0.6.0`) | Legacy (`< 0.6.0`) |
 |---------|----------------------|--------------------|
@@ -46,18 +46,42 @@ building the whole list:
 - `resolve_site_table_processor(dataset, *, strict_parsing=False)`
 - `resolve_position_velocity_processor(dataset, *, sampling_rate_hz=250.0, strict_parsing=False)`
 
+# Selecting a subset
+
+`filter_processors(processors, *, include=(), exclude=())` selects by
+`output_name`: an empty `include` keeps everything, `exclude` is applied second,
+and **`session` survives both** — dropping it would leave every other table
+without the identity row it joins to. `create_processors` calls it, so the
+common case is one call:
+
+```python
+create_processors(ds, exclude=["sniffing", "software_events"])
+```
+
+This is deliberately *not* in `pipeline.batch`, even though the CLI's
+`--include-processors` / `--exclude-processors` are its only production callers.
+Choosing which processors run is a per-session question, and the export layer
+was previously reimplementing it with a local `_keep` closure — a second copy of
+the "never filter session" rule that nothing kept in step with this one.
+
 # Running to parquet
 
 ```python
 process_session(
     dataset, output_dir=".", *,
-    strict_parsing=False, processors=None, on_error=None,
-    write_parquet=True, write_nwb=False,
+    strict_parsing=False, include=(), exclude=(), processors=None,
+    on_error=None, write_parquet=True, write_nwb=False,
 ) -> dict[str, pd.DataFrame]
 ```
 
-`output_dir` accepts a `str` or `Path` and defaults to the current working
-directory, so `process_session(ds)` is a complete call.
+`dataset` is a loaded `Dataset` **or** a path to a raw session directory, which
+it loads. `output_dir` accepts a `str` or `Path` and defaults to the current
+working directory, so both `process_session(ds)` and
+`process_session("path/to/session")` are complete calls.
+
+`include`/`exclude` are forwarded to `create_processors`. `processors=` remains
+the escape hatch for a custom or third-party list, and bypasses construction
+entirely — `strict_parsing`, `include` and `exclude` then have nothing to act on.
 
 Log lines are prefixed with `[{session_id}]`, taken from the dataset via
 `_base.session_root`, so per-processor progress stays grep-able by session in a
@@ -81,19 +105,19 @@ returned dict is identical whichever combination is set, and
 `write_parquet=False` is a legitimate way to compute in memory without touching
 disk. Turning both off writes nothing and creates no directory.
 
-This is the reason `session_pipeline` owns the NWB write rather than
-`export_pipeline`. The NWB step needs exactly what the parquet step needs — a
+This is the reason `pipeline.session` owns the NWB write rather than
+`pipeline.batch`. The NWB step needs exactly what the parquet step needs — a
 loaded dataset and a processor list — so a second copy of the fan-out one layer
 up bought nothing but drift. The session root is recovered from the dataset via
 `_base.session_root`, the same helper `SessionMetadataProcessor` uses for
 `session_id`, so the store's name and the table's join key cannot disagree.
 
-`export_pipeline._process_one_session` now forwards `write_nwb` and owns only
-what is genuinely multi-session: resolving the per-session output directory and
-applying the include/exclude filter.
+There is no longer a per-session function in `pipeline.batch` at all. Once the
+loading, filtering and both writers moved here, the wrapper had nothing left but
+`sessions_dir / raw_path.name`, so it was inlined into `process_sessions`.
 
 `processors` lets a caller supply an already-filtered list instead of having
-one built — this is how `export_pipeline` applies `--include-processors` /
+one built — this is how `pipeline.batch` applies `--include-processors` /
 `--exclude-processors`. When passed, `strict_parsing` no longer affects
 processor construction (they are already constructed).
 
@@ -116,7 +140,7 @@ file without pandas.
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
 ds = dataset("/path/to/session")
 data = process_session(ds, "/path/to/out")  # writes 7 parquet files

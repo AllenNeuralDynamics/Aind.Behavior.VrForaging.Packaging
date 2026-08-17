@@ -30,7 +30,7 @@ processor variants are selected automatically.
 ## Run a single processor
 
 ```python
-from aind_behavior_vr_foraging_packaging.session_pipeline import (
+from aind_behavior_vr_foraging_packaging.pipeline.session import (
     resolve_site_table_processor,
     resolve_position_velocity_processor,
 )
@@ -55,7 +55,7 @@ print(pos_vel_df.dtypes)
 `create_processors` returns the full ordered list; call `compute()` on each:
 
 ```python
-from aind_behavior_vr_foraging_packaging.session_pipeline import create_processors
+from aind_behavior_vr_foraging_packaging.pipeline.session import create_processors
 
 processors = create_processors(ds)
 
@@ -81,7 +81,7 @@ directory's name, which is the key every other table joins on.
 file per processor to an output directory:
 
 ```python
-from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
 results = process_session(ds, output_dir="output/my_session/")
 # → output/my_session/session.parquet

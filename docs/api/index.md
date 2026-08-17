@@ -6,27 +6,32 @@ Auto-generated reference for every public function and class in the package.
 
 | Module | Description |
 |--------|-------------|
-| [`session_pipeline`](session-pipeline.md) | Per-session pipeline factory and `process_session` |
-| [`export_pipeline`](export-pipeline.md) | Multi-session export: `process_sessions` and `aggregate` |
+| [`pipeline.session`](session.md) | Per-session pipeline factory and `process_session` |
+| [`pipeline.batch`](batch.md) | Multi-session export: `process_sessions`, `aggregate`, and the `vr-foraging-packaging` CLI |
 | [`processors`](processors.md) | `AbstractProcessor` base class and all processor implementations |
 | [`nwb`](nwb.md) | `NwbSession` — build and write NWB-Zarr files |
 
 ## Quick navigation
 
-### session_pipeline
+### pipeline.session
 
-- [`create_processors`](session-pipeline.md#aind_behavior_vr_foraging_packaging.session_pipeline.create_processors) — return the ordered processor list for a dataset
-- [`resolve_site_table_processor`](session-pipeline.md#aind_behavior_vr_foraging_packaging.session_pipeline.resolve_site_table_processor) — return the correct site-table processor
-- [`resolve_position_velocity_processor`](session-pipeline.md#aind_behavior_vr_foraging_packaging.session_pipeline.resolve_position_velocity_processor) — return the correct position/velocity processor
-- [`process_session`](session-pipeline.md#aind_behavior_vr_foraging_packaging.session_pipeline.process_session) — run all processors and write parquets
+- [`create_processors`](session.md#aind_behavior_vr_foraging_packaging.pipeline.session.create_processors) — return the ordered processor list for a dataset
+- [`resolve_site_table_processor`](session.md#aind_behavior_vr_foraging_packaging.pipeline.session.resolve_site_table_processor) — return the correct site-table processor
+- [`resolve_position_velocity_processor`](session.md#aind_behavior_vr_foraging_packaging.pipeline.session.resolve_position_velocity_processor) — return the correct position/velocity processor
+- [`process_session`](session.md#aind_behavior_vr_foraging_packaging.pipeline.session.process_session) — run all processors and write parquets
 
-### export_pipeline
+### pipeline.export
 
-- [`process_sessions`](export-pipeline.md#aind_behavior_vr_foraging_packaging.export_pipeline.process_sessions) — Phase 1: per-session parquets
-- [`aggregate`](export-pipeline.md#aind_behavior_vr_foraging_packaging.export_pipeline.aggregate) — Phase 2: flat cross-session parquets
-- [`AggregationRule`](export-pipeline.md#aind_behavior_vr_foraging_packaging.export_pipeline.AggregationRule)
-- [`Aggregator`](export-pipeline.md#aind_behavior_vr_foraging_packaging.export_pipeline.Aggregator)
-- [`DEFAULT_AGGREGATOR`](export-pipeline.md#aind_behavior_vr_foraging_packaging.export_pipeline.DEFAULT_AGGREGATOR)
+- [`process_sessions`](batch.md#aind_behavior_vr_foraging_packaging.pipeline.batch.process_sessions) — Phase 1: per-session parquets
+- [`aggregate`](batch.md#aind_behavior_vr_foraging_packaging.pipeline.batch.aggregate) — Phase 2: flat cross-session parquets
+- [`AGGREGATED_TABLES`](batch.md#aind_behavior_vr_foraging_packaging.pipeline.batch.AGGREGATED_TABLES) — the fixed set of tables Phase 2 flattens
+
+### pipeline.cli
+
+- [`Cli`](cli.md#aind_behavior_vr_foraging_packaging.pipeline.cli.Cli) — root parser
+- [`SessionCommand`](cli.md#aind_behavior_vr_foraging_packaging.pipeline.cli.SessionCommand) — `session`
+- [`BatchCommand`](cli.md#aind_behavior_vr_foraging_packaging.pipeline.cli.BatchCommand) — `batch`
+- [`AggregateCommand`](cli.md#aind_behavior_vr_foraging_packaging.pipeline.cli.AggregateCommand) — `aggregate`
 
 ### processors
 

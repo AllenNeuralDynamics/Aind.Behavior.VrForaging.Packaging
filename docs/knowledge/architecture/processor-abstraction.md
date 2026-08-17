@@ -48,7 +48,7 @@ adding a provenance field never means editing this class.
 
 `process_session` later promotes `df.attrs` to first-class parquet metadata, so
 provenance survives a round-trip to disk and is readable from DuckDB, Polars,
-R arrow, Spark, etc. See [session-pipeline.md](session-pipeline.md).
+R arrow, Spark, etc. See [session.md](session.md).
 
 # `cached_frame` — opt-in memoization
 
@@ -104,7 +104,7 @@ class RewardRateProcessor(AbstractProcessor):
         return nwb_file
 ```
 
-Then register it in [session_pipeline.create_processors](session-pipeline.md) and export it
+Then register it in [session_pipeline.create_processors](session.md) and export it
 from `processing/__init__.py`.
 
 # Design notes
@@ -113,5 +113,5 @@ from `processing/__init__.py`.
   `nwbize()` may call `compute()` internally, but neither depends on the other
   having run. `cached_frame` preserves this, since it hands back a copy.
 - Keeping one output per processor is what makes the fan-out in
-  [session-pipeline.md](session-pipeline.md) trivial and makes each output independently
+  [session.md](session.md) trivial and makes each output independently
   testable.

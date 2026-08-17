@@ -16,20 +16,20 @@ pandas, DuckDB, and Polars.
 === "CLI"
 
     ```bash
-    aind-vr-export --input-dir /data/raw --output-dir /data/export --workers 4
+    vr-foraging-packaging --input-dir /data/raw --output-dir /data/export --workers 4
     ```
 
 === "Python"
 
     ```python
     from pathlib import Path
-    from aind_behavior_vr_foraging_packaging.export_pipeline import (
-        process_sessions, aggregate, DEFAULT_AGGREGATOR
+    from aind_behavior_vr_foraging_packaging.pipeline.batch import (
+        process_sessions, aggregate
     )
 
     raw_sessions = sorted(Path("/data/raw").iterdir())  # one dir per session
     written = process_sessions(raw_sessions, "/data/export", max_workers=4)
-    aggregate("/data/export/sessions", "/data/export", DEFAULT_AGGREGATOR)
+    aggregate("/data/export/sessions", "/data/export")
     ```
 
 ## Runnable example

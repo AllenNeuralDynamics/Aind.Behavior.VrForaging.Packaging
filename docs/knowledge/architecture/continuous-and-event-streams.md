@@ -112,5 +112,5 @@ passthrough of a single raw stream.
 `LegacyPositionAndVelocityProcessor` and `LegacySiteTableProcessor` handle
 datasets with schema version `< 0.6.0` (different odor-specification format,
 block-stream fallback, optional `PatchStateAtReward`, absent
-`IsStopped`/velocity). The [session pipeline](session-pipeline.md) selects them automatically;
+`IsStopped`/velocity). The [session pipeline](session.md) selects them automatically;
 licks, sniffing, software events, and events have no legacy variant.

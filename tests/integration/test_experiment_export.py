@@ -11,11 +11,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from aind_behavior_vr_foraging_packaging.export_pipeline import (
-    DEFAULT_AGGREGATOR,
-    aggregate,
-    process_sessions,
-)
+from aind_behavior_vr_foraging_packaging.pipeline.batch import aggregate, process_sessions
 
 pytestmark = pytest.mark.integration
 
@@ -44,7 +40,7 @@ def test_full_export_pipeline(all_cached_session_paths: list[Path], tmp_path: Pa
     # ------------------------------------------------------------------ #
     # Phase 2
     # ------------------------------------------------------------------ #
-    aggregate(sessions_dir, output_dir, DEFAULT_AGGREGATOR)
+    aggregate(sessions_dir, output_dir)
 
     # session.parquet: one row per session, required columns present
     assert (output_dir / "session.parquet").exists()
@@ -112,11 +108,11 @@ def test_rerun_aggregation_only(all_cached_session_paths: list[Path], tmp_path: 
     process_sessions(all_cached_session_paths, output_dir)
 
     # Phase 2 — first run
-    aggregate(sessions_dir, output_dir, DEFAULT_AGGREGATOR)
+    aggregate(sessions_dir, output_dir)
     first_mtime = (output_dir / "session.parquet").stat().st_mtime
 
     # Phase 2 — second run (re-aggregate without re-processing)
-    aggregate(sessions_dir, output_dir, DEFAULT_AGGREGATOR)
+    aggregate(sessions_dir, output_dir)
     second_mtime = (output_dir / "session.parquet").stat().st_mtime
 
     # File was overwritten on the second run

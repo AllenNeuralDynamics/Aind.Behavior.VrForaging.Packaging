@@ -30,12 +30,12 @@ def _dataset_rooted_at(root) -> MagicMock:
 
 def test_process_session_saves_parquet_per_processor(tmp_path):
     """process_session() saves one parquet per processor, named by proc.output_name."""
-    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
     mock_dataset = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
 
     with patch(
-        "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
+        "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
         return_value=[_make_mock_proc("sites")],
     ):
         data = process_session(mock_dataset, tmp_path)
@@ -45,13 +45,13 @@ def test_process_session_saves_parquet_per_processor(tmp_path):
 
 
 def test_process_session_returns_all_dataframes(tmp_path):
-    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
     mock_dataset = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
 
     procs = [_make_mock_proc("sites"), _make_mock_proc("position_velocity")]
 
-    with patch("aind_behavior_vr_foraging_packaging.session_pipeline.create_processors", return_value=procs):
+    with patch("aind_behavior_vr_foraging_packaging.pipeline.session.create_processors", return_value=procs):
         data = process_session(mock_dataset, tmp_path)
 
     assert set(data.keys()) == {"sites", "position_velocity"}
@@ -62,12 +62,12 @@ def test_parquet_metadata_written_to_schema(tmp_path):
     """process_session() embeds provenance in parquet schema metadata (not just pandas attrs)."""
     import pyarrow.parquet as pq
 
-    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
     mock_dataset = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
 
     with patch(
-        "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
+        "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
         return_value=[_make_mock_proc("sites")],
     ):
         process_session(mock_dataset, tmp_path)
@@ -86,13 +86,13 @@ def test_parquet_metadata_written_to_schema(tmp_path):
 
 
 def test_write_nwb_false_by_default(tmp_path):
-    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
     ds = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
 
     with (
         patch(
-            "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
+            "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
             return_value=[_make_mock_proc("sites")],
         ),
         patch("aind_behavior_vr_foraging_packaging.nwb_file.NwbSession") as nwb_cls,
@@ -105,7 +105,7 @@ def test_write_nwb_false_by_default(tmp_path):
 def test_write_nwb_writes_store_named_for_the_session_dir(tmp_path):
     """The store is <output_dir>/<session dir name>.nwb.zarr, built from the same
     processor list as the parquets — one filtered selection, two formats."""
-    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
     root = tmp_path / "raw" / "behavior_815103_2025-11-05_22-52-21"
     ds = _dataset_rooted_at(root)
@@ -114,7 +114,7 @@ def test_write_nwb_writes_store_named_for_the_session_dir(tmp_path):
 
     with (
         patch(
-            "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
+            "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
             return_value=procs,
         ),
         patch("aind_behavior_vr_foraging_packaging.nwb_file.NwbSession") as nwb_cls,
@@ -128,7 +128,7 @@ def test_write_nwb_writes_store_named_for_the_session_dir(tmp_path):
 
 
 def test_write_nwb_uses_the_filtered_processor_list(tmp_path):
-    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
     ds = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
     selected = [_make_mock_proc("sites")]
@@ -143,13 +143,13 @@ def test_write_nwb_failure_propagates(tmp_path):
     """A session whose NWB step failed is not a usable partial result."""
     import pytest
 
-    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
     ds = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
 
     with (
         patch(
-            "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
+            "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
             return_value=[_make_mock_proc("sites")],
         ),
         patch("aind_behavior_vr_foraging_packaging.nwb_file.NwbSession") as nwb_cls,
@@ -165,12 +165,12 @@ def test_write_nwb_failure_propagates(tmp_path):
 
 
 def test_write_parquet_true_by_default(tmp_path):
-    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
     ds = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
 
     with patch(
-        "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
+        "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
         return_value=[_make_mock_proc("sites")],
     ):
         process_session(ds, tmp_path / "out")
@@ -180,13 +180,13 @@ def test_write_parquet_true_by_default(tmp_path):
 
 def test_write_parquet_false_skips_files_but_still_returns_frames(tmp_path):
     """The flags choose what reaches disk, not what is computed."""
-    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
     ds = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
     procs = [_make_mock_proc("sites"), _make_mock_proc("licks")]
 
     with patch(
-        "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
+        "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
         return_value=procs,
     ):
         data = process_session(ds, tmp_path / "out", write_parquet=False)
@@ -198,7 +198,7 @@ def test_write_parquet_false_skips_files_but_still_returns_frames(tmp_path):
 
 
 def test_nwb_only_writes_no_parquet(tmp_path):
-    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
     root = tmp_path / "raw" / "sess_A"
     ds = _dataset_rooted_at(root)
@@ -206,7 +206,7 @@ def test_nwb_only_writes_no_parquet(tmp_path):
 
     with (
         patch(
-            "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
+            "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
             return_value=[_make_mock_proc("sites")],
         ),
         patch("aind_behavior_vr_foraging_packaging.nwb_file.NwbSession") as nwb_cls,
@@ -218,13 +218,13 @@ def test_nwb_only_writes_no_parquet(tmp_path):
 
 
 def test_both_writers_off_creates_no_output_dir(tmp_path):
-    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
     ds = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
     out = tmp_path / "out"
 
     with patch(
-        "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
+        "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
         return_value=[_make_mock_proc("sites")],
     ):
         data = process_session(ds, out, write_parquet=False)
@@ -239,7 +239,7 @@ def test_both_writers_off_creates_no_output_dir(tmp_path):
 
 
 def test_output_dir_defaults_to_cwd(tmp_path, monkeypatch):
-    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
     ds = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
     workdir = tmp_path / "cwd"
@@ -247,7 +247,7 @@ def test_output_dir_defaults_to_cwd(tmp_path, monkeypatch):
     monkeypatch.chdir(workdir)
 
     with patch(
-        "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
+        "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
         return_value=[_make_mock_proc("sites")],
     ):
         process_session(ds)
@@ -256,14 +256,116 @@ def test_output_dir_defaults_to_cwd(tmp_path, monkeypatch):
 
 
 def test_output_dir_accepts_a_string(tmp_path):
-    from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
     ds = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
 
     with patch(
-        "aind_behavior_vr_foraging_packaging.session_pipeline.create_processors",
+        "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
         return_value=[_make_mock_proc("sites")],
     ):
         process_session(ds, str(tmp_path / "out"))
 
+    assert (tmp_path / "out" / "sites.parquet").exists()
+
+
+# ---------------------------------------------------------------------------
+# Processor selection lives in pipeline.session, not in the export layer
+# ---------------------------------------------------------------------------
+
+
+def _named_procs(*names) -> list:
+    return [_make_mock_proc(n) for n in names]
+
+
+def test_filter_processors_empty_include_keeps_everything():
+    from aind_behavior_vr_foraging_packaging.pipeline.session import filter_processors
+
+    procs = _named_procs("session", "sites", "licks")
+    assert [p.output_name for p in filter_processors(procs)] == ["session", "sites", "licks"]
+
+
+def test_filter_processors_include_is_a_whitelist():
+    from aind_behavior_vr_foraging_packaging.pipeline.session import filter_processors
+
+    procs = _named_procs("session", "sites", "licks")
+    kept = filter_processors(procs, include=["sites"])
+    assert [p.output_name for p in kept] == ["session", "sites"]
+
+
+def test_filter_processors_exclude_is_a_blacklist():
+    from aind_behavior_vr_foraging_packaging.pipeline.session import filter_processors
+
+    procs = _named_procs("session", "sites", "licks")
+    kept = filter_processors(procs, exclude=["licks"])
+    assert [p.output_name for p in kept] == ["session", "sites"]
+
+
+def test_filter_processors_exclude_wins_over_include():
+    from aind_behavior_vr_foraging_packaging.pipeline.session import filter_processors
+
+    procs = _named_procs("session", "sites")
+    assert [p.output_name for p in filter_processors(procs, include=["sites"], exclude=["sites"])] == ["session"]
+
+
+def test_session_survives_every_filter():
+    """Dropping session.parquet would leave every other table without its join key."""
+    from aind_behavior_vr_foraging_packaging.pipeline.session import filter_processors
+
+    procs = _named_procs("session", "sites")
+    # explicitly excluded
+    assert [p.output_name for p in filter_processors(procs, exclude=["session"])] == ["session", "sites"]
+    # implicitly excluded by an include list it is absent from
+    assert [p.output_name for p in filter_processors(procs, include=["nothing_matches"])] == ["session"]
+
+
+def test_process_session_forwards_include_exclude(tmp_path):
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
+
+    ds = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
+
+    with patch(
+        "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
+        return_value=_named_procs("session", "sites"),
+    ) as create:
+        process_session(ds, tmp_path / "out", include=["sites"], exclude=["licks"])
+
+    assert create.call_args.kwargs["include"] == ["sites"]
+    assert create.call_args.kwargs["exclude"] == ["licks"]
+
+
+def test_processors_argument_bypasses_the_filter(tmp_path):
+    """An explicit list is already final — include/exclude do not re-filter it."""
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
+
+    ds = _dataset_rooted_at(tmp_path / "raw" / "sess_A")
+
+    with patch("aind_behavior_vr_foraging_packaging.pipeline.session.create_processors") as create:
+        data = process_session(ds, tmp_path / "out", processors=_named_procs("licks"), include=["sites"])
+
+    create.assert_not_called()
+    assert set(data) == {"licks"}
+
+
+# ---------------------------------------------------------------------------
+# process_session accepts a raw session path, not just a loaded Dataset
+# ---------------------------------------------------------------------------
+
+
+def test_process_session_accepts_a_path(tmp_path):
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
+
+    raw = tmp_path / "raw" / "sess_A"
+    ds = _dataset_rooted_at(raw)
+
+    with (
+        patch("aind_behavior_vr_foraging.data_contract.dataset", return_value=ds) as load,
+        patch(
+            "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
+            return_value=_named_procs("sites"),
+        ),
+    ):
+        process_session(raw, tmp_path / "out")
+
+    load.assert_called_once_with(raw)
     assert (tmp_path / "out" / "sites.parquet").exists()

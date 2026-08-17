@@ -15,7 +15,7 @@ used by the production code.
 Per-processor tests are in `tests/processing/`; the layers above them are
 tested at the `tests/` root — `test_abstract_processor.py`,
 `test_cached_frame.py`, `test_pipeline.py` (session pipeline),
-`test_experiment.py` (export pipeline and aggregation), `test_cli.py`, and
+`test_experiment.py` (export pipeline and aggregation), `test_export_cli.py`, and
 `test_nwb_session.py`. The dataset-backed tier is
 [integration-tests.md](integration-tests.md), deselected by default via the
 `integration` marker.

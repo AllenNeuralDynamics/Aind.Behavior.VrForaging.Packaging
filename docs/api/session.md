@@ -8,4 +8,4 @@ legacy processor variants; all others use the current implementations.
 
 ---
 
-::: aind_behavior_vr_foraging_packaging.session_pipeline
+::: aind_behavior_vr_foraging_packaging.pipeline.session

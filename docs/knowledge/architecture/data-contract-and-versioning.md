@@ -59,7 +59,7 @@ comparison. Both consumers reach it the same way:
 Version dispatch reads through it too: `SiteTableProcessor.__init__` warns (does
 not raise) when `dataset_semver != data_contract_semver`, and
 `_LEGACY_VERSION_CUTOFF` is compared against `dataset_semver` — see
-[session-pipeline.md](session-pipeline.md).
+[session.md](session.md).
 
 ## Where the versions land in the outputs
 
@@ -69,7 +69,7 @@ them and the integration suite can assert they agree:
 
 | Output | Location | Written by |
 |--------|----------|------------|
-| Parquet | `df.attrs`, plus the same keys as top-level parquet schema metadata (readable from DuckDB, Polars, R arrow — no pandas needed) | `AbstractProcessor.compute` stamps the attrs; `session_pipeline._write_parquet` promotes them |
+| Parquet | `df.attrs`, plus the same keys as top-level parquet schema metadata (readable from DuckDB, Polars, R arrow — no pandas needed) | `AbstractProcessor.compute` stamps the attrs; `pipeline.session._write_parquet` promotes them |
 | NWB | `nwb.was_generated_by`, appended to the entry `create_base_nwb_file` already wrote | `NwbSession._create_nwb_file` |
 
 Parquet additionally carries a `processor` key naming the class that produced
@@ -85,7 +85,7 @@ Why they live in `was_generated_by`, and the write-once constraint that comes
 with it, is covered in [nwb-packaging.md](nwb-packaging.md).
 
 One gap to know about: these keys are **per-session**, and
-[Phase 2 aggregation](export-pipeline.md) does not carry them onto the flat
+[Phase 2 aggregation](batch.md) does not carry them onto the flat
 experiment-level tables — nor does the aggregated `session.parquet`, whose
 model has no version columns. A multi-session export is currently not
 self-describing; that section documents exactly where provenance is and is not

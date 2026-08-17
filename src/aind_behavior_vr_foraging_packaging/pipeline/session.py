@@ -1,4 +1,4 @@
-"""Top-level pipeline factory.
+"""Single-session pipeline: version dispatch, fan-out, and output writing.
 
 Selects the correct processor set for a dataset version and returns it ready
 to pass to ``NwbSession.run()``. Version dispatch is automatic: datasets with
@@ -15,8 +15,8 @@ import pandas as pd
 import semver
 from contraqctor.contract import Dataset
 
-from ._base import AbstractProcessor, session_root
-from .processing import (
+from .._base import AbstractProcessor, session_root
+from ..processing import (
     EventsProcessor,
     LegacyPositionAndVelocityProcessor,
     LegacySiteTableProcessor,
@@ -37,6 +37,8 @@ def create_processors(
     dataset: Dataset,
     *,
     strict_parsing: bool = False,
+    include: Sequence[str] = (),
+    exclude: Sequence[str] = (),
 ) -> list[AbstractProcessor]:
     """Return the ordered processor list for *dataset*, dispatching on version.
 
@@ -48,14 +50,21 @@ def create_processors(
     strict_parsing:
         Passed through to every processor. When ``True``, any parsing anomaly
         raises; when ``False`` (default) it logs a warning and continues.
+    include:
+        If non-empty, keep only processors whose ``output_name`` is listed.
+    exclude:
+        Drop processors whose ``output_name`` is listed. Applied after
+        *include*, so an name in both is dropped.
 
     Returns
     -------
     list[AbstractProcessor]
         Processors in the order they must be applied; ``session`` is always
-        first. :class:`~.processing.SessionMetadataProcessor` is unconditional —
-        it derives the session root from the dataset's own Session stream, so
-        there is nothing for the caller to supply and no reason to omit it.
+        first and is never filtered out — it carries the session's identity, so
+        every other table would lose its join key without it.
+        :class:`~.processing.SessionMetadataProcessor` is also unconditional in
+        the sense that it needs no arguments: it derives the session root from
+        the dataset's own Session stream.
     """
 
     processors: list[AbstractProcessor] = [
@@ -67,7 +76,36 @@ def create_processors(
         SoftwareEventsProcessor(dataset, strict_parsing=strict_parsing),
         EventsProcessor(dataset, strict_parsing=strict_parsing),
     ]
-    return processors
+    return filter_processors(processors, include=include, exclude=exclude)
+
+
+def filter_processors(
+    processors: Sequence[AbstractProcessor],
+    *,
+    include: Sequence[str] = (),
+    exclude: Sequence[str] = (),
+) -> list[AbstractProcessor]:
+    """Select processors by ``output_name``, always keeping ``session``.
+
+    Empty *include* means "keep everything"; *exclude* is applied second.
+    ``session`` survives both, because dropping it would leave every other
+    table without the identity row it joins to.
+    """
+    include_set, exclude_set = frozenset(include), frozenset(exclude)
+
+    def _keep(proc: AbstractProcessor) -> bool:
+        name = proc.output_name
+        if name == SessionMetadataProcessor.__output_name__:
+            return True
+        if include_set and name not in include_set:
+            logger.debug("skip %s (not in include list)", name)
+            return False
+        if name in exclude_set:
+            logger.debug("skip %s (excluded)", name)
+            return False
+        return True
+
+    return [p for p in processors if _keep(p)]
 
 
 def resolve_site_table_processor(
@@ -94,10 +132,12 @@ def resolve_position_velocity_processor(
 
 
 def process_session(
-    dataset: Dataset,
+    dataset: Dataset | Path | str,
     output_dir: Path | str = ".",
     *,
     strict_parsing: bool = False,
+    include: Sequence[str] = (),
+    exclude: Sequence[str] = (),
     processors: Sequence[AbstractProcessor] | None = None,
     on_error: Callable[[AbstractProcessor, Exception], None] | None = None,
     write_parquet: bool = True,
@@ -118,8 +158,9 @@ def process_session(
     Parameters
     ----------
     dataset:
-        Loaded contraqctor Dataset. Its version determines which processor
-        variants are selected (legacy vs current).
+        A loaded contraqctor Dataset, or the path to a raw session directory to
+        load one from. Its version determines which processor variants are
+        selected (legacy vs current).
     output_dir:
         Directory where outputs are written; defaults to the current working
         directory. Created if absent, unless both *write_parquet* and
@@ -127,16 +168,16 @@ def process_session(
         directory is made.
     strict_parsing:
         Passed to all processors.
+    include, exclude:
+        Processor ``output_name`` filters, forwarded to
+        :func:`create_processors`. ``session`` is never filtered out. Ignored
+        when *processors* is given, since that list is already final.
     processors:
         Use this exact, already-constructed processor list instead of calling
-        :func:`create_processors` internally. For a caller that has already
-        filtered/selected its own processor list (e.g.
-        ``export_pipeline._process_one_session``'s ``--include-processors``/
-        ``--exclude-processors`` handling) — *strict_parsing* is then
-        irrelevant to processor construction and only still applies to this
-        function's own behavior. ``None`` (default) preserves the original
-        behavior: build the list via
-        ``create_processors(dataset, strict_parsing=strict_parsing)``.
+        :func:`create_processors` internally — the escape hatch for a custom or
+        third-party processor. *strict_parsing*, *include* and *exclude* are
+        then irrelevant to processor construction. ``None`` (default) builds
+        the list from the dataset.
     on_error:
         Called as ``on_error(processor, exception)`` when a processor's
         ``compute()`` raises, instead of letting the exception propagate.
@@ -166,12 +207,21 @@ def process_session(
         whose ``compute()`` raised and whose failure was absorbed by *on_error*
         (rather than re-raised) is simply absent from this dict.
     """
+    if isinstance(dataset, (str, Path)):
+        from aind_behavior_vr_foraging.data_contract import dataset as load_dataset
+
+        dataset = load_dataset(Path(dataset))
+
     output_dir = Path(output_dir)
     if write_parquet or write_nwb:
         output_dir.mkdir(parents=True, exist_ok=True)
 
     root = session_root(dataset)
-    selected = processors if processors is not None else create_processors(dataset, strict_parsing=strict_parsing)
+    selected = (
+        processors
+        if processors is not None
+        else create_processors(dataset, strict_parsing=strict_parsing, include=include, exclude=exclude)
+    )
 
     all_data: dict[str, pd.DataFrame] = {}
     for proc in selected:
@@ -211,7 +261,7 @@ def _write_nwb_zarr(
     """
     import shutil
 
-    from .nwb_file import NwbSession
+    from ..nwb_file import NwbSession
 
     dest = output_dir / f"{root.name}.nwb.zarr"
 

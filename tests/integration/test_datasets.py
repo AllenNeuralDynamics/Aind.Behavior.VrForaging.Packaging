@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 import pandas as pd
 import pytest
 
-from aind_behavior_vr_foraging_packaging.session_pipeline import (
+from aind_behavior_vr_foraging_packaging.pipeline.session import (
     create_processors,
     process_session,
     resolve_site_table_processor,

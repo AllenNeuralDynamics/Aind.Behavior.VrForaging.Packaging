@@ -20,7 +20,7 @@ suite is unaffected.
 | `model.py` | Pydantic models (`DatasetManifest`, `DatasetEntry`, `ExpectedInvariants`) with `extra="forbid"` so typos in the YAML fail loudly. |
 | `conftest.py` | S3 download + ETag caching; the `all_cached_session_paths` fixture that hands the whole cache to the export test. |
 | `test_datasets.py` | Two parametrized tests per manifest entry: site table, and the full parquet + NWB pipeline. |
-| `test_experiment_export.py` | Four tests running the [export pipeline](../architecture/export-pipeline.md) across *all* cached sessions at once: `test_full_export_pipeline` (both phases, asserts the output tree and that `session_id` joins from `session.parquet` to `sites.parquet`), plus `test_skip_aggregation_writes_only_sessions`, `test_exclude_processor`, and `test_rerun_aggregation_only`. Skip when the cache is empty. |
+| `test_experiment_export.py` | Four tests running the [export pipeline](../architecture/batch.md) across *all* cached sessions at once: `test_full_export_pipeline` (both phases, asserts the output tree and that `session_id` joins from `session.parquet` to `sites.parquet`), plus `test_skip_aggregation_writes_only_sessions`, `test_exclude_processor`, and `test_rerun_aggregation_only`. Skip when the cache is empty. |
 
 # The tests
 

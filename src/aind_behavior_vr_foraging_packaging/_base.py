@@ -72,7 +72,7 @@ def cached_frame(fn: ty.Callable[[ty.Any], pd.DataFrame]) -> ty.Callable[[ty.Any
 
     The cache lives on the instance (``self.__dict__``), and processors are
     constructed per session by
-    :func:`~aind_behavior_vr_foraging_packaging.session_pipeline.create_processors`,
+    :func:`~aind_behavior_vr_foraging_packaging.pipeline.session.create_processors`,
     so it dies with the session. There is no cross-session staleness to manage and
     nothing to invalidate. An exception is *not* cached: a failed ``_compute``
     leaves the cache empty and the next call retries.
@@ -194,7 +194,7 @@ class AbstractProcessor(abc.ABC):
         rather than consult this flag: there is no degraded output to fall back to.
 
         Isolating one failure from the rest of a run is the caller's job, not the flag's.
-        :func:`~aind_behavior_vr_foraging_packaging.export_pipeline.process_sessions`
+        :func:`~aind_behavior_vr_foraging_packaging.pipeline.batch.process_sessions`
         catches whatever a processor raises, so a single bad session or processor never
         aborts a batch.
         """

@@ -34,7 +34,7 @@ Load a raw session directory and compute the sites table (one row per *site*):
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-from aind_behavior_vr_foraging_packaging.session_pipeline import resolve_site_table_processor
+from aind_behavior_vr_foraging_packaging.pipeline.session import resolve_site_table_processor
 
 ds = dataset("path/to/session")                        # load the raw session
 sites_df = resolve_site_table_processor(ds).compute()  # version-dispatch automatic
@@ -53,7 +53,7 @@ parquet per processor and returns them keyed by name:
 
 ```python
 from aind_behavior_vr_foraging.data_contract import dataset
-from aind_behavior_vr_foraging_packaging.session_pipeline import process_session
+from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
 ds = dataset("path/to/session")
 results = process_session(ds, output_dir="output/")
@@ -76,7 +76,7 @@ Then export a folder of raw session directories
 (`--input-dir` must contain one subdirectory per session):
 
 ```bash
-aind-vr-export --input-dir /data/raw --output-dir /data/export
+vr-foraging-packaging batch --input-dir /data/raw --output-dir /data/export
 ```
 
 The export directory receives:
@@ -92,21 +92,38 @@ The export directory receives:
         └── …
 ```
 
+### Subcommands
+
+| Command | `--input-dir` is | What it does |
+|------|---------|-------------|
+| `session` | one raw session directory | Export that session's tables (and optionally NWB) |
+| `batch` | a folder of raw session directories | Export every session, then aggregate |
+| `aggregate` | a `sessions/` tree from an earlier run | Rebuild the experiment-level tables only |
+
+```bash
+# One session
+vr-foraging-packaging session --input-dir /data/raw/behavior_123_2025-01-01 --write-nwb
+
+# Aggregate later, re-processing nothing
+vr-foraging-packaging aggregate --input-dir /data/export/sessions --output-dir /data/export
+```
+
 ### Common CLI flags
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--workers N` | `1` | Parallel threads for Phase 1 (per-session processing) |
-| `--exclude-processors a b` | *(none)* | Skip named processors, e.g. `sniffing software_events` |
-| `--include-processors a b` | *(all)* | Run only the listed processors |
-| `--dataset-tables a b` | `sites` | Tables to flatten across sessions in Phase 2 |
-| `--skip-processing` | `false` | Jump straight to Phase 2 (sessions already written) |
-| `--skip-aggregation` | `false` | Write only per-session parquets |
-| `--write-nwb` | `false` | Also write an NWB-Zarr store per session |
-| `--log-file path` | *(none)* | Append a structured log to this path |
-| `--raise-on-error` | `false` | Abort on the first failure instead of logging |
+| Flag | Default | Description | Commands |
+|------|---------|-------------|----------|
+| `--include-processors a b` | *(all)* | Run only the listed processors | `session`, `batch` |
+| `--exclude-processors a b` | *(none)* | Skip named processors | `session`, `batch` |
+| `--strict-parsing` | `false` | Treat a known data anomaly as fatal | `session`, `batch` |
+| `--write-nwb` | `false` | Also write an NWB-Zarr store per session | `session`, `batch` |
+| `--no-write-parquet` | *(parquet on)* | Skip the parquet tables | `session`, `batch` |
+| `--workers N` | `1` | Parallel threads for the per-session phase | `batch` |
+| `--skip-aggregation` | `false` | Write only per-session outputs | `batch` |
+| `--no-clean` | *(clean on)* | Keep `--output-dir` instead of wiping it | `batch` |
+| `--log-file path` | *(none)* | Append a structured log to this path | all |
 
-Run `aind-vr-export --help` for the full flag reference.
+Run `vr-foraging-packaging --help`, or `vr-foraging-packaging <command> --help`,
+for the full flag reference.
 
 ## Next steps
 
