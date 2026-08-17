@@ -10,16 +10,10 @@ from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from .session_pipeline import _write_parquet, create_processors, process_session
-
-if TYPE_CHECKING:
-    import contraqctor.contract
-
-    from ._base import AbstractProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -72,55 +66,6 @@ DEFAULT_AGGREGATOR = Aggregator(
 # ---------------------------------------------------------------------------
 
 
-def _write_session_nwb(
-    raw_path: Path,
-    session_out: Path,
-    dataset: "contraqctor.contract.Dataset | None",
-    processors: Sequence["AbstractProcessor"],
-) -> Path:
-    """Build and write one NWB-Zarr store for a session.
-
-    Parameters
-    ----------
-    raw_path:
-        Root directory of the raw session (used to initialise :class:`NwbSession`).
-    session_out:
-        Per-session output directory (``sessions/{session_id}/``); the store is
-        written as ``session_out/{session_id}.nwb.zarr``.
-    dataset:
-        Already-loaded contraqctor Dataset (avoids a second ``load_dataset`` call).
-    processors:
-        Filtered processor list — the same one used for the parquet step.
-
-    Returns
-    -------
-    Path
-        Path to the written ``.nwb.zarr`` directory.
-
-    Raises
-    ------
-    Exception
-        Whatever the NWB build or write raised. Held to the same rule as the
-        processors: a session whose NWB step failed is not a usable partial
-        result, so the failure is not swallowed here.
-    """
-    from .nwb_file import NwbSession
-
-    session_id = raw_path.name
-    dest = session_out / f"{session_id}.nwb.zarr"
-
-    session = NwbSession(raw_path, dataset=dataset)
-    session.run(*processors)
-    # NWBZarrIO("w") does not reliably clear a pre-existing store; remove it
-    # first so a re-run with clean=False never mixes old and new objects.
-    if dest.exists():
-        shutil.rmtree(dest)
-    session.write_nwb_zarr(dest)
-
-    logger.info("[%s] NWB → %s", session_id, dest.name)
-    return dest
-
-
 def _process_one_session(
     raw_path: Path,
     sessions_dir: Path,
@@ -137,7 +82,12 @@ def _process_one_session(
     ``docs/knowledge/conventions/error-policy.md``); it does not gate general
     exceptions. Anything escaping ``compute()`` is unexpected by definition, so
     the session is not a usable partial result and the failure is not caught
-    here. The NWB step is held to the same rule.
+    here. The NWB step, written by ``process_session`` itself, is held to the
+    same rule.
+
+    This function owns only what is genuinely multi-session: resolving the
+    per-session output directory and applying the include/exclude filter. Both
+    output formats are produced by ``process_session``.
     """
     from aind_behavior_vr_foraging.data_contract import dataset as load_dataset
 
@@ -169,12 +119,10 @@ def _process_one_session(
         session_out,
         processors=selected,
         strict_parsing=strict_parsing,
+        write_nwb=write_nwb,
     )
 
     logger.info("[%s] done (%d processors ran)", session_id, len(computed))
-
-    if write_nwb:
-        _write_session_nwb(raw_path, session_out, ds, selected)
 
     return session_out
 
@@ -220,10 +168,10 @@ def process_sessions(
         different invocations.  Set to ``False`` only when you intentionally
         want to resume a partial run.
     write_nwb:
-        When ``True``, also write a NWB-Zarr store for each session alongside
-        its parquet files (``sessions/{session_id}/{session_id}.nwb.zarr``).
-        The same processor include/exclude filter applies to both outputs.
-        Requires the AIND metadata JSON files to be present in each session
+        Forwarded to :func:`~.session_pipeline.process_session`, which writes a
+        NWB-Zarr store alongside each session's parquet files
+        (``sessions/{session_id}/{session_id}.nwb.zarr``) from the same filtered
+        processor list. Requires the AIND metadata JSON files in each session
         root; a session missing them fails the NWB step, and that failure
         propagates like any other. Defaults to ``False``.
 

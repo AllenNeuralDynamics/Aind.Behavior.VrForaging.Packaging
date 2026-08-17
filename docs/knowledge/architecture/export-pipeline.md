@@ -49,10 +49,11 @@ processor and writes `output_dir/sessions/{session_id}/{output_name}.parquet`.
 
 # NWB output (`write_nwb`)
 
-When `write_nwb=True`, `_process_one_session` calls `_write_session_nwb` after
-the parquet loop. It uses the **same filtered processor list** so one
-`--exclude-processors sniffing` removes sniffing from both outputs — one filter,
-two output formats.
+`write_nwb` is forwarded straight to
+[`process_session`](session-pipeline.md), which owns both output formats — this
+layer adds nothing to the NWB path. The **same filtered processor list** drives
+both, so one `--exclude-processors sniffing` removes sniffing from parquet and
+NWB alike.
 
 The store is written to:
 
@@ -60,19 +61,16 @@ The store is written to:
 output_dir/sessions/{session_id}/{session_id}.nwb.zarr
 ```
 
-collocated with the parquets for that session. The helper delegates to
-[`NwbSession`](nwb-packaging.md): it passes the already-loaded dataset to avoid
-a second `load_dataset` call, then calls `session.run(*processors)` and
-`session.write_nwb_zarr(dest)`.
+collocated with the parquets for that session, because `process_session`'s
+`output_dir` *is* the per-session directory.
 
 **Failure.** `create_base_nwb_file` (called inside `NwbSession`) requires five
 AIND metadata JSON files in the session root. A session lacking them fails the
 NWB step, and that failure propagates like any other — it is not swallowed, and
-the session's parquets do not make it a success. `_write_session_nwb` has no
-`try`/`except` and returns `Path`, never `None`.
+the session's parquets do not make it a success.
 
 **Stale stores.** If `clean=False` and a store already exists from a prior run,
-`_write_session_nwb` removes it with `shutil.rmtree` before writing, because
+`process_session` removes it with `shutil.rmtree` before writing, because
 `NWBZarrIO("w")` does not guarantee a full overwrite.
 
 **Runtime cost.** `compute()` (parquet) and `nwbize()` (NWB) share no state by

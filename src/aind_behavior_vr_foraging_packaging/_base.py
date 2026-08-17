@@ -3,6 +3,7 @@ import functools
 import re
 import typing as ty
 from functools import cached_property
+from pathlib import Path
 
 import pandas as pd
 from contraqctor.contract import Dataset
@@ -16,6 +17,32 @@ class DatasetProcessorError(Exception):
     See :attr:`AbstractProcessor.strict_parsing` and
     ``docs/knowledge/conventions/error-policy.md``.
     """
+
+
+def session_root(dataset: Dataset) -> Path:
+    """Return the session's root directory, derived from the Session stream's path.
+
+    The contraqctor ``Dataset`` does not carry the root it was loaded from, so it
+    is recovered by walking up from ``<root>/behavior/Logs/session_input.json``.
+    Anchors on the ``behavior/`` component rather than counting parents, so moving
+    the log deeper under ``behavior/`` cannot silently yield the wrong directory.
+
+    The directory's ``name`` is the session's ``session_id`` everywhere in the
+    package, so a failure here is fatal rather than degradable.
+    """
+    stream = dataset.at("Behavior").at("InputSchemas").at("Session")
+    raw_path = getattr(stream.reader_params, "path", None)
+    if raw_path is None:
+        raise DatasetProcessorError("Session stream exposes no source path to take the session directory from")
+
+    path = Path(raw_path)
+    for parent in path.parents:
+        if parent.name.lower() == "behavior":
+            return parent.parent
+
+    raise DatasetProcessorError(
+        f"Session stream path {str(path)!r} has no 'behavior' component to locate the session root from"
+    )
 
 
 def _class_name_to_snake(name: str) -> str:

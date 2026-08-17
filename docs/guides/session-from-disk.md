@@ -137,23 +137,43 @@ results = process_session(
 )
 ```
 
-## Also write NWB
+## Choosing the output formats
 
-`process_session` writes parquet only. For NWB, use `NwbSession` directly with
-the same processor list. The session directory must contain the standard AIND
-metadata JSON files:
+`write_parquet` (default `True`) and `write_nwb` (default `False`) are
+independent switches over the same computed frames:
 
 ```python
-from aind_behavior_vr_foraging.data_contract import dataset
+# Parquet only (the default)
+process_session(ds, "output/my_session/")
+
+# Both — writes output/my_session/<session_id>.nwb.zarr alongside the parquets
+process_session(ds, "output/my_session/", write_nwb=True)
+
+# NWB only
+process_session(ds, "output/my_session/", write_parquet=False, write_nwb=True)
+
+# Neither — compute in memory, touch no disk
+frames = process_session(ds, write_parquet=False)
+```
+
+`output_dir` defaults to the current working directory, so `process_session(ds)`
+is a complete call.
+
+Every processor runs in all four cases; the flags choose what reaches disk, not
+what is computed, so the returned dict is the same either way.
+
+`write_nwb=True` needs the standard AIND metadata JSON files in the session
+root, which is where `create_base_nwb_file` reads identity from. A session
+missing them fails the NWB step, and that failure propagates.
+
+For direct control over the NWB file — a custom base file, or inspecting it
+before writing — use `NwbSession` yourself:
+
+```python
 from aind_behavior_vr_foraging_packaging.nwb_file import NwbSession
-from aind_behavior_vr_foraging_packaging.session_pipeline import create_processors
 
-raw = "path/to/behavior_<subject>_<date>"
-ds = dataset(raw)
-processors = create_processors(ds)
-
-session = NwbSession(raw)
-session.run(*processors)
+session = NwbSession(raw, dataset=ds)
+session.run(*create_processors(ds))
 session.write_nwb_zarr("output/my_session/my_session.nwb.zarr")
 ```
 

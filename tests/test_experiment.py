@@ -31,9 +31,14 @@ def _mock_proc(name: str, *, raises: bool = False) -> MagicMock:
     return proc
 
 
-def _mock_dataset() -> MagicMock:
+def _mock_dataset(root: Path | None = None) -> MagicMock:
+    """Mock dataset whose Session stream path makes session_root() resolve to *root*."""
     ds = MagicMock()
     ds.version = "0.6.1"
+    root = root or Path("raw") / "sess_A"
+    ds.at.return_value.at.return_value.at.return_value.reader_params.path = str(
+        root / "behavior" / "Logs" / "session_input.json"
+    )
     return ds
 
 
@@ -47,7 +52,7 @@ class TestAnyProcessorFailureFailsTheSession:
         procs = [_mock_proc("session"), _mock_proc("sites"), _mock_proc("licks", raises=True)]
 
         with (
-            patch("aind_behavior_vr_foraging.data_contract.dataset", return_value=_mock_dataset()),
+            patch("aind_behavior_vr_foraging.data_contract.dataset", return_value=_mock_dataset(raw)),
             patch("aind_behavior_vr_foraging_packaging.export_pipeline.create_processors", return_value=procs),
             pytest.raises(ValueError, match="licks blew up"),
         ):
@@ -59,7 +64,7 @@ class TestAnyProcessorFailureFailsTheSession:
         procs = [_mock_proc("session"), _mock_proc("sites"), _mock_proc("licks")]
 
         with (
-            patch("aind_behavior_vr_foraging.data_contract.dataset", return_value=_mock_dataset()),
+            patch("aind_behavior_vr_foraging.data_contract.dataset", return_value=_mock_dataset(raw)),
             patch("aind_behavior_vr_foraging_packaging.export_pipeline.create_processors", return_value=procs),
         ):
             written = process_sessions([raw], tmp_path / "out")
@@ -77,7 +82,7 @@ class TestAnyProcessorFailureFailsTheSession:
         bad.mkdir(parents=True)
 
         def _load_dataset(path):
-            ds = _mock_dataset()
+            ds = _mock_dataset(path)
             ds.session_root = path
             return ds
 

@@ -15,7 +15,7 @@ import pandas as pd
 import semver
 from contraqctor.contract import Dataset
 
-from ._base import AbstractProcessor
+from ._base import AbstractProcessor, session_root
 from .processing import (
     EventsProcessor,
     LegacyPositionAndVelocityProcessor,
@@ -95,17 +95,25 @@ def resolve_position_velocity_processor(
 
 def process_session(
     dataset: Dataset,
-    output_dir: Path,
+    output_dir: Path | str = ".",
     *,
     strict_parsing: bool = False,
     processors: Sequence[AbstractProcessor] | None = None,
     on_error: Callable[[AbstractProcessor, Exception], None] | None = None,
-    log_prefix: str = "",
+    write_parquet: bool = True,
+    write_nwb: bool = False,
 ) -> dict[str, pd.DataFrame]:
-    """Run all processors and save their outputs as parquet files.
+    """Run every processor and write the outputs chosen by *write_parquet* / *write_nwb*.
 
     Each processor's ``output_name`` attribute determines its parquet filename,
     e.g. ``sites.parquet``, ``position_velocity.parquet``, etc.
+
+    The two output formats are independent switches over the same computed
+    frames. Every processor runs regardless — the flags choose what reaches disk,
+    not what is computed — so the returned dict is the same either way.
+
+    Log lines are prefixed with the session id, taken from the dataset, so
+    per-processor progress stays grep-able when many sessions run in one batch.
 
     Parameters
     ----------
@@ -113,7 +121,10 @@ def process_session(
         Loaded contraqctor Dataset. Its version determines which processor
         variants are selected (legacy vs current).
     output_dir:
-        Directory where parquet files are written. Created if absent.
+        Directory where outputs are written; defaults to the current working
+        directory. Created if absent, unless both *write_parquet* and
+        *write_nwb* are ``False``, in which case nothing is written and no
+        directory is made.
     strict_parsing:
         Passed to all processors.
     processors:
@@ -135,28 +146,37 @@ def process_session(
         this function). ``None`` (default) means an exception propagates
         immediately, same as before this parameter existed — every existing
         caller keeps its current behavior unchanged.
-    log_prefix:
-        Prepended to this function's own log lines — e.g. ``f"[{session_id}] "``
-        for a caller processing many sessions in one batch, so per-processor
-        progress stays grep-able by session. Empty by default.
+    write_parquet:
+        When ``True`` (default), write one ``output_dir/{output_name}.parquet``
+        per processor, with provenance promoted into the parquet schema. Set to
+        ``False`` to compute without touching disk — the frames still come back
+        in the return value.
+    write_nwb:
+        When ``True``, write ``output_dir/{session_id}.nwb.zarr`` from the same
+        processor list, so one filtered selection can produce both output
+        formats. Requires the AIND metadata JSON files in the session root; a
+        session missing them fails the NWB step, and that failure propagates
+        like any other. Defaults to ``False``.
 
     Returns
     -------
     dict[str, pd.DataFrame]
         DataFrames for every processor that computed successfully, keyed by
-        ``output_name``. A processor whose ``compute()`` raised and whose
-        failure was absorbed by *on_error* (rather than re-raised) is simply
-        absent from this dict.
+        ``output_name`` — independent of which formats were written. A processor
+        whose ``compute()`` raised and whose failure was absorbed by *on_error*
+        (rather than re-raised) is simply absent from this dict.
     """
     output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if write_parquet or write_nwb:
+        output_dir.mkdir(parents=True, exist_ok=True)
 
+    root = session_root(dataset)
     selected = processors if processors is not None else create_processors(dataset, strict_parsing=strict_parsing)
 
     all_data: dict[str, pd.DataFrame] = {}
     for proc in selected:
         name = proc.output_name
-        logger.info("%scompute: %s → %s.parquet", log_prefix, proc.__class__.__name__, name)
+        logger.info("[%s] compute: %s → %s", root.name, proc.__class__.__name__, name)
         try:
             # compute() stamps provenance attrs automatically (see AbstractProcessor.compute)
             df = proc.compute()
@@ -165,11 +185,46 @@ def process_session(
                 raise
             on_error(proc, exc)
             continue
-        _write_parquet(df, output_dir / f"{name}.parquet")
         all_data[name] = df
-        logger.info("%s  saved %d rows", log_prefix, len(df))
+        if write_parquet:
+            _write_parquet(df, output_dir / f"{name}.parquet")
+            logger.info("[%s]   saved %d rows → %s.parquet", root.name, len(df), name)
+        else:
+            logger.info("[%s]   %d rows (parquet skipped)", root.name, len(df))
+
+    if write_nwb:
+        _write_nwb_zarr(dataset, root, output_dir, selected)
 
     return all_data
+
+
+def _write_nwb_zarr(
+    dataset: Dataset,
+    root: Path,
+    output_dir: Path,
+    processors: Sequence[AbstractProcessor],
+) -> Path:
+    """Build and write one NWB-Zarr store to ``output_dir/{session_id}.nwb.zarr``.
+
+    Held to the same rule as the processors: a session whose NWB step failed is
+    not a usable partial result, so nothing is caught here.
+    """
+    import shutil
+
+    from .nwb_file import NwbSession
+
+    dest = output_dir / f"{root.name}.nwb.zarr"
+
+    session = NwbSession(root, dataset=dataset)
+    session.run(*processors)
+    # NWBZarrIO("w") does not reliably clear a pre-existing store; remove it
+    # first so a re-run never mixes old and new objects.
+    if dest.exists():
+        shutil.rmtree(dest)
+    session.write_nwb_zarr(dest)
+
+    logger.info("[%s] NWB → %s", root.name, dest.name)
+    return dest
 
 
 def _write_parquet(df: pd.DataFrame, path: Path) -> None:

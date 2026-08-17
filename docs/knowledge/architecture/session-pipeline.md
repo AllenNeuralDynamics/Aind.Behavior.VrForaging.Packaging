@@ -50,18 +50,47 @@ building the whole list:
 
 ```python
 process_session(
-    dataset, output_dir, *,
-    strict_parsing=False, processors=None, on_error=None, log_prefix="",
+    dataset, output_dir=".", *,
+    strict_parsing=False, processors=None, on_error=None,
+    write_parquet=True, write_nwb=False,
 ) -> dict[str, pd.DataFrame]
 ```
 
-1. Creates `output_dir` if absent.
-2. For each processor, calls `compute()` and writes
+`output_dir` accepts a `str` or `Path` and defaults to the current working
+directory, so `process_session(ds)` is a complete call.
+
+Log lines are prefixed with `[{session_id}]`, taken from the dataset via
+`_base.session_root`, so per-processor progress stays grep-able by session in a
+batch run without the caller having to pass a label down.
+
+1. Creates `output_dir` if either writer is enabled.
+2. For each processor, calls `compute()` and, when `write_parquet`, writes
    `output_dir/<output_name>.parquet`.
-3. Returns `dict[str, pd.DataFrame]` keyed by `output_name`.
+3. When `write_nwb`, writes `output_dir/<session_id>.nwb.zarr`.
+4. Returns `dict[str, pd.DataFrame]` keyed by `output_name`.
 
 Output filenames come straight from each processor's `output_name`: `session`,
 `sites`, `position_velocity`, `licks`, `sniffing`, `software_events`, `events`.
+
+# Both output formats, one function
+
+`write_parquet` (default `True`) and `write_nwb` (default `False`) are
+independent switches over the *same* computed frames. Every processor runs
+either way — the flags choose what reaches disk, not what is computed — so the
+returned dict is identical whichever combination is set, and
+`write_parquet=False` is a legitimate way to compute in memory without touching
+disk. Turning both off writes nothing and creates no directory.
+
+This is the reason `session_pipeline` owns the NWB write rather than
+`export_pipeline`. The NWB step needs exactly what the parquet step needs — a
+loaded dataset and a processor list — so a second copy of the fan-out one layer
+up bought nothing but drift. The session root is recovered from the dataset via
+`_base.session_root`, the same helper `SessionMetadataProcessor` uses for
+`session_id`, so the store's name and the table's join key cannot disagree.
+
+`export_pipeline._process_one_session` now forwards `write_nwb` and owns only
+what is genuinely multi-session: resolving the per-session output directory and
+applying the include/exclude filter.
 
 `processors` lets a caller supply an already-filtered list instead of having
 one built — this is how `export_pipeline` applies `--include-processors` /

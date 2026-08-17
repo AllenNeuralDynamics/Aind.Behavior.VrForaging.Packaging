@@ -2,13 +2,12 @@
 
 import datetime
 import logging
-from pathlib import Path
 from typing import Any, cast
 
 import pandas as pd
 from pydantic import BaseModel
 
-from .._base import AbstractProcessor, DatasetProcessorError
+from .._base import AbstractProcessor, session_root
 from .._provenance import PackagingProvenance
 from ..models import SessionMetadata
 
@@ -27,38 +26,13 @@ class SessionMetadataProcessor(AbstractProcessor):
 
     def _compute(self) -> pd.DataFrame:
         raw = self._load_session_stream()
-        row = self._build_metadata(raw, self._session_root().name, self.provenance)
+        row = self._build_metadata(raw, session_root(self._dataset).name, self.provenance)
         return pd.DataFrame([row.model_dump()])
 
     def _load_session_stream(self) -> dict[str, Any]:
         """Return the Session stream's payload as a plain dict."""
-        data = self._session_stream().load().data
+        data = self._dataset.at("Behavior").at("InputSchemas").at("Session").load().data
         return data.model_dump() if isinstance(data, BaseModel) else cast(dict[str, Any], data)
-
-    def _session_stream(self) -> Any:
-        return self._dataset.at("Behavior").at("InputSchemas").at("Session")
-
-    def _session_root(self) -> Path:
-        """Return the session root, found by walking up from the Session stream's path.
-
-        Anchors on the ``behavior/`` component of
-        ``<root>/behavior/Logs/session_input.json`` rather than counting parents, so
-        moving the log deeper under ``behavior/`` cannot silently yield the wrong
-        directory. Raises when the root cannot be recovered — there is no identity
-        without it.
-        """
-        raw_path = getattr(self._session_stream().reader_params, "path", None)
-        if raw_path is None:
-            raise DatasetProcessorError("Session stream exposes no source path to take the session directory from")
-
-        path = Path(raw_path)
-        for parent in path.parents:
-            if parent.name.lower() == "behavior":
-                return parent.parent
-
-        raise DatasetProcessorError(
-            f"Session stream path {str(path)!r} has no 'behavior' component to locate the session root from"
-        )
 
     @staticmethod
     def _build_metadata(raw: dict, session_id: str, provenance: PackagingProvenance) -> SessionMetadata:

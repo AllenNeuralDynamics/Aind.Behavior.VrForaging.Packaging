@@ -3,6 +3,30 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-08-16 (one session, two output formats)
+
+* **Architecture**: `_write_session_nwb` moved out of `export_pipeline` and into
+  `process_session` as a `write_nwb: bool = False` option, joined by
+  `write_parquet: bool = True`. The two formats are now independent switches
+  over the same computed frames — every processor runs either way, so the
+  returned dict does not depend on them, and both off writes nothing and creates
+  no directory. The NWB step needed exactly what the parquet step needed (a
+  loaded dataset and a processor list), so a second fan-out one layer up bought
+  nothing but drift; `export_pipeline._process_one_session` now forwards the flag
+  and owns only what is genuinely multi-session. See
+  [session-pipeline.md](architecture/session-pipeline.md).
+* **Architecture**: `process_session` no longer takes a `log_prefix`. It derives
+  `[{session_id}]` from the dataset itself, so batch runs are grep-able by
+  session without a caller threading a label down.
+* **Architecture**: `process_session`'s `output_dir` became optional, accepting
+  a `str` or `Path` and defaulting to the current working directory, so
+  `process_session(ds)` is a complete call.
+* **Architecture**: the session-root derivation moved from
+  `SessionMetadataProcessor._session_root` to a shared `_base.session_root`,
+  since `process_session` needs the same directory to name the NWB store that
+  the processor uses for `session_id`. One derivation means the store's name and
+  the table's join key cannot disagree.
+
 ## 2026-08-16 (documentation sweep)
 
 An audit against the source found the bundle had drifted on every rename and
