@@ -46,7 +46,7 @@ class SoftwareEventsProcessor(AbstractProcessor):
             if stream.is_collection:
                 continue
             if stream.has_error:
-                if self._raise_on_error:
+                if self._strict_parsing:
                     raise ValueError(f"Stream {stream.name} error: {stream.collect_errors()}")
                 logger.debug("Skipping %s: %s", stream.name, stream.collect_errors())
                 continue
@@ -99,7 +99,7 @@ class SoftwareEventsProcessor(AbstractProcessor):
             if stream.is_collection:
                 continue
             if stream.has_error:
-                if self._raise_on_error:
+                if self._strict_parsing:
                     raise ValueError(f"Stream {stream.name} error: {stream.collect_errors()}")
                 logger.debug("Skipping %s: %s", stream.name, stream.collect_errors())
                 continue

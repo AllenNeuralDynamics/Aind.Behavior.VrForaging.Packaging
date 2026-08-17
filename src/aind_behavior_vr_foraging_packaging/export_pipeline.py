@@ -77,9 +77,7 @@ def _write_session_nwb(
     session_out: Path,
     dataset: "contraqctor.contract.Dataset | None",
     processors: Sequence["AbstractProcessor"],
-    *,
-    raise_on_error: bool,
-) -> Path | None:
+) -> Path:
     """Build and write one NWB-Zarr store for a session.
 
     Parameters
@@ -93,34 +91,31 @@ def _write_session_nwb(
         Already-loaded contraqctor Dataset (avoids a second ``load_dataset`` call).
     processors:
         Filtered processor list — the same one used for the parquet step.
-    raise_on_error:
-        When ``True``, any failure propagates. When ``False`` (default), the
-        error is logged and ``None`` is returned so the session is not dropped
-        from the result list.
 
     Returns
     -------
-    Path | None
-        Path to the written ``.nwb.zarr`` directory, or ``None`` on failure.
+    Path
+        Path to the written ``.nwb.zarr`` directory.
+
+    Raises
+    ------
+    Exception
+        Whatever the NWB build or write raised. Held to the same rule as the
+        processors: a session whose NWB step failed is not a usable partial
+        result, so the failure is not swallowed here.
     """
     from .nwb_file import NwbSession
 
     session_id = raw_path.name
     dest = session_out / f"{session_id}.nwb.zarr"
 
-    try:
-        session = NwbSession(raw_path, dataset=dataset)
-        session.run(*processors)
-        # NWBZarrIO("w") does not reliably clear a pre-existing store; remove it
-        # first so a re-run with clean=False never mixes old and new objects.
-        if dest.exists():
-            shutil.rmtree(dest)
-        session.write_nwb_zarr(dest)
-    except Exception as exc:
-        logger.warning("[%s] NWB export FAILED: %s", session_id, exc, exc_info=True)
-        if raise_on_error:
-            raise
-        return None
+    session = NwbSession(raw_path, dataset=dataset)
+    session.run(*processors)
+    # NWBZarrIO("w") does not reliably clear a pre-existing store; remove it
+    # first so a re-run with clean=False never mixes old and new objects.
+    if dest.exists():
+        shutil.rmtree(dest)
+    session.write_nwb_zarr(dest)
 
     logger.info("[%s] NWB → %s", session_id, dest.name)
     return dest
@@ -131,20 +126,18 @@ def _process_one_session(
     sessions_dir: Path,
     include_set: frozenset[str],
     exclude_set: frozenset[str],
-    raise_on_error: bool,
+    strict_parsing: bool,
     write_nwb: bool,
 ) -> Path | None:
     """Process a single session directory and write per-processor parquets.
 
-    Returns the written session directory, or ``None`` if the dataset failed
-    to load, its processors could not be constructed, or *any* processor (or
-    the NWB step) raised — regardless of ``raise_on_error``. A processor is
-    only supposed to catch and gracefully degrade from anomalies it explicitly
-    anticipates (the ``raise_on_error`` convention, ``AbstractProcessor.raise_on_error``);
-    anything that reaches this function's ``except Exception`` is unexpected
-    by definition, so the session is not a usable partial result — whatever
-    parquet files other processors already wrote are discarded along with it,
-    so a failed session can never be picked up by a later :func:`aggregate` call.
+    Everything here propagates. *strict_parsing* is forwarded to the processors
+    and only decides how a *known, anticipated* data anomaly is handled — fatal,
+    or logged and worked around with a meaningful fallback (see
+    ``docs/knowledge/conventions/error-policy.md``); it does not gate general
+    exceptions. Anything escaping ``compute()`` is unexpected by definition, so
+    the session is not a usable partial result and the failure is not caught
+    here. The NWB step is held to the same rule.
     """
     from aind_behavior_vr_foraging.data_contract import dataset as load_dataset
 
@@ -156,7 +149,7 @@ def _process_one_session(
 
     ds = load_dataset(raw_path)
 
-    all_processors = create_processors(ds, raise_on_error=raise_on_error)
+    all_processors = create_processors(ds, strict_parsing=strict_parsing)
 
     def _keep(name: str) -> bool:
         if name == "session":  # never filtered; Phase 2 depends on session.parquet
@@ -171,17 +164,17 @@ def _process_one_session(
 
     selected = [p for p in all_processors if _keep(p.output_name)]
 
-    computed, logs = process_session(
+    computed = process_session(
         ds,
         session_out,
         processors=selected,
-        raise_on_error=raise_on_error,
+        strict_parsing=strict_parsing,
     )
 
     logger.info("[%s] done (%d processors ran)", session_id, len(computed))
 
     if write_nwb:
-        _ = _write_session_nwb(raw_path, session_out, ds, selected, raise_on_error=raise_on_error)
+        _write_session_nwb(raw_path, session_out, ds, selected)
 
     return session_out
 
@@ -192,7 +185,7 @@ def process_sessions(
     *,
     include_processors: Sequence[str] = (),
     exclude_processors: Sequence[str] = (),
-    raise_on_error: bool = False,
+    strict_parsing: bool = False,
     max_workers: int = 1,
     clean: bool = True,
     write_nwb: bool = False,
@@ -211,13 +204,12 @@ def process_sessions(
         ``session`` is always included regardless of this filter.
     exclude_processors:
         Processors whose ``output_name`` is in this list are skipped.
-    raise_on_error:
-        Forwarded to every processor. When ``False`` (default), a processor's
-        exception is logged and the *other* processors for that session still
-        run — but the session as a whole is still not written: any processor
-        failing drops the session from the returned list and discards
-        whatever parquet files its siblings already wrote for it. When
-        ``True``, the first exception propagates immediately instead.
+    strict_parsing:
+        Forwarded to every processor. When ``True``, a *known, anticipated*
+        data anomaly (a violated assumption a processor explicitly checks for
+        and could otherwise work around) is raised instead of being logged and
+        degraded from. It does not gate general exceptions — those always
+        propagate. Defaults to ``False``.
     max_workers:
         Number of parallel threads. ``1`` (default) runs sessions sequentially.
         Values ``> 1`` process up to *max_workers* sessions concurrently via
@@ -232,9 +224,8 @@ def process_sessions(
         its parquet files (``sessions/{session_id}/{session_id}.nwb.zarr``).
         The same processor include/exclude filter applies to both outputs.
         Requires the AIND metadata JSON files to be present in each session
-        root; sessions missing them will log a warning and skip NWB while
-        still writing their parquets (unless *raise_on_error* is ``True``).
-        Defaults to ``False``.
+        root; a session missing them fails the NWB step, and that failure
+        propagates like any other. Defaults to ``False``.
 
     Returns
     -------
@@ -253,7 +244,7 @@ def process_sessions(
     exclude_set = frozenset(exclude_processors)
 
     def _submit(raw_path: Path) -> Path | None:
-        return _process_one_session(raw_path, sessions_dir, include_set, exclude_set, raise_on_error, write_nwb)
+        return _process_one_session(raw_path, sessions_dir, include_set, exclude_set, strict_parsing, write_nwb)
 
     if max_workers == 1:
         return [r for p in paths if (r := _submit(p)) is not None]
@@ -262,7 +253,7 @@ def process_sessions(
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(_submit, p): p for p in paths}
         for fut in as_completed(futures):
-            result = fut.result()  # re-raises if raise_on_error=True
+            result = fut.result()  # re-raises whatever the session raised
             if result is not None:
                 written.append(result)
     return written

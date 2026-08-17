@@ -108,8 +108,10 @@ class ExportSettings(BaseSettings):
     skip_aggregation: bool = False
     """Skip Phase 2; write only per-session parquets."""
 
-    raise_on_error: bool = False
-    """Raise on the first processor failure (default: log and continue)."""
+    strict_parsing: bool = False
+    """Treat a known, anticipated data anomaly as fatal instead of logging it and
+    falling back to a degraded-but-meaningful output. Does not gate general
+    exceptions — an unexpected failure always propagates either way."""
 
     workers: int = 1
     """Number of parallel threads for Phase 1. 1 = sequential (default)."""
@@ -148,7 +150,7 @@ class ExportSettings(BaseSettings):
                 self.output_dir,
                 include_processors=self.include_processors,
                 exclude_processors=self.exclude_processors,
-                raise_on_error=self.raise_on_error,
+                strict_parsing=self.strict_parsing,
                 max_workers=self.workers,
                 write_nwb=self.write_nwb,
             )

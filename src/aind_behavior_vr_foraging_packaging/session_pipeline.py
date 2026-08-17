@@ -36,7 +36,7 @@ _LEGACY_VERSION_CUTOFF = semver.Version(major=0, minor=6, patch=0)
 def create_processors(
     dataset: Dataset,
     *,
-    raise_on_error: bool = False,
+    strict_parsing: bool = False,
 ) -> list[AbstractProcessor]:
     """Return the ordered processor list for *dataset*, dispatching on version.
 
@@ -45,7 +45,7 @@ def create_processors(
     dataset:
         The loaded contraqctor Dataset. Its ``.version`` attribute determines
         which processor variants are selected.
-    raise_on_error:
+    strict_parsing:
         Passed through to every processor. When ``True``, any parsing anomaly
         raises; when ``False`` (default) it logs a warning and continues.
 
@@ -59,13 +59,13 @@ def create_processors(
     """
 
     processors: list[AbstractProcessor] = [
-        SessionMetadataProcessor(dataset, raise_on_error=raise_on_error),
-        resolve_position_velocity_processor(dataset, raise_on_error=raise_on_error),
-        resolve_site_table_processor(dataset, raise_on_error=raise_on_error),
-        LicksProcessor(dataset, raise_on_error=raise_on_error),
-        SniffingProcessor(dataset, raise_on_error=raise_on_error),
-        SoftwareEventsProcessor(dataset, raise_on_error=raise_on_error),
-        EventsProcessor(dataset, raise_on_error=raise_on_error),
+        SessionMetadataProcessor(dataset, strict_parsing=strict_parsing),
+        resolve_position_velocity_processor(dataset, strict_parsing=strict_parsing),
+        resolve_site_table_processor(dataset, strict_parsing=strict_parsing),
+        LicksProcessor(dataset, strict_parsing=strict_parsing),
+        SniffingProcessor(dataset, strict_parsing=strict_parsing),
+        SoftwareEventsProcessor(dataset, strict_parsing=strict_parsing),
+        EventsProcessor(dataset, strict_parsing=strict_parsing),
     ]
     return processors
 
@@ -73,31 +73,31 @@ def create_processors(
 def resolve_site_table_processor(
     dataset: Dataset,
     *,
-    raise_on_error: bool = False,
+    strict_parsing: bool = False,
 ) -> SiteTableProcessor | LegacySiteTableProcessor:
     """Return the correct site-table processor for *dataset*'s version."""
     version = semver.Version.parse(str(dataset.version))
     cls = LegacySiteTableProcessor if version < _LEGACY_VERSION_CUTOFF else SiteTableProcessor
-    return cls(dataset, raise_on_error=raise_on_error)
+    return cls(dataset, strict_parsing=strict_parsing)
 
 
 def resolve_position_velocity_processor(
     dataset: Dataset,
     *,
     sampling_rate_hz: float | None = 250.0,
-    raise_on_error: bool = False,
+    strict_parsing: bool = False,
 ) -> PositionAndVelocityProcessor | LegacyPositionAndVelocityProcessor:
     """Return the correct position/velocity processor for *dataset*'s version."""
     version = semver.Version.parse(str(dataset.version))
     cls = LegacyPositionAndVelocityProcessor if version < _LEGACY_VERSION_CUTOFF else PositionAndVelocityProcessor
-    return cls(dataset, sampling_rate_hz=sampling_rate_hz, raise_on_error=raise_on_error)
+    return cls(dataset, sampling_rate_hz=sampling_rate_hz, strict_parsing=strict_parsing)
 
 
 def process_session(
     dataset: Dataset,
     output_dir: Path,
     *,
-    raise_on_error: bool = False,
+    strict_parsing: bool = False,
     processors: Sequence[AbstractProcessor] | None = None,
     on_error: Callable[[AbstractProcessor, Exception], None] | None = None,
     log_prefix: str = "",
@@ -114,18 +114,18 @@ def process_session(
         variants are selected (legacy vs current).
     output_dir:
         Directory where parquet files are written. Created if absent.
-    raise_on_error:
+    strict_parsing:
         Passed to all processors.
     processors:
         Use this exact, already-constructed processor list instead of calling
         :func:`create_processors` internally. For a caller that has already
         filtered/selected its own processor list (e.g.
         ``export_pipeline._process_one_session``'s ``--include-processors``/
-        ``--exclude-processors`` handling) — *raise_on_error* is then
+        ``--exclude-processors`` handling) — *strict_parsing* is then
         irrelevant to processor construction and only still applies to this
         function's own behavior. ``None`` (default) preserves the original
         behavior: build the list via
-        ``create_processors(dataset, raise_on_error=raise_on_error)``.
+        ``create_processors(dataset, strict_parsing=strict_parsing)``.
     on_error:
         Called as ``on_error(processor, exception)`` when a processor's
         ``compute()`` raises, instead of letting the exception propagate.
@@ -151,7 +151,7 @@ def process_session(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    selected = processors if processors is not None else create_processors(dataset, raise_on_error=raise_on_error)
+    selected = processors if processors is not None else create_processors(dataset, strict_parsing=strict_parsing)
 
     all_data: dict[str, pd.DataFrame] = {}
     for proc in selected:

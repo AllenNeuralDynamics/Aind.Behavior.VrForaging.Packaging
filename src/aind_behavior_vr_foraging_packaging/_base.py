@@ -69,9 +69,9 @@ class AbstractProcessor(abc.ABC):
         """
         return self.__class__.__output_name__ or _class_name_to_snake(type(self).__name__)
 
-    def __init__(self, dataset: Dataset, *, raise_on_error: bool = False) -> None:
+    def __init__(self, dataset: Dataset, *, strict_parsing: bool = False) -> None:
         self._dataset = dataset
-        self._raise_on_error = raise_on_error
+        self._strict_parsing = strict_parsing
 
     @property
     def dataset(self) -> Dataset:
@@ -129,12 +129,12 @@ class AbstractProcessor(abc.ABC):
         """
         return nwb_file
 
-    def with_raise_errors(self, raise_on_error: bool = True) -> ty.Self:
-        self._raise_on_error = raise_on_error
+    def with_strict_parsing(self, strict_parsing: bool = True) -> ty.Self:
+        self._strict_parsing = strict_parsing
         return self
 
     @property
-    def raise_on_error(self) -> bool:
+    def strict_parsing(self) -> bool:
         """Whether *known* data anomalies raise instead of being logged and worked around.
 
         The flag covers only anomalies a processor explicitly checks for and can name,
@@ -142,12 +142,12 @@ class AbstractProcessor(abc.ABC):
 
             if <specific condition detected>:
                 msg = "<what was violated>"
-                if self.raise_on_error:
+                if self.strict_parsing:
                     raise DatasetProcessorError(msg)
                 logger.warning("%s; <what is used instead>.", msg)
 
         It does **not** gate general exceptions. Never write
-        ``except Exception: ... if self.raise_on_error: raise`` — with the flag off (the
+        ``except Exception: ... if self.strict_parsing: raise`` — with the flag off (the
         default) that swallows real bugs, API drift and corrupt files as though they were
         data quirks, dropping the processor's output while the run still reports success.
         Catch only the exception types that signal an *expected* condition, narrowly —
@@ -163,4 +163,4 @@ class AbstractProcessor(abc.ABC):
         catches whatever a processor raises, so a single bad session or processor never
         aborts a batch.
         """
-        return self._raise_on_error
+        return self._strict_parsing
