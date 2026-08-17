@@ -2,9 +2,9 @@
 
 Two audiences in one command, split by whether ``--config`` is needed:
 
-``process`` runs INSIDE a processor container — one session, one sidecar, no
-ledger and no network. It is the image's whole job, and it is here rather than in
-``vr-foraging-packaging`` because the sidecar belongs to this package.
+``process`` runs INSIDE a processor container — one session, one sidecar, no ledger
+and no credentials. It is here rather than in ``vr-foraging-packaging`` because the
+sidecar belongs to this package.
 
 Everything else is host-side: discovery, the ledger, the worker that launches
 those containers, and the dashboard over the result.
@@ -27,12 +27,9 @@ if TYPE_CHECKING:
     from .models import Job
     from .worker import Worker
 
-# Nothing host-side is imported at module scope, deliberately. `process` runs in
-# an offline container with no ledger, no daemon and no credentials, and it is the
-# only subcommand that runs there — importing the ledger (sqlite3), the sources
-# (requests/urllib3) and the stores (boto3) to service it would mean the container
-# loads a networking stack it is forbidden from using. Every host-side command
-# imports what it needs inside its own function instead.
+# Nothing host-side is imported at module scope: `process` is the only subcommand that
+# runs in the container, and it needs no ledger, sources or stores. Host-side commands
+# import what they need inside their own function.
 logger = logging.getLogger(__name__)
 
 
@@ -125,8 +122,7 @@ def cmd_ingest(args: argparse.Namespace) -> None:
 def cmd_work(args: argparse.Namespace) -> None:
     config = _load_config(args.config)
     if args.keep_work:
-        # One-way: the flag turns the config field on, never off, so
-        # `keep_work_dir: true` in the YAML is not silently overridden by its absence.
+        # One-way, so `keep_work_dir: true` in YAML is not overridden by the flag's absence.
         config.worker.keep_work_dir = True
     worker = _worker(config, worker_id=config.worker.id)
     try:
@@ -135,11 +131,8 @@ def cmd_work(args: argparse.Namespace) -> None:
             if job is None:
                 print(f"Job {args.job_id} is not pending (already claimed, or does not exist).")
                 return
-            # Heartbeat even for a single foreground job. Only `run_forever` used to,
-            # which left `workers.worker_image` unset for anything run this way — and a
-            # `--job-id` run is not a rehearsal: it claims a real job and publishes real
-            # output to the real store. "Which code produced this?" must not depend on
-            # how the job happened to be launched.
+            # A --job-id run claims a real job and publishes real output, so it records
+            # its provenance too. Only `run_forever` used to heartbeat.
             worker.heartbeat(running_jobs=1)
             worker.process_job(job)
             print(f"Processed {args.job_id} — see `vr-foraging-server show --job-id {args.job_id}`.")

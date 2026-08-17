@@ -1,0 +1,27 @@
+# Copy to config.yaml and edit. `extra: forbid` everywhere, so a typo fails loudly.
+# Full field reference: server/src/processing_server/config.py
+
+release: manuscript-2026-08-13     # campaign name → output prefix; one release, one digest
+
+ingestion:
+  type: docdb                      # or `local` with `root:` for testing
+
+input:
+  store: mount                     # mount | s3 | local
+  root: /data/raw                  # identity-mapped host path (§4a)
+
+output:
+  store: s3
+  uri: s3://your-bucket/vr-foraging
+
+processor:
+  image: ghcr.io/allenneuraldynamics/aind-behavior-vr-foraging-packaging
+  digest: sha256:...               # required; same digest as VRF_IMAGE in .env
+  write_nwb: true
+
+worker:
+  id: worker-1
+  min_free_disk_bytes: 20000000000
+
+logging:
+  dir: /var/lib/vrf/logs

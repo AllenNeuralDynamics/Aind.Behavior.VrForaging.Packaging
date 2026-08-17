@@ -102,17 +102,10 @@ def build_docker_args(
     session *at* that name — which both branches of ``Worker._resolve_mount``
     guarantee. One rule, no override to keep in sync.
 
-    There is also no ``--network=none``, and it must not come back. ``contraqctor``
-    resolves Harp device registers at load time by fetching ``harp-tech/whoami`` and a
-    per-device ``device.yml`` over HTTPS, and no session carries a local copy. Offline,
-    every Harp device group resolves to zero streams and raises ``Data must be a list
-    of DataStreams`` — which ``classify`` then charges to the *data*, because that is
-    exactly what a real parse failure looks like. Measured: same input, same image,
-    exit 0 with a network and exit 1 without.
-
-    The container still cannot upload anything. No credentials are passed —
-    ``docker run`` does not inherit the worker's environment, and no ``~/.aws`` is
-    mounted — so S3 stays a worker-only concern, as does every other write.
+    No ``--network=none``, and it must not come back: ``contraqctor`` fetches Harp
+    device schemas over HTTPS at load time, and offline every Harp group resolves to
+    zero streams (``Data must be a list of DataStreams``). It still cannot upload —
+    no credentials are passed and ``docker run`` inherits no environment.
     """
     ref = image_ref(processor)
     args = [

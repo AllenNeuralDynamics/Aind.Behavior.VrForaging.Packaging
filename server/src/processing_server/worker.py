@@ -41,32 +41,20 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: Environment variable naming the image THIS worker is running (§12), set on the
-#: worker service in ``docker/compose.yaml``. Deliberately not ``PROCESSOR_IMAGE_URI``,
-#: which ``runner.build_docker_args`` sets explicitly on each *child* container and
-#: which ``sidecar.build_code_ref`` reads there: the two happen to hold the same
-#: value today (one image, three entrypoints), and reusing the name would bake that
-#: coincidence in and make each layer's provenance unattributable to it.
+#: This worker's own image (§12), set on the worker service in compose. Not
+#: ``PROCESSOR_IMAGE_URI``: that is set per child container, and sharing the name would
+#: make each layer's provenance unattributable to it.
 _WORKER_IMAGE_ENV = "VRF_WORKER_IMAGE_URI"
 
-#: Filename a published job log is stored under, inside its own prefix.
 _LOG_NAME = "_log.txt"
 
-#: Work-volume directory a log is staged into before publishing (the output stores
-#: publish a *directory*, and the log lives outside the work volume until then).
-#: Prefixed so :meth:`Worker.sweep_work_dir` can tell it from a job directory and
-#: still recover the job id it belongs to.
+#: Log staging dir on the work volume. Prefixed so ``sweep_work_dir`` can tell it from a
+#: job dir and still recover the job id.
 _LOG_STAGE_PREFIX = "_log_"
 
-#: Job states whose work directory nothing will ever come back for, and which
-#: :meth:`Worker.sweep_work_dir` may therefore reclaim. Deliberately not
-#: exhaustive over ``JobStatus``: each remaining state has exactly one owner, and
-#: the sweeper is not it. ``running`` is another worker's live job — the claim that
-#: sets ``running`` happens before any ``mkdir``, which is what makes this check
-#: race-free without resorting to mtime heuristics. ``pending``/``retrying`` belong
-#: to the next attempt, whose entry-side cleanup reclaims the directory as its
-#: first act; leaving them alone also closes the read-then-delete window a status
-#: check would otherwise open against a job being claimed right now.
+#: States whose work dir nothing will come back for. ``running`` is a live job (claim
+#: sets it before any ``mkdir``, so no mtime guesswork); ``pending``/``retrying`` belong
+#: to the next attempt, whose entry-side cleanup reclaims it.
 _RECLAIMABLE_STATUSES = frozenset({"completed", "failed", "dead", "skipped"})
 
 
@@ -140,9 +128,7 @@ class Worker:
         if not self.config.processor.digest and not self.config.processor.allow_unpinned:
             problems.append("processor.digest is unset and processor.allow_unpinned is false — no image to launch")
 
-        # The processor's pin is only half of the provenance chain. `allow_unpinned`
-        # governs both halves: a run that is allowed to be unreproducible is allowed
-        # to be unreproducible on both sides, and one that is not, is not.
+        # The processor's pin is half the chain; `allow_unpinned` governs both halves.
         image = self.worker_image()
         if not self.config.processor.allow_unpinned:
             if image is None:
@@ -165,9 +151,7 @@ class Worker:
                 f"worker.min_free_disk_bytes ({floor / 1e9:.1f} GB) — the worker will refuse to claim"
             )
 
-        # Reported, never acted on: `doctor` is a read-only preflight, and stranded
-        # directories are the claim loop's business to reclaim (`sweep_work_dir`).
-        # Neither is a problem in itself, so neither is appended above.
+        # Reported, not acted on: doctor is read-only; reclaiming is the claim loop's job.
         reclaimable, unknown = self._triage_work_dir()
         if reclaimable:
             logger.info(
@@ -272,24 +256,13 @@ class Worker:
         return job_dir / "out"
 
     def process_job(self, job: Job) -> None:
-        """Run one claimed job, owning its work directory for the whole lifetime.
+        """Run one claimed job, owning ``/work/{job_id}`` for its whole lifetime.
 
-        Cleanup is on **entry** as well as exit, and the entry half is the
-        load-bearing one. ``job_id`` is stable across attempts — reaping an expired
-        lease returns the same row to ``pending``, so a previous attempt that died
-        mid-write (SIGKILL, an OOM kill, a host reboot) left its wreckage at exactly
-        the path this attempt is about to use, and ``mkdir(exist_ok=True)`` would
-        adopt it. That is not merely untidy: :meth:`_finish_success` publishes
-        ``out/`` wholesale, so a stale parquet from attempt N ships alongside
-        attempt N+1's real output, and since the sidecar is rewritten every time,
-        ``classify`` reports a clean success over it. Cleaning on entry is also the
-        only ordering that survives a kill at all — whatever killed attempt N
-        cannot stop attempt N+1 from starting clean, whereas no amount of
-        ``try``/``finally`` can run after SIGKILL.
-
-        The exit half is then just about disk: it bounds what the volume holds
-        between sweeps. It lives in a ``finally`` so the six failure returns in
-        :meth:`_run_job` cannot each forget it.
+        Cleans on **entry** as well as exit. ``job_id`` is stable across attempts, so an
+        attempt killed mid-write left partial output at this exact path, and ``publish``
+        ships ``out/`` wholesale — the orphan would reach the store inside a session
+        recorded as a clean success. Entry-side is also the only ordering that survives
+        SIGKILL; the ``finally`` is disk hygiene.
         """
         job_dir = self.work_dir / job.job_id
         shutil.rmtree(job_dir, ignore_errors=True)
@@ -361,8 +334,7 @@ class Worker:
             if prepared is not None:
                 self.input_store.release(prepared)
 
-        # Before recording either outcome, so `log_uri` is the published location
-        # rather than a path on this worker's disk that nothing else can reach.
+        # Before recording, so `log_uri` is the published location, not a local path.
         log_uri = self._publish_log(job, log_path)
 
         if verdict.status == "completed":
@@ -463,17 +435,11 @@ class Worker:
         return target, (str(host_path), target)
 
     def _publish_log(self, job: Job, log_path: Path) -> str | None:
-        """Publish one attempt's container log; return what to record as ``log_uri``.
+        """Publish one attempt's log; return what to record as ``log_uri``.
 
-        Every outcome goes to the same prefix, not just failures. The disk saved is
-        incidental (~78 MB across a 4700-session campaign, measured); the point is
-        that ``jobs.log_uri`` used to hold a worker-local path for a success and an
-        output-store URI for a failure, so nothing could follow the column without
-        first guessing which kind of string it had. Now it is one kind.
-
-        The local copy is deleted only once the publish has actually succeeded. If
-        it has not, the local path is recorded instead — a reachable log in the
-        wrong place beats a URI pointing at nothing.
+        Every outcome goes to the same prefix, so ``log_uri`` means one kind of thing —
+        it was a local path on success and a store URI on failure. On a failed publish
+        the local copy survives and its path is recorded instead.
         """
         if not log_path.exists():
             return None
@@ -482,8 +448,7 @@ class Worker:
 
         base = self.config.output.uri.rstrip("/")
         dest = f"{base}/{self.config.release}/{self.config.output.log_prefix}{job.job_id}/"
-        # The output stores publish a directory, and the log lives in `logs_dir`,
-        # outside the work volume — so it is staged into a directory of its own.
+        # The stores publish a directory, and the log lives outside the work volume.
         stage_dir = self.work_dir / f"{_LOG_STAGE_PREFIX}{job.job_id}"
         shutil.rmtree(stage_dir, ignore_errors=True)
         stage_dir.mkdir(parents=True, exist_ok=True)
@@ -505,16 +470,11 @@ class Worker:
     # ------------------------------------------------------------------
 
     def _triage_work_dir(self) -> tuple[list[Path], list[str]]:
-        """Partition the work volume's directories into "safe to reclaim" and "not
-        ours". Read-only, so :meth:`doctor` can report what a sweep would remove
-        without removing it.
+        """Split the volume's dirs into "safe to reclaim" and "not ours". Read-only, so
+        :meth:`doctor` can report what a sweep would remove.
 
-        The ledger decides, because it is the only thing that knows whether another
-        worker is using a directory right now — several workers share this volume,
-        and deleting a live job's directory would be far worse than the leak it
-        fixes. Anything whose name is not a job id this ledger recognises is left
-        strictly alone and reported: a shared volume is the last place to delete
-        things you cannot account for.
+        The ledger decides: workers share this volume, and deleting a live job's dir is
+        worse than the leak. Unrecognised names are reported, never removed.
         """
         if not self.work_dir.is_dir():
             return [], []
@@ -537,14 +497,10 @@ class Worker:
         return sorted(reclaimable), sorted(unknown)
 
     def sweep_work_dir(self) -> int:
-        """Reclaim work directories the ledger has finished with. Returns how many.
+        """Reclaim work dirs the ledger has finished with. Returns how many.
 
-        The filesystem half of what :meth:`Ledger.reap_expired_leases` already does
-        for the ledger, and needed for the same reason: a worker killed mid-job
-        leaves a directory behind, and reaping repairs the row while knowing nothing
-        about disk. Without this, a terminal job's directory is never reclaimed by
-        anyone — its owner is never coming back for it — and the volume grows by one
-        session per crash until a campaign stops on ENOSPC.
+        The filesystem half of :meth:`Ledger.reap_expired_leases`, which repairs the row
+        and knows nothing about disk — without this the volume grows one session per crash.
         """
         if self.config.worker.keep_work_dir:
             return 0
@@ -564,13 +520,10 @@ class Worker:
         return len(reclaimable)
 
     def free_disk_bytes(self) -> int | None:
-        """Free space on the work volume, or ``None`` if it cannot be determined.
+        """Free space on the work volume, or ``None`` if undeterminable.
 
-        Walks up to the nearest existing ancestor rather than giving up when
-        ``work_dir`` itself does not exist yet — a first tick before any job has
-        created it would otherwise report "unknown", and "unknown" does not block a
-        claim. That turned the disk guard into a silent no-op on exactly the run
-        where nothing has been created yet.
+        Walks up to the nearest existing ancestor: a missing ``work_dir`` reports
+        "unknown", and unknown does not block a claim — a silent no-op on the first tick.
         """
         for candidate in (self.work_dir, *self.work_dir.parents):
             try:
@@ -580,14 +533,10 @@ class Worker:
         return None
 
     def worker_image(self) -> str | None:
-        """The image this worker is itself running, or ``None`` outside a container.
+        """This worker's own image, or ``None`` outside a container.
 
-        Read from the environment rather than derived, for the same reason
-        :func:`sidecar.build_code_ref` does it: a process cannot discover which image
-        it was started from, and the only honest alternative to being told is to
-        record nothing. Recorded on every heartbeat so the ledger answers "what code
-        staged, classified and published this?" — which the ``jobs`` table's
-        ``image_ref``/``image_digest`` do not, those being the *processor's*.
+        Told, not derived — a process cannot discover its own image. Recorded per
+        heartbeat, since ``jobs.image_ref`` is the *processor's*.
         """
         return os.environ.get(_WORKER_IMAGE_ENV) or None
 
@@ -609,10 +558,8 @@ class Worker:
         intra-worker concurrency."""
         last_ingest = 0.0
         while True:
-            # Ledger repair and volume repair are the same phase, and in this order:
-            # reaping is what moves a crashed job to a state the sweep may reclaim,
-            # and the sweep can therefore clear the disk condition checked below
-            # within the same tick.
+            # Reap before sweep: reaping is what moves a crashed job into a state the
+            # sweep may reclaim, so the disk check below can benefit in the same tick.
             self.ledger.reap_expired_leases()
             self.sweep_work_dir()
             self.heartbeat(running_jobs=0)
@@ -638,12 +585,10 @@ class Worker:
                 time.sleep(self.config.worker.poll_interval_s)
 
     def _disk_ok(self) -> bool:
-        """Whether there is room to take on another job (§4a).
+        """Whether there is room for another job (§4a).
 
-        Checked before claiming, not during: a job claimed onto a full volume dies
-        on ENOSPC and burns one of ``max_attempts``, so an unguarded worker would
-        chew through real sessions three attempts at a time rather than waiting for
-        space. Refusing to claim leaves the queue exactly as it was.
+        Before claiming, not during: a job claimed onto a full volume dies on ENOSPC and
+        burns one of ``max_attempts``. Refusing to claim leaves the queue untouched.
         """
         free = self.free_disk_bytes()
         floor = self.config.worker.min_free_disk_bytes

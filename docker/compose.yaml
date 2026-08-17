@@ -1,73 +1,40 @@
 # Deployment sketch for the session-processing pipeline (§4, §13).
 #
-# One image, three entrypoints — `vr-foraging-server process` (the default
-# ENTRYPOINT's subcommand, used by the ephemeral processor containers the worker
-# launches), `vr-foraging-server work`, and `… serve`.
+# Setup:
+#   cp config.example.yaml config.yaml     # then edit release / output.uri
+#   echo VRF_IMAGE=ghcr.io/...@sha256:... > .env
+#   docker compose run --rm worker doctor --config /etc/vrf/config.yaml
 #
-# Before a real run: `docker compose run --rm worker vr-foraging-server doctor
-# --config /etc/vrf/config.yaml` — the §4(a) volume-visibility assertion plus
-# credential/Docker-daemon reachability checks.
-#
-# ── Pinning ────────────────────────────────────────────────────────────────────
-# Set VRF_IMAGE to a DIGEST, in a .env file beside this one:
-#
-#     VRF_IMAGE=ghcr.io/allenneuraldynamics/aind-behavior-vr-foraging-packaging@sha256:abc…
-#
-# The release workflow prints the digest in its job summary. `${VRF_IMAGE:?…}`
-# below makes compose refuse to start when it is unset, rather than silently
-# resolving `:latest` — which is a moving target, and unrepeatable the moment the
-# next release lands.
-#
-# The same digest belongs in config.yaml's `processor.digest`, because the worker
-# and the processor it launches are the same image. Pinning only the processor
-# leaves half the chain unrecorded: the `jobs` table would say which code turned a
-# session into parquet, and nothing would say which code staged it, classified the
-# result and published it. VRF_WORKER_IMAGE_URI is what closes that — the worker
-# stamps it on every heartbeat, into `workers.worker_image`, and `doctor` refuses a
-# campaign whose worker cannot say what it is (unless `processor.allow_unpinned`).
+# Pin VRF_IMAGE by digest, not tag; the release workflow prints it. `${VRF_IMAGE:?}`
+# makes compose refuse to start unpinned rather than silently drift with `:latest`.
+# The same digest goes in config.yaml's `processor.digest` — worker and processor are
+# the same image, and pinning only one leaves half the provenance chain unrecorded.
 #
 # ── AWS credentials ────────────────────────────────────────────────────────────
 # Only the WORKER needs them, and only for `input.store: s3` / `output.store: s3`.
-# The processor containers it launches have a network — contraqctor fetches Harp
-# device schemas over HTTPS at load time — but are given no credentials at all, so
-# they cannot upload anywhere (§4c). Everything they read is on a mount or already
-# staged, and everything they write goes to the work volume for the worker to
-# publish. Do not add credentials to a processor container to "make S3 work"; the
-# worker is the only thing that should ever hold them.
+# Processor containers get none, so they cannot upload (§4c). Do not add credentials
+# to one to "make S3 work".
 #
-# Pick ONE of the three blocks below. There is no default, deliberately: the right
-# answer differs between a laptop and a campaign host, and guessing produced a
-# silently-broken config once already.
+# Pick ONE. No default, deliberately — guessing produced a broken config once:
 #
-#   (a) PRODUCTION — an instance role. Nothing to mount, nothing to set: botocore
-#       reads IMDS itself, and the credentials refresh forever. This is the only
-#       option that survives a multi-day campaign unattended.
-#
-#   (b) LOCAL DEV, SSO — `aws sso login --profile <p>` on the HOST first, then
-#       mount ~/.aws READ-WRITE (not `:ro`). The SSO *token* lives in
-#       ~/.aws/sso/cache/, and botocore has to write there when it refreshes an
-#       expired one; a read-only mount turns that into a hard failure partway
-#       through a run. Even then the token expires (typically 8–12 h) and cannot
-#       be renewed from inside a container — there is no browser. Fine for a few
-#       hundred sessions, not for 4700.
-#
-#   (c) ANY HOST, short-lived — resolve credentials on the host and pass the
-#       resulting keys in. Works with SSO, `assume-role`, anything:
-#
-#           aws configure export-credentials --profile <p> --format env-no-export > .aws.env
-#
-#       then use `env_file: .aws.env` below. Same expiry caveat as (b), but no
-#       mount and no profile name baked into the compose file. Do not commit it.
+#   (a) PRODUCTION — instance role. Nothing to set; refreshes forever.
+#   (b) LOCAL DEV, SSO — `aws sso login` on the host, then mount ~/.aws READ-WRITE.
+#       botocore writes to ~/.aws/sso/cache/ to refresh, so `:ro` fails mid-run. The
+#       token still expires (~8-12 h) and cannot be renewed from a container.
+#   (c) ANY HOST — export short-lived keys and pass them in:
+#         aws configure export-credentials --profile <p> --format env-no-export > .aws.env
+#       then `env_file: .aws.env`. Do not commit it.
 
 services:
   worker:
-    image: ${VRF_IMAGE:?set VRF_IMAGE to a digest-pinned image ref — see the header}
-    command: ["vr-foraging-server", "work", "--config", "/etc/vrf/config.yaml"]
+    image: ${VRF_IMAGE:?set VRF_IMAGE to a digest-pinned image ref}
+    # Subcommand only — ENTRYPOINT is already `vr-foraging-server`.
+    command: ["work", "--config", "/etc/vrf/config.yaml"]
     environment:
-      # Nothing can discover the image it was started from, so the worker has to be
-      # told what it is. Read on every heartbeat into `workers.worker_image`.
+      # Nothing can discover its own image; the worker has to be told. Recorded on
+      # each heartbeat into `workers.worker_image`.
       - VRF_WORKER_IMAGE_URI=${VRF_IMAGE:?}
-      # (b) SSO also needs the profile name, since ~/.aws/config may hold several:
+      # (b) SSO also needs the profile name:
       # - AWS_PROFILE=your-sso-profile
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock   # root-equivalent; single-purpose host only
@@ -75,30 +42,24 @@ services:
       - vrf_work:/work                              # SAME named volume the processor gets (§4a)
       - ./config.yaml:/etc/vrf/config.yaml:ro
       # - /data/raw:/data/raw:ro                    # identity-mapped; only for input.store: mount
-      #
-      # (a) instance role: nothing here.
-      # (b) SSO: uncomment, and note the ABSENCE of `:ro` — see the header.
+      # (b) SSO — note the absence of `:ro`:
       # - ${HOME}/.aws:/home/runner/.aws
     #
     # (c) exported credentials:
     # env_file: .aws.env
     #
-    # The image runs as a fixed non-root user (§12's Dockerfile). Reading
-    # /var/run/docker.sock generally needs the container's user in a group
-    # matching the socket's GID on THIS host — find it with `stat -c '%g'
-    # /var/run/docker.sock` on the host and set it here; group ownership of
-    # the socket varies by distro and is not something the image can bake in.
+    # The image runs as uid 10001. Reading docker.sock needs that user in a group
+    # matching the socket's GID on THIS host (`stat -c '%g' /var/run/docker.sock`).
+    # Do NOT use `user: root` instead: the worker creates /work/{job_id} and the
+    # processor writes inside it as uid 10001.
     # group_add:
     #   - "999"
     restart: unless-stopped
 
   dashboard:
-    # Same digest as the worker: it reads that worker's ledger, and a read-only view
-    # skewed a release away from the writer is how a schema change looks like data
-    # loss. No VRF_WORKER_IMAGE_URI — it never claims a job, so it has no provenance
-    # to record.
+    # Same digest as the worker — it reads that worker's ledger.
     image: ${VRF_IMAGE:?}
-    command: ["vr-foraging-server", "serve", "--config", "/etc/vrf/config.yaml"]
+    command: ["serve", "--config", "/etc/vrf/config.yaml"]
     volumes:
       - vrf_ledger:/var/lib/vrf:ro
       - ./config.yaml:/etc/vrf/config.yaml:ro

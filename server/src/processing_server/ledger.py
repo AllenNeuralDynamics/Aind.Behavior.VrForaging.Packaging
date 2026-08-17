@@ -112,13 +112,9 @@ CREATE TABLE IF NOT EXISTS ingest_watermarks (
     updated_at  TEXT NOT NULL
 );
 
--- `worker_image` is which image the worker is itself running (§12). The `jobs`
--- columns record the *processor's* identity; without this, nothing records what did
--- the staging, classification and publishing around it.
---
--- Comments stay OUTSIDE the column list on purpose: SQLite stores this statement
--- verbatim and re-parses it after `ALTER TABLE ... DROP COLUMN`, where a trailing
--- `--` comment among the columns fails with "incomplete input".
+-- `worker_image`: the worker's own image (§12); the `jobs` columns are the processor's.
+-- Comments stay OUTSIDE the column list — SQLite re-parses this after DROP COLUMN, and
+-- a trailing `--` among the columns fails with "incomplete input".
 CREATE TABLE IF NOT EXISTS workers (
     worker_id       TEXT PRIMARY KEY,
     started_at      TEXT NOT NULL,
@@ -156,10 +152,8 @@ def job_key(
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-#: Columns added after a table first shipped. ``CREATE TABLE IF NOT EXISTS`` is a
-#: no-op against an existing table, so a new column in :data:`_SCHEMA` would never
-#: appear in a ledger someone already has — and the failure surfaces as a
-#: ``sqlite3.OperationalError`` on the next write, mid-campaign.
+#: Columns added after a table shipped. ``CREATE TABLE IF NOT EXISTS`` is a no-op on an
+#: existing table, so a new column would never reach a ledger someone already has.
 _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (("workers", "worker_image", "TEXT"),)
 
 
@@ -169,8 +163,7 @@ def _add_missing_columns(conn: sqlite3.Connection) -> None:
         existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
         if column not in existing:
             logger.info("Ledger migration: adding %s.%s", table, column)
-            # Interpolated, not bound: DDL cannot take parameters. Every value comes
-            # from _ADDED_COLUMNS, a module constant — no caller reaches this.
+            # Interpolated because DDL takes no parameters; values are module constants.
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
 
 
@@ -674,22 +667,16 @@ class Ledger:
         return _row_to_job(row, tags)
 
     def job_statuses(self, job_ids: Sequence[str]) -> dict[str, JobStatus]:
-        """Map each of *job_ids* to its current status, omitting ids this ledger has
-        never heard of.
+        """Map each of *job_ids* to its status, omitting ids this ledger never saw.
 
-        A batched status-only read for :meth:`Worker.sweep_work_dir`, which asks
-        about one directory name per entry on a shared volume and needs no other
-        column. Chunked because SQLite caps bound parameters per statement
-        (``SQLITE_MAX_VARIABLE_NUMBER``, 999 on older builds) and the number of
-        stranded directories is not bounded by anything we control.
+        For :meth:`Worker.sweep_work_dir`. Chunked: SQLite caps bound parameters per
+        statement (999 on older builds) and the stranded-dir count is unbounded.
         """
         out: dict[str, JobStatus] = {}
         ids = list(job_ids)
         for start in range(0, len(ids), 500):
             chunk = ids[start : start + 500]
-            # The f-string interpolates only the placeholder count; every job id is
-            # still bound, so a directory named `'; DROP TABLE jobs; --` is just a
-            # string that matches nothing.
+            # Only the placeholder count is interpolated; every job id is still bound.
             placeholders = ",".join("?" * len(chunk))
             rows = self._conn.execute(
                 f"SELECT job_id, status FROM jobs WHERE job_id IN ({placeholders})",
