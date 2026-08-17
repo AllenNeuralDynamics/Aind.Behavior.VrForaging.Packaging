@@ -7,6 +7,12 @@ tags: [architecture, orchestration, docker, ledger, sidecar, testing, workspace]
 timestamp: 2026-08-17T00:00:00Z
 ---
 
+> **Editable diagram:** [`docs/diagrams/orchestration.drawio`](../../diagrams/orchestration.drawio)
+> — three pages (runtime, packages, provenance). Opens in
+> [app.diagrams.net](https://app.diagrams.net) or the VS Code *Draw.io Integration*
+> extension. The ASCII sketch below is the same runtime picture, kept inline so
+> this file is useful in a terminal.
+
 Two distributions live in this repo, and the split is load-bearing:
 
 | | `aind-behavior-vr-foraging-packaging` | `aind-behavior-vr-foraging-orchestration` |
