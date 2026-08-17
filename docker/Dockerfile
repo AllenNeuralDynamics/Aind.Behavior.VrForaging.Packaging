@@ -23,7 +23,13 @@ WORKDIR /app
 # the orchestration member alongside the root one.
 COPY pyproject.toml uv.lock ./
 COPY orchestration/pyproject.toml ./orchestration/
-RUN uv sync --frozen --no-install-project --no-dev --all-packages
+# `--no-install-workspace`, not `--no-install-project`: the latter excludes only the
+# ROOT package, so uv still tried to build the orchestration member here — where
+# nothing but the manifests has been copied yet. Its setuptools_scm reads
+# `root = ".."`, so with no `.git` in the context the build died with "unable to
+# detect version". Nothing outside a release builds this image, so the break stayed
+# invisible; see the `image` job's `if:` in the workflow.
+RUN uv sync --frozen --no-install-workspace --no-dev --all-packages
 COPY . .
 RUN uv sync --frozen --no-dev --all-packages
 
@@ -48,6 +54,12 @@ ENV PATH="/app/.venv/bin:$PATH"
 # MB the `process` path never exercises.
 COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
 RUN useradd -u 10001 -m runner
+# Both volume mount points must EXIST in the image, owned by the user that will use
+# them. Docker seeds a fresh named volume from the image's directory — content,
+# ownership and mode — but only if the mount point is there; otherwise it creates the
+# directory itself as root:root 0755, and this non-root user cannot write a byte to
+# its own work volume. `doctor`'s first check fails, and every job after it would.
+RUN mkdir -p /work /var/lib/vrf && chown runner:runner /work /var/lib/vrf
 USER runner
 # The orchestrator, not the packaging CLI: the sidecar belongs to the
 # orchestration layer, so `process` is the command that writes one.

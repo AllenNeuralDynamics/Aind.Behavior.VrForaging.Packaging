@@ -168,3 +168,8 @@ cython_debug/
 .tmp/
 scratch/
 docs/plans/
+
+# docker/smoke-test.sh's output directory — created under $PWD because Docker
+# Desktop only shares the drive, not Git Bash's /tmp. Left behind on purpose so a
+# failure can be inspected.
+.smoke-out-*/

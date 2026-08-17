@@ -32,6 +32,13 @@
 
 set -euo pipefail
 
+# Git Bash / MSYS2 rewrites arguments that look like absolute POSIX paths into
+# Windows paths before exec'ing docker, so `--output-dir /out` arrives inside the
+# container as `C:/Program Files/Git/out`. Harmless everywhere else; this repo
+# supports Windows, and the whole point of this script is that anyone can run it.
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL='*'
+
 IMAGE="${1:?usage: smoke-test.sh <image-ref> <session-dir> [expected-digest]}"
 SESSION_DIR="${2:?usage: smoke-test.sh <image-ref> <session-dir> [expected-digest]}"
 EXPECTED_DIGEST="${3:-}"
@@ -46,7 +53,22 @@ if [ ! -d "$SESSION_DIR/behavior" ]; then
 fi
 
 SESSION_NAME=$(basename "$SESSION_DIR")
-OUT_DIR=$(mktemp -d)
+
+# Under $PWD rather than mktemp's default, and world-writable. Two separate reasons,
+# both about the image running as a fixed non-root user (uid 10001, see
+# docker/Dockerfile) that owns nothing on the host:
+#
+#   * 0700 is what mktemp creates, so uid 10001 cannot write a single parquet into
+#     its own output directory. On Linux `chmod` fixes that.
+#   * On Docker Desktop, `chmod` does NOT fix it if the directory sits in Git Bash's
+#     /tmp: that path is not part of the shared filesystem, and the daemon presents
+#     the mount as root-owned 0755 no matter what the host permissions say. A
+#     directory on the shared drive comes through 0777 and works. $PWD is on the
+#     shared drive both locally and on a CI runner.
+#
+# Left behind deliberately, and printed below, so a failure can be picked apart.
+OUT_DIR=$(mktemp -d "$PWD/.smoke-out-XXXXXX")
+chmod 0777 "$OUT_DIR"
 echo "smoke-test: image   $IMAGE"
 echo "smoke-test: session $SESSION_NAME"
 echo "smoke-test: output  $OUT_DIR"
@@ -68,7 +90,19 @@ if [ ! -f "$SIDECAR" ]; then
   exit 1
 fi
 
-python3 - "$SIDECAR" "$SESSION_NAME" "$EXPECTED_DIGEST" <<'PYEOF'
+# `python3` on a CI runner and most Unixes; `python` is all a Windows install and
+# Git Bash provide. Only the stdlib is used below, so either will do.
+PY=$(command -v python3 || command -v python) || {
+  echo "smoke-test: no python on PATH — needed only to check the sidecar" >&2
+  exit 2
+}
+
+# `cd` and a bare filename, rather than handing the interpreter $SIDECAR: under Git
+# Bash that variable holds an MSYS path (/c/git/…), which bash's own `[ -f ]`
+# understands but a native Windows python does not. A relative name sidesteps the
+# question — the child inherits a working directory its own OS already agrees with.
+cd "$OUT_DIR"
+"$PY" - "$(basename "$SIDECAR")" "$SESSION_NAME" "$EXPECTED_DIGEST" <<'PYEOF'
 import json
 import sys
 

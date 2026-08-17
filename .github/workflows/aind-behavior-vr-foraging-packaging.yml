@@ -78,6 +78,66 @@ jobs:
   # of runnable digests equal to the set of released versions — and keeps
   # setuptools_scm from stamping images with `.dev` versions nobody can reproduce.
 
+  # Builds the image WITHOUT pushing, on every PR and every push to main, and runs
+  # the same smoke test against it.
+  #
+  # This exists because the `image` job below only runs on a release, so for as long
+  # as that was the only thing building the Dockerfile, a broken Dockerfile was
+  # invisible until release day — and one shipped exactly that way: `uv sync
+  # --no-install-project` excludes only the workspace ROOT, so the dependency-cache
+  # layer still tried to build the orchestration member before `.git` was copied, and
+  # setuptools_scm could not detect a version. Nothing caught it for weeks.
+  #
+  # No registry, no digest, no `latest`: the artefact is thrown away and only the
+  # *build* and the *behaviour* are under test. Pinning stays a release-only concern.
+  image-smoke:
+    name: Build image & smoke-test (no push)
+    needs: tests
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # setuptools_scm needs the tag history — the very thing that broke
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          load: true      # into the runner's daemon, so the next step can run it
+          tags: vrf:ci
+          build-args: GIT_COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Restore integration data cache
+        uses: actions/cache@v6
+        with:
+          path: tests/integration/.cache
+          key: integration-data-${{ hashFiles('tests/integration/datasets.yml') }}
+          restore-keys: |
+            integration-data-
+
+      - name: Entrypoint runs at all
+        run: docker run --rm vrf:ci --help
+
+      - name: Run against one cached session and validate the sidecar
+        run: |
+          set -euo pipefail
+          SESSION_DIR=$(find tests/integration/.cache -mindepth 2 -maxdepth 2 -type d | head -n 1)
+          if [ -z "$SESSION_DIR" ]; then
+            echo "No cached session available (cache miss) — the build itself still passed."
+            exit 0
+          fi
+          # No digest argument: a local build has none, so provenance is honestly
+          # recorded as `unpinned` and those assertions are skipped rather than faked.
+          ./docker/smoke-test.sh vrf:ci "$SESSION_DIR"
+
   image:
     name: Build & push processor image
     needs: tests
