@@ -1,4 +1,4 @@
-"""Unit tests for the Worker (§4, §7) — a fake runner, no real Docker daemon."""
+"""Unit tests for the Worker — a fake runner, no real Docker daemon."""
 
 import json
 from collections.abc import Iterator
@@ -305,7 +305,7 @@ def _local_config(tmp_path, **overrides) -> PipelineConfig:
 
 
 class TestWorkDirLifecycle:
-    """§4a — who owns a job directory, and when it stops existing."""
+    """Who owns a job directory, and when it stops existing."""
 
     def test_stale_output_from_a_previous_attempt_is_not_published(self, tmp_path):
         """The bug entry-side cleanup exists for, and the only one here that is about
@@ -395,7 +395,7 @@ class TestWorkDirLifecycle:
 
 
 class TestSweepWorkDir:
-    """§4a — the filesystem half of `reap_expired_leases`."""
+    """The filesystem half of `reap_expired_leases`."""
 
     @staticmethod
     def _job_with_status(worker: Worker, status: str) -> str:
@@ -599,7 +599,7 @@ class TestLogPublishing:
 
 
 class TestWorkerProvenance:
-    """§12 — the half of the chain the processor's digest does not cover."""
+    """The half of the chain the processor's digest does not cover."""
 
     def test_heartbeat_records_the_workers_own_image(self, tmp_path, monkeypatch):
         ref = "ghcr.io/x/y@sha256:" + "a" * 64

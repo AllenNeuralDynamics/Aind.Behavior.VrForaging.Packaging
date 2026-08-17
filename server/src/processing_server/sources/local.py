@@ -1,5 +1,5 @@
 """``LocalSource`` — directory scan. What makes the whole system testable and
-debuggable without network access (§3). No optional dependency required.
+debuggable without network access. No optional dependency required.
 """
 
 import re

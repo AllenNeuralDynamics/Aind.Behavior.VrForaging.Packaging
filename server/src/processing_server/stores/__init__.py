@@ -1,8 +1,8 @@
-"""Stores — *how* bytes arrive and leave (§10, §10b). Independent of *which*
-sessions exist (that is ``pipeline.sources``'s job, §3).
+"""Stores — *how* bytes arrive and leave. Independent of *which*
+sessions exist (that is ``pipeline.sources``'s job).
 
 ``mount`` and ``s3`` read the same bytes; the difference is when they move and
-who decides which ones (§10). ``mount`` is the default: the processor's own
+who decides which ones. ``mount`` is the default: the processor's own
 reads decide, which is both smaller (33 MB vs 262 MB, measured) and correct by
 construction, since the read set is register-level and not knowable in advance.
 """
@@ -18,18 +18,18 @@ from ..staging import InputManifest, ObjectRef
 
 #: A bare Windows drive path (``C:\...`` / ``C:/...``) is otherwise misparsed by
 #: `urlparse` as scheme ``"c"`` — a single-letter "scheme" indistinguishable
-#: from a drive letter. Checked before `urlparse` runs at all (§10, §13 — this
-#: project supports Windows).
+#: from a drive letter. Checked before `urlparse` runs at all (this project
+#: supports Windows).
 _WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
 
 class StoreError(Exception):
-    """Base of the store error hierarchy. §8 classifies on the concrete subclass,
+    """Base of the store error hierarchy. Failures classify on the concrete subclass,
     not on parsing an error string — the layer that knows what went wrong decides."""
 
 
 class StoreTransientError(StoreError):
-    """Timeout, throttling, 5xx, connection reset → retry (§8 ``error_kind='transient'``)."""
+    """Timeout, throttling, 5xx, connection reset → retry (``error_kind='transient'``)."""
 
 
 class StoreDataError(StoreError):
@@ -46,7 +46,7 @@ class PreparedInput:
     """What a store's :meth:`InputStore.prepare` hands back to the worker."""
 
     host_path: Path
-    """What the worker passes to ``docker run -v`` (identity-mapped, §4a). Its
+    """What the worker passes to ``docker run -v`` (identity-mapped). Its
     basename is the session name either way — see ``Worker._resolve_mount``."""
     read_only: bool
     """``True`` for ``mount``, and ``True`` for staged copies too, by policy —
@@ -89,7 +89,7 @@ class PublishManifest:
     bytes: int
     dest_uri: str
     sidecar_uri: str
-    """Written last; its presence is the commit marker (§10b, §5)."""
+    """Written last; its presence is the commit marker."""
 
 
 class OutputStore(Protocol):

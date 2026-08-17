@@ -14,8 +14,7 @@ from ._provenance import PackagingProvenance
 class DatasetProcessorError(Exception):
     """Raised by a processor for a data condition it explicitly checks for and names.
 
-    See :attr:`AbstractProcessor.strict_parsing` and
-    ``docs/knowledge/conventions/error-policy.md``.
+    See :attr:`AbstractProcessor.strict_parsing`.
     """
 
 

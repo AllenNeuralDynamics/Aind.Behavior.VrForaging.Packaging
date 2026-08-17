@@ -1,6 +1,6 @@
-"""Discovery — answers *which* sessions exist and where their bytes live (§3).
+"""Discovery — answers *which* sessions exist and where their bytes live.
 
-Fetching the bytes is a store's job (§10, ``pipeline.stores``), not a source's;
+Fetching the bytes is a store's job (``pipeline.stores``), not a source's;
 the split matters because DocDB indexes assets in buckets the pipeline may read
 by an entirely different route.
 """
@@ -12,7 +12,7 @@ from ..models import SessionRef
 
 
 class Source(Protocol):
-    """One discovery backend. Two is enough (§3) — an S3 prefix-listing source was
+    """One discovery backend. Two is enough — an S3 prefix-listing source was
     considered and dropped, since DocDB already indexes everything we care about."""
 
     name: Literal["docdb", "local"]
@@ -23,7 +23,7 @@ class Source(Protocol):
         *since* is this source's persisted watermark (``ledger.get_watermark``),
         or ``None`` for a first full sweep. Comparison is inclusive (``$gte``) so
         a boundary timestamp is re-delivered rather than skipped — the ``job_key``
-        uniqueness constraint (§6) absorbs the resulting duplicate.
+        uniqueness constraint absorbs the resulting duplicate.
         """
         ...
 

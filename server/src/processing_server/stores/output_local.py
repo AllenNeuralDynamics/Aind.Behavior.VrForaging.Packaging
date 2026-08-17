@@ -1,4 +1,4 @@
-"""``local`` output store (§10b) — a local or mounted destination.
+"""``local`` output store — a local or mounted destination.
 Same commit-marker discipline as :mod:`output_s3`: ``output.metadata.json``
 written last via temp-name + ``os.replace``, so a concurrent reader never
 observes a half-written file.
@@ -44,7 +44,7 @@ class LocalOutputStore:
                 continue
             _atomic_copy(p, dest / p.relative_to(src))
             total += p.stat().st_size
-        if sidecar.exists():  # written LAST — the commit marker (§10b)
+        if sidecar.exists():  # written LAST — the commit marker
             _atomic_copy(sidecar, dest / _SIDECAR_NAME)
             total += sidecar.stat().st_size
         return PublishManifest(files=len(files), bytes=total, dest_uri=str(dest), sidecar_uri=str(dest / _SIDECAR_NAME))

@@ -1,4 +1,4 @@
-"""``s3`` output store (§10b) — threaded upload; ``output.metadata.json`` written
+"""``s3`` output store — threaded upload; ``output.metadata.json`` written
 last, so its presence is a commit marker that ``reconcile`` and ``iter_completed``
 can trust.
 """
@@ -58,7 +58,7 @@ class S3OutputStore:
         try:
             with ThreadPoolExecutor(max_workers=_UPLOAD_WORKERS) as executor:
                 list(executor.map(_upload, others))
-            if sidecar.exists():  # written LAST — the commit marker (§10b)
+            if sidecar.exists():  # written LAST — the commit marker
                 _upload(sidecar)
         except (BotoCoreError, ClientError) as exc:
             raise StoreTransientError(f"Publishing to {dest_uri} failed: {exc}") from exc
@@ -79,6 +79,6 @@ class S3OutputStore:
                     data = json.loads(obj["Body"].read())
                 except ClientError as exc:
                     if _is_not_found(exc):
-                        continue  # interrupted publish, not a completed session (§10b)
+                        continue  # interrupted publish, not a completed session
                     raise StoreTransientError(f"Reading sidecar under {session_prefix} failed: {exc}") from exc
                 yield session_name, data

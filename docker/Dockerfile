@@ -1,4 +1,4 @@
-# Processor image (§12). One image, one ENTRYPOINT, three uses:
+# Processor image. One image, one ENTRYPOINT, three uses:
 #   vr-foraging-server process       — one session (what the worker launches)
 #   vr-foraging-server work          — the worker itself
 #   vr-foraging-server serve         — the dashboard
@@ -7,13 +7,13 @@
 # around inside the image; nothing launches it.
 #
 # Context is the repo root. `Dockerfile.dockerignore` keeps `.git` — setuptools_scm
-# needs the tags, or the image is stamped `0.1.dev1+...` (§12).
+# needs the tags, or the image is stamped `0.1.dev1+...`.
 #
 # Build: docker build -f docker/Dockerfile --build-arg GIT_COMMIT=$(git rev-parse HEAD) .
 
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS build
 # setuptools_scm shells out to `git describe` during `uv sync`; without git the version
-# silently becomes a placeholder (§12).
+# silently becomes a placeholder.
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 # Manifests first, so the dependency layer caches before any source is copied.
@@ -39,7 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app /app
 ENV PATH="/app/.venv/bin:$PATH"
-# `docker` CLI, not the daemon — only `work` uses it, to launch sibling containers (§4a).
+# `docker` CLI, not the daemon — only `work` uses it, to launch sibling containers.
 COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
 RUN useradd -u 10001 -m runner
 # Both mount points must EXIST here, owned by `runner`: Docker seeds a fresh named

@@ -51,8 +51,7 @@ def process_sessions(
     and the ``sessions/{session_id}/`` layout.
 
     Everything propagates. Anything escaping a processor is unexpected by
-    definition, so neither a failing session nor a failing batch is caught here
-    (see ``docs/knowledge/conventions/error-policy.md``).
+    definition, so neither a failing session nor a failing batch is caught here.
 
     Parameters
     ----------

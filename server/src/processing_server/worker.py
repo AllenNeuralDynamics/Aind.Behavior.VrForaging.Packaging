@@ -1,12 +1,12 @@
-"""The worker — claim loop, ingest timer, lease reaper, heartbeat (§4, §7, §16).
+"""The worker — claim loop, ingest timer, lease reaper, heartbeat.
 
 A single :class:`Worker` instance owns one ledger connection and drives one
-job at a time end to end: claim → prepare input (§10) → run the processor
-container (§12) → classify (§8) → publish output (§10b) → record the outcome.
+job at a time end to end: claim → prepare input → run the processor
+container → classify → publish output → record the outcome.
 Intra-worker concurrency (``worker.max_concurrent_jobs > 1`` executing jobs in
 parallel within one process) is not implemented in this pass — run multiple
 worker processes/replicas for parallelism today; the ledger's atomic claim
-(§7) already makes that safe.
+already makes that safe.
 """
 
 import importlib.metadata
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: This worker's own image (§12), set on the worker service in compose. Not
+#: This worker's own image, set on the worker service in compose. Not
 #: ``PROCESSOR_IMAGE_URI``: that is set per child container, and sharing the name would
 #: make each layer's provenance unattributable to it.
 _WORKER_IMAGE_ENV = "VRF_WORKER_IMAGE_URI"
@@ -62,7 +62,7 @@ class Worker:
     """Drives one job at a time against the ledger, stores, and the processor image.
 
     *work_dir* is this process's own filesystem view of the shared named work
-    volume (§4a) — ``/work`` in the real, containerized deployment. Overridable
+    volume — ``/work`` in the real, containerized deployment. Overridable
     for tests, which never launch a real sibling container.
     """
 
@@ -95,12 +95,12 @@ class Worker:
         self.ledger.close()
 
     # ------------------------------------------------------------------
-    # Preflight (§4a)
+    # Preflight
     # ------------------------------------------------------------------
 
     def doctor(self) -> list[str]:
         """Cheap-to-verify, expensive-to-discover-mid-campaign checks. Returns a
-        list of problems found; empty means healthy. Covers the §4(a)
+        list of problems found; empty means healthy. Covers the
         volume-visibility assertion (the single highest-value guard in the
         design), Docker reachability, and an unpinned-image warning.
         """
@@ -172,11 +172,11 @@ class Worker:
         return problems
 
     # ------------------------------------------------------------------
-    # Ingestion (§3, §6)
+    # Ingestion
     # ------------------------------------------------------------------
 
     def processor_fingerprint(self) -> str:
-        """§6: the pinned digest in production, else the packaging version for
+        """The pinned digest in production, else the packaging version for
         local runs without one — either way, a version bump changes every
         session's ``job_key`` automatically."""
         return self.config.processor.digest or importlib.metadata.version(_PACKAGING_PKG)
@@ -186,12 +186,12 @@ class Worker:
         return f"{base}/{self.config.release}/sessions/{session_name}/"
 
     def source(self) -> "Source":
-        """Construct this worker's configured :class:`~.sources.Source` (§3)."""
+        """Construct this worker's configured :class:`~.sources.Source`."""
         return get_source(self.config.ingestion.type, **self._source_kwargs())
 
     def ingest_once(self) -> int:
         """One discovery sweep: upsert every session the source reports since the
-        last watermark. Routine ingestion is a no-op via ``job_key`` (§6) — the
+        last watermark. Routine ingestion is a no-op via ``job_key`` — the
         return value is how many were genuinely *new*."""
         source = self.source()
         since = self.ledger.get_watermark(source.name)
@@ -233,7 +233,7 @@ class Worker:
         return kwargs
 
     # ------------------------------------------------------------------
-    # Claim + process (§7, §8, §10, §10b)
+    # Claim + process
     # ------------------------------------------------------------------
 
     def claim_and_process_one(self) -> bool:
@@ -397,7 +397,7 @@ class Worker:
 
     #: Container-side parent directory for a session living outside the work
     #: volume (``mount``, or a pass-through ``local``). Deliberately not the host
-    #: path reused verbatim: the "identity-mapped" requirement in §4a is about
+    #: path reused verbatim: the "identity-mapped" requirement is about
     #: the *worker* and the *daemon* agreeing on the HOST-side string for
     #: `-v`/`--mount`'s source — the container-side target is this process's own
     #: business and need not (and, notably on a Windows host, cannot) look like
@@ -418,7 +418,7 @@ class Worker:
         self, prepared: PreparedInput, job_dir: Path, session_name: str
     ) -> tuple[str, tuple[str, str] | None]:
         """Decide the container-side input path, and whether an extra identity-mapped
-        bind mount (§4a) is needed — true whenever the store handed back a path
+        bind mount is needed — true whenever the store handed back a path
         outside the shared work volume (``mount``, or a pass-through ``local``).
 
         Either way the path's **last component is the session name**, because that
@@ -466,7 +466,7 @@ class Worker:
         return f"{dest}{_LOG_NAME}"
 
     # ------------------------------------------------------------------
-    # Work-volume housekeeping (§4a)
+    # Work-volume housekeeping
     # ------------------------------------------------------------------
 
     def _triage_work_dir(self) -> tuple[list[Path], list[str]]:
@@ -585,7 +585,7 @@ class Worker:
                 time.sleep(self.config.worker.poll_interval_s)
 
     def _disk_ok(self) -> bool:
-        """Whether there is room for another job (§4a).
+        """Whether there is room for another job.
 
         Before claiming, not during: a job claimed onto a full volume dies on ENOSPC and
         burns one of ``max_attempts``. Refusing to claim leaves the queue untouched.

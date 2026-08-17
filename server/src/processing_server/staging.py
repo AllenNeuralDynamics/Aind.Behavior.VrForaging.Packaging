@@ -1,13 +1,13 @@
-"""Staging rule engine (§10) — a pure, store-independent decision layer.
+"""Staging rule engine — a pure, store-independent decision layer.
 
 Given the *listing* of a session's objects (never their bytes — that is a
-store's job, §10), decides which ones to fetch. All decisions happen on
+store's job), decides which ones to fetch. All decisions happen on
 metadata, which is why listing is cheap and downloading is not: nothing here
 transfers a single byte.
 
 Applies to ``store: s3``/``local``. Under ``store: mount`` these rules are
 advisory only — used for the sidecar's ``available_*`` figures — since nothing
-is copied; the processor's own reads decide what actually moves (§10).
+is copied; the processor's own reads decide what actually moves.
 """
 
 import re
@@ -31,7 +31,7 @@ class ObjectRef:
 
 @dataclass(frozen=True)
 class InputManifest:
-    """What the staging rules selected — recorded in the ledger and the sidecar (§9)."""
+    """What the staging rules selected — recorded in the ledger and the sidecar."""
 
     store: Literal["s3", "mount", "local"]
     available_files: int
@@ -47,7 +47,7 @@ def _segments(key: str) -> list[str]:
 
 
 def _path_matches(key: str, rule_path: str) -> bool:
-    """Rules match case-insensitively on the leading path segment (§10 — ``Behavior``
+    """Rules match case-insensitively on the leading path segment (``Behavior``
     vs ``behavior`` capitalization varies across legacy sessions)."""
     if rule_path == "":
         return True
@@ -129,10 +129,10 @@ def select(objects: Iterable[ObjectRef], rules: list[StagingRule]) -> list[Objec
 def missing_required(selected: list[ObjectRef], required: list[str]) -> list[str]:
     """Return the entries of *required* (matched by filename) absent from *selected*.
 
-    Backs ``verify_present`` (§10): after staging, required files (e.g.
+    Backs ``verify_present``: after staging, required files (e.g.
     ``data_description.json``) must exist and be non-empty, or the job fails
     as ``transient`` before a container starts — the cheap defence against the
-    "empty input directory → exit 0" trap (§4a, §8).
+    "empty input directory → exit 0" trap.
     """
     names = {PurePosixPath(o.key).name for o in selected if o.size > 0}
     return [r for r in required if r not in names]
@@ -144,7 +144,7 @@ def total_bytes(objects: Iterable[ObjectRef]) -> int:
 
 def within_budget(objects: Iterable[ObjectRef], max_session_bytes: int) -> bool:
     """Computed from the listing, before any transfer — a pathological session
-    is refused rather than half-fetched (§10)."""
+    is refused rather than half-fetched."""
     return total_bytes(objects) <= max_session_bytes
 
 

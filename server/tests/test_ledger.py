@@ -1,4 +1,4 @@
-"""Unit tests for the SQLite ledger (§5-§8, §16) — no network, no Docker."""
+"""Unit tests for the SQLite ledger — no network, no Docker."""
 
 import threading
 
@@ -98,7 +98,7 @@ class TestClaim:
             assert job.session_name == "sess_high"
 
     def test_concurrent_claim_never_double_claims(self, tmp_path):
-        """The single highest-value guard (§7): N threads, each its own connection,
+        """The single highest-value guard: N threads, each its own connection,
         racing for one job — exactly one must win."""
         path = tmp_path / "jobs.sqlite"
         with Ledger(path) as setup:
@@ -300,7 +300,7 @@ class TestTags:
             assert ledger.tags_for("sess_A") == ["reprocess"]
 
     def test_survives_rerun(self, tmp_path):
-        """Tags key on session_name, not job_id — must survive supersession (§16)."""
+        """Tags key on session_name, not job_id — must survive supersession."""
         with _make_ledger(tmp_path) as ledger:
             jid = _upsert(ledger, "sess_A")
             ledger.add_tag("sess_A", "reprocess")
@@ -389,7 +389,7 @@ class TestEventsAndCountActive:
 
 
 class TestJobStatuses:
-    """The sweeper's read (§4a): status only, batched, silent about ids it has never
+    """The sweeper's read: status only, batched, silent about ids it has never
     seen — a directory named after nothing must not be mistaken for a finished job."""
 
     def test_maps_known_ids_and_omits_unknown(self, tmp_path):

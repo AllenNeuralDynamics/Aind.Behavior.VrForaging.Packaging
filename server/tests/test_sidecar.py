@@ -1,4 +1,4 @@
-"""Unit tests for sidecar.py — the output.metadata.json model and helpers (§9)."""
+"""Unit tests for sidecar.py — the output.metadata.json model and helpers."""
 
 import json
 import logging
@@ -65,7 +65,7 @@ class TestWarnCounter:
         assert counter.count == 1
 
     def test_ignores_third_party_noise(self):
-        """pynwb/hdmf boilerplate must not inflate the count (§16)."""
+        """pynwb/hdmf boilerplate must not inflate the count."""
         counter = _WarnCounter()
         logger = logging.getLogger("hdmf.common.table")
         logger.addHandler(counter)

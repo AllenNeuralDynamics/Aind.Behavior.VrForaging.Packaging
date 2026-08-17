@@ -1,4 +1,4 @@
-"""Unit tests for DocDbSource (§3) against a mocked MetadataDbClient — no network."""
+"""Unit tests for DocDbSource against a mocked MetadataDbClient — no network."""
 
 from unittest.mock import MagicMock
 
@@ -122,7 +122,7 @@ class TestPassB:
         assert refs[0].discovered_by == "docdb:pass-b"
 
     def test_session_on_or_after_cutoff_is_dropped(self):
-        """§3: a Pass-B match at/after the cutoff signals a metadata bug upstream,
+        """A Pass-B match at/after the cutoff signals a metadata bug upstream,
         not a legacy session — it must not be silently absorbed."""
         docs_b = [
             _record(

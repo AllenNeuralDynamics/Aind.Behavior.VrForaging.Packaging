@@ -1,4 +1,4 @@
-"""``local`` input store (§10) — really just ``mount`` without the network.
+"""``local`` input store — really just ``mount`` without the network.
 
 Points at a directory; either bind-mounts it directly (``copy_files: false``,
 the default — used by the integration-test cache) or copies the staged subset

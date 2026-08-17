@@ -1,4 +1,4 @@
-"""``DocDbSource`` — the production discovery backend (§3).
+"""``DocDbSource`` — the production discovery backend.
 
 Two passes against ``api.allenneuraldynamics.org`` / ``metadata_index`` /
 ``data_assets``, read-only, via ``aind-data-access-api``:
@@ -42,7 +42,7 @@ _PROJECTION = {
 
 
 def _parse_dt(value: str | None) -> datetime | None:
-    """Parse either serialisation seen live in ``acquisition_start_time`` (§3):
+    """Parse either serialisation seen live in ``acquisition_start_time``:
     ``2024-08-26 16:24:17.031552+00:00`` and ``2026-04-09T11:44:16Z``."""
     if not value:
         return None
@@ -89,7 +89,7 @@ class DocDbSource:
         # returns one materialised list; true incremental streaming would require
         # the client's private per-page call. At the ~4700-record scale measured
         # for this collection (metadata-only, no blobs), this is a reasonable
-        # trade-off against depending on a private API surface — see §3.
+        # trade-off against depending on a private API surface.
         return self._client.retrieve_docdb_records(
             filter_query=filter_query, projection=_PROJECTION, sort={"created": 1}, limit=0
         )
@@ -149,7 +149,7 @@ class DocDbSource:
             ref = self._to_ref(doc, discovered_by="docdb:pass-b")
             if ref is None:
                 continue
-            # Bounded on purpose (§3): this fallback exists only for sessions that
+            # Bounded on purpose: this fallback exists only for sessions that
             # predate typed acquisition metadata. If it starts matching newer
             # sessions, that is a metadata bug upstream, not something to absorb.
             if ref.session_start is not None and ref.session_start.replace(tzinfo=None) >= cutoff.replace(tzinfo=None):

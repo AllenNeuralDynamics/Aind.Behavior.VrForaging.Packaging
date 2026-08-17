@@ -1,4 +1,4 @@
-# Deployment sketch for the session-processing pipeline (§4, §13).
+# Deployment sketch for the session-processing pipeline.
 #
 # Setup:
 #   cp config.example.yaml config.yaml     # then edit release / output.uri
@@ -12,7 +12,7 @@
 #
 # ── AWS credentials ────────────────────────────────────────────────────────────
 # Only the WORKER needs them, and only for `input.store: s3` / `output.store: s3`.
-# Processor containers get none, so they cannot upload (§4c). Do not add credentials
+# Processor containers get none, so they cannot upload. Do not add credentials
 # to one to "make S3 work".
 #
 # Pick ONE. No default, deliberately — guessing produced a broken config once:
@@ -39,7 +39,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock   # root-equivalent; single-purpose host only
       - vrf_ledger:/var/lib/vrf
-      - vrf_work:/work                              # SAME named volume the processor gets (§4a)
+      - vrf_work:/work                              # SAME named volume the processor gets
       - ./config.yaml:/etc/vrf/config.yaml:ro
       # - /data/raw:/data/raw:ro                    # identity-mapped; only for input.store: mount
       # (b) SSO — note the absence of `:ro`:
@@ -63,7 +63,7 @@ services:
     volumes:
       - vrf_ledger:/var/lib/vrf:ro
       - ./config.yaml:/etc/vrf/config.yaml:ro
-    ports: ["127.0.0.1:8080:8080"]   # no auth (§16) — never publish on 0.0.0.0
+    ports: ["127.0.0.1:8080:8080"]   # no auth — never publish on 0.0.0.0
     restart: unless-stopped
 
 volumes:

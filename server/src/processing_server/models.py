@@ -1,9 +1,9 @@
 """Typed shapes shared across the pipeline package.
 
 Kept deliberately small: :class:`SessionRef` is what a :class:`~.sources.Source`
-yields (§3), :class:`Job` is a typed read of one ``jobs`` row (§5), and
+yields, :class:`Job` is a typed read of one ``jobs`` row, and
 ``JobStatus``/``ErrorKind`` are the two controlled vocabularies the ledger's
-state machine (§7) and failure classifier (§8) are built around.
+state machine and failure classifier are built around.
 """
 
 from datetime import datetime
@@ -11,37 +11,37 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-#: §7 state machine. ``completed`` + ``partial=True`` would mean output exists
+#: Job state machine. ``completed`` + ``partial=True`` would mean output exists
 #: but at least one processor failed anyway — currently unreachable, since any
 #: processor exception now fails the whole session (`_sidecar.SidecarRecorder`).
 #: Kept as a real state a future sidecar could still set deliberately.
 JobStatus = Literal["pending", "running", "completed", "failed", "retrying", "dead", "skipped"]
 
-#: §8 failure classification. Only ``data``/``code`` are terminal by default;
+#: Failure classification. Only ``data``/``code`` are terminal by default;
 #: ``transient``/``infra``/``timeout`` retry with backoff (see ``ledger.RETRYABLE_KINDS``).
 ErrorKind = Literal["transient", "infra", "timeout", "data", "code"]
 
-#: §10. What produced the host path handed to the processor container.
+#: What produced the host path handed to the processor container.
 StoreName = Literal["s3", "mount", "local"]
 
 
 class SessionRef(BaseModel):
-    """One discovered, complete, processable session (§3).
+    """One discovered, complete, processable session.
 
-    Identity only — fetching the bytes is a store's job (§10), not a source's.
+    Identity only — fetching the bytes is a store's job, not a source's.
     """
 
     model_config = ConfigDict(frozen=True)
 
     session_name: str
-    """Natural key; unique among raw assets (§3 — verified zero duplicates)."""
+    """Natural key; unique among raw assets (verified zero duplicates)."""
     input_uri: str
     """``s3://bucket/prefix`` or ``file:///path``."""
     asset_id: str | None = None
     """DocDB ``_id``, when the source knows one."""
     subject_id: str | None = None
     session_start: datetime | None = None
-    """Acquisition/session start — NOT DocDB ``created`` (§3)."""
+    """Acquisition/session start — NOT DocDB ``created``."""
     cursor: str | None = None
     """Source-specific watermark value (``created``, for :class:`DocDbSource`)."""
     discovered_by: str = ""
@@ -50,7 +50,7 @@ class SessionRef(BaseModel):
 
 
 class Job(BaseModel):
-    """Typed read of one ``jobs`` row (§5). Ledger writes go through dedicated
+    """Typed read of one ``jobs`` row. Ledger writes go through dedicated
     methods (``claim``, ``rerun``, …); this is only for callers that want a
     structured view of a row rather than a raw ``sqlite3.Row``.
     """

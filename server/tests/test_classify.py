@@ -1,4 +1,4 @@
-"""Unit tests for pipeline.runner — docker argv construction and the §8 truth table."""
+"""Unit tests for pipeline.runner — docker argv construction and the failure truth table."""
 
 import json
 

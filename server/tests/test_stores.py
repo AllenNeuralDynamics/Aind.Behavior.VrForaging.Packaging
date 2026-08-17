@@ -1,4 +1,4 @@
-"""Unit tests for the mount/local input and output stores (§10, §10b) — no network."""
+"""Unit tests for the mount/local input and output stores — no network."""
 
 import json
 from pathlib import Path
@@ -110,7 +110,7 @@ class TestLocalOutputStore:
 
     def test_publish_without_sidecar_leaves_exists_false(self, tmp_path):
         """No sidecar in src (e.g. it was never written) — publish still moves the
-        other files, but `exists()` (the commit marker) stays False (§10b)."""
+        other files, but `exists()` (the commit marker) stays False."""
         src = tmp_path / "out"
         src.mkdir()
         (src / "sites.parquet").write_bytes(b"x")

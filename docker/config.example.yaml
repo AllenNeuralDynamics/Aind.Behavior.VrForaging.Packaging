@@ -8,7 +8,7 @@ ingestion:
 
 input:
   store: mount                     # mount | s3 | local
-  root: /data/raw                  # identity-mapped host path (§4a)
+  root: /data/raw                  # identity-mapped host path
 
 output:
   store: s3

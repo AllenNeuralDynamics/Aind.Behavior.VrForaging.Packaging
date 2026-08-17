@@ -1,8 +1,7 @@
-"""``s3`` input store (§10) — the download fallback: Docker Desktop/Windows hosts
+"""``s3`` input store — the download fallback: Docker Desktop/Windows hosts
 where FUSE is unavailable, a hard offline-reproducibility guarantee, or the
 integration-test cache. Lists once, filters on metadata, downloads only what
-the staging rules selected — never a full 16 GB session (§10, "the download
-path, concretely").
+the staging rules selected — never a full 16 GB session.
 """
 
 import logging
@@ -30,8 +29,8 @@ class S3InputStore:
 
     def __init__(self, staging: StagingConfig | None = None, *, client: BaseClient | None = None) -> None:
         self._staging = staging or StagingConfig()
-        # Ambient credentials (instance role / profile / env) — NOT anonymous. §10
-        # "Credentials": ~77% of raw sessions are in a private bucket.
+        # Ambient credentials (instance role / profile / env) — NOT anonymous:
+        # ~77% of raw sessions are in a private bucket.
         self._client = client or boto3.client("s3")
 
     def list_objects(self, session_uri: str) -> list[ObjectRef]:

@@ -1,4 +1,4 @@
-"""Unit tests for PipelineConfig — YAML loading, defaults, extra='forbid' (§13)."""
+"""Unit tests for PipelineConfig — YAML loading, defaults, extra='forbid'."""
 
 import pytest
 from pydantic import ValidationError

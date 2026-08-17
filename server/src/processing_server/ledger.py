@@ -1,10 +1,10 @@
-"""SQLite ledger — the authoritative record of job/session state (§5–§8, §16).
+"""SQLite ledger — the authoritative record of job/session state.
 
 One file on the ledger volume. Each caller (worker, CLI invocation, dashboard
 request) opens its own :class:`Ledger` (its own ``sqlite3.Connection``) against
 that file — do not share one instance across threads. WAL mode lets the
-worker's writes and the dashboard's queue actions coexist without contention
-(§16): both hold short transactions, and ``busy_timeout`` absorbs the rest.
+worker's writes and the dashboard's queue actions coexist without contention:
+both hold short transactions, and ``busy_timeout`` absorbs the rest.
 
 Migrations are intentionally simple: every table is ``CREATE TABLE IF NOT
 EXISTS``, plus :func:`_add_missing_columns` for columns added to a table that
@@ -25,7 +25,7 @@ from .models import ErrorKind, Job, JobStatus
 
 logger = logging.getLogger(__name__)
 
-#: §8 retry policy. Everything else (``data``, ``code``) is terminal immediately.
+#: Retry policy. Everything else (``data``, ``code``) is terminal immediately.
 RETRYABLE_KINDS = frozenset({"transient", "infra", "timeout"})
 
 _SCHEMA_VERSION = 1
@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS ingest_watermarks (
     updated_at  TEXT NOT NULL
 );
 
--- `worker_image`: the worker's own image (§12); the `jobs` columns are the processor's.
+-- `worker_image`: the worker's own image; the `jobs` columns are the processor's.
 -- Comments stay OUTSIDE the column list — SQLite re-parses this after DROP COLUMN, and
 -- a trailing `--` among the columns fails with "incomplete input".
 CREATE TABLE IF NOT EXISTS workers (
@@ -141,10 +141,10 @@ CREATE TABLE IF NOT EXISTS schema_meta (version INTEGER NOT NULL);
 def job_key(
     kind: str, session_name: str | None, asset_id: str | None, processor_fingerprint: str, run_count: int
 ) -> str:
-    """§6 — content-addressed job identity. Routine ingestion upserts on this key.
+    """Content-addressed job identity. Routine ingestion upserts on this key.
 
     ``session_name`` is included alongside ``asset_id``: DocDB assets always have
-    a unique ``asset_id``, but ``LocalSource`` (§3, testing/offline debugging)
+    a unique ``asset_id``, but ``LocalSource`` (testing/offline debugging)
     does not set one, and ``asset_id`` alone would then collide across every
     session in one release.
     """
@@ -189,7 +189,7 @@ class Ledger:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         # isolation_level=None (autocommit): transactions are managed explicitly with
-        # BEGIN IMMEDIATE / COMMIT / ROLLBACK, per the CAS claim below (§7).
+        # BEGIN IMMEDIATE / COMMIT / ROLLBACK, per the CAS claim below.
         self._conn = sqlite3.connect(str(self.path), timeout=30, isolation_level=None)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA busy_timeout = 30000")
@@ -209,7 +209,7 @@ class Ledger:
         self.close()
 
     # ------------------------------------------------------------------
-    # Ingestion (§3, §6)
+    # Ingestion
     # ------------------------------------------------------------------
 
     def upsert_job(
@@ -232,7 +232,7 @@ class Ledger:
         """Insert a new job row unless its ``job_key`` already exists.
 
         Returns the new ``job_id``, or ``None`` if a row with this ``job_key``
-        already exists (the routine, at-least-once-ingestion no-op — §3/§6).
+        already exists (the routine, at-least-once-ingestion no-op).
         """
         key = job_key(kind, session_name, asset_id, processor_fingerprint, run_count)
         jid = str(uuid.uuid4())
@@ -275,7 +275,7 @@ class Ledger:
         return jid if inserted else None
 
     # ------------------------------------------------------------------
-    # Claim / lease (§7)
+    # Claim / lease
     # ------------------------------------------------------------------
 
     def claim(self, worker_id: str, lease_seconds: int) -> Job | None:
@@ -284,7 +284,7 @@ class Ledger:
         ``BEGIN IMMEDIATE`` takes the write lock before the read, and the
         ``WHERE status='pending'`` guard on the ``UPDATE`` is the compare-and-swap
         that makes concurrent claimants from separate connections mutually
-        exclusive (§7) — this is the single highest-value guard in the ledger.
+        exclusive — this is the single highest-value guard in the ledger.
         """
         now = _now()
         self._conn.execute("BEGIN IMMEDIATE")
@@ -306,7 +306,7 @@ class Ledger:
 
     def force_claim(self, job_id: str, worker_id: str, lease_seconds: int) -> Job | None:
         """Claim a specific job regardless of priority ordering — ``work --job-id``,
-        the debug-one-session path (§14). Same CAS guard as :meth:`claim`; returns
+        the debug-one-session path. Same CAS guard as :meth:`claim`; returns
         ``None`` if the job is not currently ``pending``."""
         now = _now()
         self._conn.execute("BEGIN IMMEDIATE")
@@ -345,7 +345,7 @@ class Ledger:
     def reap_expired_leases(self) -> int:
         """Move ``running`` jobs whose lease has expired back to ``pending`` (or ``dead``
         if retries are exhausted). Without this, a worker crash strands jobs in
-        ``running`` forever (§7). Returns the number of jobs reaped."""
+        ``running`` forever. Returns the number of jobs reaped."""
         now = _iso(_now())
         self._conn.execute("BEGIN IMMEDIATE")
         try:
@@ -376,16 +376,16 @@ class Ledger:
         return len(rows)
 
     # ------------------------------------------------------------------
-    # Outcome recording (§8)
+    # Outcome recording
     # ------------------------------------------------------------------
 
     def complete_job(self, job_id: str, *, partial: bool = False, **fields: Any) -> None:
         """Record a successful (possibly partial) run. Publishing must have already
-        happened — this only records the ledger-side outcome (§10b)."""
+        happened — this only records the ledger-side outcome."""
         self._finish(job_id, status="completed", partial=partial, error_kind=None, error=None, **fields)
 
     def fail_job(self, job_id: str, *, error_kind: ErrorKind, error: str, **fields: Any) -> JobStatus:
-        """Record a failed run and apply §8's retry policy.
+        """Record a failed run and apply the retry policy.
 
         ``transient``/``infra``/``timeout`` retry with backoff until
         ``max_attempts`` is reached, then become ``dead``. ``data``/``code`` are
@@ -507,11 +507,11 @@ class Ledger:
             raise
 
     # ------------------------------------------------------------------
-    # Re-run / re-process (§6.2, §6.3), priority & skip, tags (§16)
+    # Re-run / re-process, priority & skip, tags
     # ------------------------------------------------------------------
 
     def rerun(self, job_id: str, *, reason: str | None = None, requested_by: str = "cli") -> str:
-        """Re-queue the session behind *job_id* for another attempt (§6.2).
+        """Re-queue the session behind *job_id* for another attempt.
 
         The previous row is kept — its outcome stays queryable — and a new row
         with an incremented ``run_count`` (hence a new ``job_key``) is inserted
@@ -567,7 +567,7 @@ class Ledger:
         return new_id
 
     def set_priority(self, job_id: str, *, value: int | None = None, bump: int | None = None) -> None:
-        """Set or bump a **pending** job's priority. No-op on a non-pending job (§16)."""
+        """Set or bump a **pending** job's priority. No-op on a non-pending job."""
         if value is not None:
             self._conn.execute(
                 "UPDATE jobs SET priority=?, updated_at=? WHERE job_id=? AND status='pending'",
@@ -590,7 +590,7 @@ class Ledger:
         self.set_priority(job_id, value=bottom)
 
     def skip(self, job_id: str) -> None:
-        """Remove a pending job from the queue (§16) — reversible via :meth:`rerun`."""
+        """Remove a pending job from the queue — reversible via :meth:`rerun`."""
         self._conn.execute(
             "UPDATE jobs SET status='skipped', updated_at=? WHERE job_id=? AND status='pending'",
             (_iso(_now()), job_id),
@@ -598,7 +598,7 @@ class Ledger:
 
     def skip_running(self, job_id: str, reason: str) -> None:
         """Mark a claimed job ``skipped`` without running it — the ``output.overwrite:
-        false`` short-circuit (§7): the output already exists, so there is nothing to do."""
+        false`` short-circuit: the output already exists, so there is nothing to do."""
         self._finish(job_id, status="skipped", partial=False, error_kind=None, error=reason)
 
     def add_tag(self, session_name: str, tag: str, *, added_by: str = "cli", note: str | None = None) -> None:
@@ -624,7 +624,7 @@ class Ledger:
         return [r["session_name"] for r in rows]
 
     # ------------------------------------------------------------------
-    # Heartbeat (§16)
+    # Heartbeat
     # ------------------------------------------------------------------
 
     def heartbeat(
@@ -652,7 +652,7 @@ class Ledger:
 
     def list_workers(self) -> list[sqlite3.Row]:
         """Every worker that has ever heartbeated, most recently seen first —
-        the dashboard/`status` header line (§16)."""
+        the dashboard/`status` header line."""
         return self._conn.execute("SELECT * FROM workers ORDER BY heartbeat_at DESC").fetchall()
 
     # ------------------------------------------------------------------
@@ -704,7 +704,7 @@ class Ledger:
         order_by: str = "priority DESC, created_at",
         limit: int | None = None,
     ) -> list[Job]:
-        """The dashboard/`status`/`show` read path (§16) — every column is sortable."""
+        """The dashboard/`status`/`show` read path — every column is sortable."""
         clauses: list[str] = []
         params: list[Any] = []
         if status:
@@ -744,12 +744,12 @@ class Ledger:
         )
 
     def list_events(self, job_id: str) -> list[sqlite3.Row]:
-        """Full transition history for one job — the ``show`` command (§14)."""
+        """Full transition history for one job — the ``show`` command."""
         return self._conn.execute("SELECT * FROM job_events WHERE job_id=? ORDER BY event_id", (job_id,)).fetchall()
 
     def count_active(self, release: str, *, kind: str = "session") -> int:
         """Sessions still in flight (pending/running/retrying) for *release* — the
-        §11 aggregate gate: closed while this is nonzero, open once every session
+        aggregate gate: closed while this is nonzero, open once every session
         job is terminal (including ``failed``/``dead``/``skipped``)."""
         row = self._conn.execute(
             """SELECT COUNT(*) AS n FROM jobs

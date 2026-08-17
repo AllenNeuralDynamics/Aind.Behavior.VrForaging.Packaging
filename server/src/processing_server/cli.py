@@ -1,4 +1,4 @@
-"""``vr-foraging-server`` — the server CLI (§14).
+"""``vr-foraging-server`` — the server CLI.
 
 Two audiences in one command, split by whether ``--config`` is needed:
 
@@ -204,7 +204,7 @@ def _select_jobs_for_rerun(ledger: "Ledger", args: argparse.Namespace) -> list["
 
 def cmd_rerun(args: argparse.Namespace) -> None:
     if args.all and not args.confirm:
-        print("Refusing `rerun --all` without `--confirm` — this is deliberate (§6.2).")
+        print("Refusing `rerun --all` without `--confirm` — this is deliberate.")
         sys.exit(1)
     with _ledger(_load_config(args.config).worker.ledger) as ledger:
         targets = _select_jobs_for_rerun(ledger, args)
@@ -276,7 +276,7 @@ def cmd_priority(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
-# aggregate (§11)
+# aggregate
 # ---------------------------------------------------------------------------
 
 
@@ -351,7 +351,7 @@ def cmd_doctor(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
-# reconcile (§5)
+# reconcile
 # ---------------------------------------------------------------------------
 
 
@@ -446,13 +446,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--write-nwb", action="store_true")
     p.set_defaults(func=cmd_process)
 
-    p = sub.add_parser("ingest", help="Discover new sessions and enqueue jobs (§3, §6)")
+    p = sub.add_parser("ingest", help="Discover new sessions and enqueue jobs")
     _add_config_arg(p)
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--limit", type=int, default=None)
     p.set_defaults(func=cmd_ingest)
 
-    p = sub.add_parser("work", help="Run the claim loop (or one job) (§7)")
+    p = sub.add_parser("work", help="Run the claim loop (or one job)")
     _add_config_arg(p)
     p.add_argument("--once", action="store_true", help="Process at most one job, then exit")
     p.add_argument("--job-id", default=None, help="Force-claim and run exactly this job")
@@ -477,7 +477,7 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--session", default=None)
     p.set_defaults(func=cmd_show)
 
-    p = sub.add_parser("rerun", help="Re-queue sessions for another attempt (§6.2)")
+    p = sub.add_parser("rerun", help="Re-queue sessions for another attempt")
     _add_config_arg(p)
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--session", default=None)
@@ -491,7 +491,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_rerun)
 
-    p = sub.add_parser("tag", help="Attach/remove durable session labels (§16)")
+    p = sub.add_parser("tag", help="Attach/remove durable session labels")
     _add_config_arg(p)
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--session", default=None)
@@ -503,7 +503,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_tag)
 
-    p = sub.add_parser("priority", help="Adjust queue priority for pending jobs (§16)")
+    p = sub.add_parser("priority", help="Adjust queue priority for pending jobs")
     _add_config_arg(p)
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--session", default=None)
@@ -515,17 +515,17 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--bottom", action="store_true")
     p.set_defaults(func=cmd_priority)
 
-    p = sub.add_parser("aggregate", help="Rebuild the flat aggregate tables (§11)")
+    p = sub.add_parser("aggregate", help="Rebuild the flat aggregate tables")
     _add_config_arg(p)
     p.add_argument("--force", action="store_true", help="Bypass the in-flight gate")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_aggregate)
 
-    p = sub.add_parser("reap", help="Move expired-lease jobs back to pending/dead (§7)")
+    p = sub.add_parser("reap", help="Move expired-lease jobs back to pending/dead")
     _add_config_arg(p)
     p.set_defaults(func=cmd_reap)
 
-    p = sub.add_parser("reconcile", help="Rebuild ledger rows from the output tree (§5)")
+    p = sub.add_parser("reconcile", help="Rebuild ledger rows from the output tree")
     _add_config_arg(p)
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_reconcile)
@@ -535,11 +535,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--release", default=None)
     p.set_defaults(func=cmd_export)
 
-    p = sub.add_parser("serve", help="Run the dashboard (§16)")
+    p = sub.add_parser("serve", help="Run the dashboard")
     _add_config_arg(p)
     p.set_defaults(func=cmd_serve)
 
-    p = sub.add_parser("doctor", help="Volume/Docker/credential preflight (§4a)")
+    p = sub.add_parser("doctor", help="Volume/Docker/credential preflight")
     _add_config_arg(p)
     p.set_defaults(func=cmd_doctor)
 

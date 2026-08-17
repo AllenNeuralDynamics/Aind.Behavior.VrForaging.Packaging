@@ -1,9 +1,9 @@
-"""Docker execution + failure classification (§8, §12).
+"""Docker execution + failure classification.
 
 :func:`build_docker_args` builds the ``docker run`` argv for one job's
 processor container. :func:`run` executes it with a timeout, capturing
-combined stdout+stderr to a plain-text log file (§16). :func:`classify` applies
-§8's truth table to turn the exit code and sidecar into the ledger-facing
+combined stdout+stderr to a plain-text log file. :func:`classify` applies
+the failure truth table to turn the exit code and sidecar into the ledger-facing
 :class:`Verdict` — the worker never guesses from a raw string.
 """
 
@@ -41,7 +41,7 @@ class RunResult:
 
 @dataclass(frozen=True)
 class Verdict:
-    """The ledger-facing outcome of one job run (§8)."""
+    """The ledger-facing outcome of one job run."""
 
     status: Literal["completed", "failed"]
     partial: bool
@@ -61,7 +61,7 @@ def _truncate(s: str, limit: int = _ERROR_MAX_LEN) -> str:
 def image_ref(processor: ProcessorConfig) -> str:
     """The ``repo@sha256:…`` or ``repo:tag`` string passed to ``docker run``.
 
-    Pin by digest, never by tag (§12) — ``allow_unpinned`` exists only for
+    Pin by digest, never by tag — ``allow_unpinned`` exists only for
     local/dev runs and is recorded honestly in the sidecar as ``provenance:
     "unpinned"``, never guessed.
     """
@@ -92,7 +92,7 @@ def build_docker_args(
     real store or a real Docker daemon.
 
     The named work volume (not a bind mount) is what makes the host-path trap
-    (§4a) a non-issue: ``-v work_volume:/work`` is resolved by the daemon *by
+    a non-issue: ``-v work_volume:/work`` is resolved by the daemon *by
     name*, so there is no host path to get wrong. A store that returns a path
     outside the work volume (``mount``, or a pass-through ``local``) needs one
     extra identity-mapped bind mount, passed in as *extra_mount*.
@@ -134,7 +134,7 @@ def build_docker_args(
         f"VRF_WORKER_ID={worker_id}",
         ref,
         # `process`: exactly one session, and it writes the sidecar. Aggregation is
-        # a separate job kind (§11) over the published output tree, never
+        # a separate job kind over the published output tree, never
         # per-session work — nothing here can accidentally trigger it.
         "process",
         "--input-dir",
@@ -154,7 +154,7 @@ def build_docker_args(
 
 def run(args: list[str], *, job_id: str, log_path: Path, timeout_s: int) -> RunResult:
     """Execute ``docker run …``, capturing combined stdout+stderr to *log_path*
-    (plain text — §16). A nonzero container exit is a normal outcome, not an
+    (plain text). A nonzero container exit is a normal outcome, not an
     exception — :func:`classify` decides what it means. Only raises
     :class:`RunnerConfigError` if Docker itself could not be invoked at all
     (daemon down, binary missing).
@@ -180,7 +180,7 @@ def run(args: list[str], *, job_id: str, log_path: Path, timeout_s: int) -> RunR
 
 
 def classify(result: RunResult, sidecar_path: Path, *, expected_digest: str | None) -> Verdict:
-    """Apply §8's truth table: exit code × sidecar → one ledger-facing verdict.
+    """Apply the truth table: exit code × sidecar → one ledger-facing verdict.
 
     Both signals are needed, and neither alone is sufficient. The processor
     propagates any failure, so a broken session exits nonzero *and* leaves a

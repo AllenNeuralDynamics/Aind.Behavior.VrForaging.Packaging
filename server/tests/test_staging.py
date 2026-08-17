@@ -1,4 +1,4 @@
-"""Unit tests for the staging rule engine (§10) — pure metadata decisions, no I/O."""
+"""Unit tests for the staging rule engine — pure metadata decisions, no I/O."""
 
 from processing_server.config import StagingConfig, StagingRule
 from processing_server.staging import (
@@ -41,7 +41,7 @@ class TestSelect:
         assert "behavior/Video/video.mp4" not in selected
 
     def test_behavior_path_matches_case_insensitively(self):
-        """Legacy sessions use `Behavior/` (capital B); the rule says `behavior` (§10)."""
+        """Legacy sessions use `Behavior/` (capital B); the rule says `behavior`."""
         refs = _refs("Behavior/Logs/rig_output.json")
         selected = select(refs, _DEFAULT_RULES)
         assert len(selected) == 1
@@ -57,7 +57,7 @@ class TestSelect:
 
     def test_unmatched_path_is_narrow_allow_list_not_deny_list(self):
         """A folder covered by no rule is not staged at all — new file types are
-        skipped by default, not swept in (§10)."""
+        skipped by default, not swept in."""
         refs = _refs("some_unexpected_folder/file.bin")
         assert select(refs, _DEFAULT_RULES) == []
 

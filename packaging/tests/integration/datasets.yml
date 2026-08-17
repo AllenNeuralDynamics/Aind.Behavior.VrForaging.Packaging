@@ -1,4 +1,4 @@
-# Integration test datasets. See docs/plans/2026-05-09-integration-tests-design.md.
+# Integration test datasets.
 #
 # Default exclusions (always applied, in addition to per-entry `exclude`):
 #   **/*.mp4, **/*.avi, **/*.mkv

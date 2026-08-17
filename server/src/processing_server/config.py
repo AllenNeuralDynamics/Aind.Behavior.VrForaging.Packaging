@@ -18,17 +18,17 @@ _DEFAULT_SESSION_RE = r"^(behavior_)?\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$"
 
 
 class LegacyFallbackConfig(BaseModel):
-    """§3 Pass B — bounded legacy fallback for sessions predating typed acquisition metadata."""
+    """Pass B — bounded legacy fallback for sessions predating typed acquisition metadata."""
 
     model_config = ConfigDict(extra="forbid")
 
     project_name: str = "Cognitive flexibility in patch foraging"
     session_before: str = "2026-01-01"
-    """Acquisition/session start cutoff, NOT DocDB ``created`` — see §3."""
+    """Acquisition/session start cutoff, NOT DocDB ``created``."""
 
 
 class IngestionConfig(BaseModel):
-    """§3 — discovery. ``type: local`` is for testing and offline debugging."""
+    """Discovery. ``type: local`` is for testing and offline debugging."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -47,21 +47,21 @@ class IngestionConfig(BaseModel):
 
 
 class InputConfig(BaseModel):
-    """§10 — input store. ``mount`` is the default: no copy, the read set decides."""
+    """Input store. ``mount`` is the default: no copy, the read set decides."""
 
     model_config = ConfigDict(extra="forbid")
 
     store: Literal["s3", "mount", "local"] = "mount"
     root: Path | None = None
-    """``mount``/``local`` — identity-mapped host path (§4a) holding the sessions."""
+    """``mount``/``local`` — identity-mapped host path holding the sessions."""
     copy_files: bool = False
     """``local`` only — ``False`` bind-mounts the source directly, ``True`` copies it."""
     record_read_set: bool = True
-    """``sys.addaudithook`` read-set recording → ``sidecar.staged.read_files`` (§10)."""
+    """``sys.addaudithook`` read-set recording → ``sidecar.staged.read_files``."""
 
 
 class StagingRule(BaseModel):
-    """One include/exclude rule, evaluated under ``path`` (§10)."""
+    """One include/exclude rule, evaluated under ``path``."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -77,9 +77,9 @@ _DEFAULT_STAGING_RULES = [
     # No `exclude` here: `include` is already the complete specification (only
     # these two extensions), so an `exclude: ["**/*"]` would blanket-exclude
     # everything the include list had just matched — self-defeating under a
-    # plain include-then-exclude engine (§10).
+    # plain include-then-exclude engine.
     StagingRule(path="behavior-videos", include=["**/*.csv", "**/*.json"]),
-    # Pre-correction originals — never read by any processor (§10), cheap and
+    # Pre-correction originals — never read by any processor, cheap and
     # useful for provenance. Not read by any current processor; a real hit was
     # never observed, but they cost ~135 KB and answer "what did this field say
     # before it was corrected" if that is ever asked.
@@ -88,7 +88,7 @@ _DEFAULT_STAGING_RULES = [
 
 
 class StagingConfig(BaseModel):
-    """§10 — applies to ``store: s3``/``local``; advisory (sidecar-only) under ``mount``."""
+    """Applies to ``store: s3``/``local``; advisory (sidecar-only) under ``mount``."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -98,7 +98,7 @@ class StagingConfig(BaseModel):
 
 
 class OutputConfig(BaseModel):
-    """§10b — output store. Data first, ``output.metadata.json`` last (commit marker)."""
+    """Output store. Data first, ``output.metadata.json`` last (commit marker)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -112,7 +112,7 @@ class OutputConfig(BaseModel):
 
 
 class ProcessorConfig(BaseModel):
-    """§12 — the processor image the worker launches per job."""
+    """The processor image the worker launches per job."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -126,11 +126,11 @@ class ProcessorConfig(BaseModel):
     cpus: float = 2
     memory: str = "8g"
     reprocess_on_digest_change: Literal["none", "filtered", "all"] = "none"
-    """``filtered`` reprocesses sessions carrying the ``reprocess`` tag (§6.3, §16)."""
+    """``filtered`` reprocesses sessions carrying the ``reprocess`` tag."""
 
 
 class WorkerConfig(BaseModel):
-    """§4/§7 — claim loop, lease reaping, disk gate."""
+    """Claim loop, lease reaping, disk gate."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -139,10 +139,10 @@ class WorkerConfig(BaseModel):
     work_volume: str = "vrf_work"
     max_concurrent_jobs: int = 3
     min_free_disk_bytes: int = 20_000_000_000
-    """Refuse to claim below this much free space (§4a). Checked before claiming: a job
+    """Refuse to claim below this much free space. Checked before claiming: a job
     that dies on ENOSPC burns one of ``max_attempts``."""
     keep_work_dir: bool = False
-    """Debugging: keep job directories (§4a). Disables the exit-side cleanup and the
+    """Debugging: keep job directories. Disables the exit-side cleanup and the
     sweep, but not the entry-side cleanup. Never leave on for a campaign — unbounded."""
     lease_seconds: int = 5400
     max_attempts: int = 3
@@ -150,7 +150,7 @@ class WorkerConfig(BaseModel):
 
 
 class DashboardConfig(BaseModel):
-    """§16 — one sortable sessions table with a whitelisted set of queue actions."""
+    """One sortable sessions table with a whitelisted set of queue actions."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -166,7 +166,7 @@ class DashboardConfig(BaseModel):
 
 
 class LoggingConfig(BaseModel):
-    """§16 — one log per job attempt, published to the output store then removed locally."""
+    """One log per job attempt, published to the output store then removed locally."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -191,7 +191,7 @@ class PipelineConfig(BaseSettings):
     model_config = SettingsConfigDict(extra="forbid", env_prefix="VRF__", env_nested_delimiter="__")
 
     release: str
-    """Campaign name (e.g. ``manuscript-2026-08-13``) → output prefix. One release, one digest (§6)."""
+    """Campaign name (e.g. ``manuscript-2026-08-13``) → output prefix. One release, one digest."""
     ingestion: IngestionConfig = IngestionConfig()
     input: InputConfig = InputConfig()
     staging: StagingConfig = StagingConfig()

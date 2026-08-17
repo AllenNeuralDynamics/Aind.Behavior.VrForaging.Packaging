@@ -1,9 +1,9 @@
 """Dashboard — one sortable table of sessions, per-job log links, and a
-whitelisted set of queue actions (§16). stdlib ``http.server`` only.
+whitelisted set of queue actions. stdlib ``http.server`` only.
 
 No authentication: bind to ``127.0.0.1`` (the default) and reach it over an
 SSH tunnel. A CSRF token in the action form is the only defense needed at
-that trust boundary — see ``dashboard.allow_actions`` (§13) to disable writes
+that trust boundary — see ``dashboard.allow_actions`` to disable writes
 entirely and fall back to a read-only view.
 """
 
@@ -20,7 +20,7 @@ from .models import Job
 
 logger = logging.getLogger(__name__)
 
-#: Fixed allow-list — sorting is a query parameter, never raw user SQL (§16).
+#: Fixed allow-list — sorting is a query parameter, never raw user SQL.
 _SORTABLE_COLUMNS = [
     "session_name",
     "status",
@@ -40,7 +40,7 @@ _SORTABLE_COLUMNS = [
     "created_at",
 ]
 
-#: The whitelisted write surface (§16) — nothing here ever touches an outcome
+#: The whitelisted write surface — nothing here ever touches an outcome
 #: field (exit_code, error, sidecar, image_digest, …); those are the worker's alone.
 _ACTIONS = {"queue", "priority_top", "priority_bottom", "priority_bump", "priority_drop", "skip", "tag", "untag"}
 
@@ -212,7 +212,7 @@ def render_confirm(action: str, job_ids: list[str], csrf_token: str) -> str:
 
 def apply_action(ledger: Ledger, action: str, job_ids: list[str], *, tag_name: str | None) -> None:
     """Apply *action* to every job in *job_ids*. Refused on non-pending rows where
-    that would be meaningless (§16) — the ledger's own guards (``WHERE status=
+    that would be meaningless — the ledger's own guards (``WHERE status=
     'pending'``) make most of these naturally no-ops rather than errors."""
     for job_id in job_ids:
         job = ledger.get_job(job_id)
@@ -283,7 +283,7 @@ def _route_get_log(ledger: Ledger, job_id: str) -> _Response:
     when it is not.
 
     ``log_uri`` names a location in the output store, which for a real campaign is
-    S3 — and the dashboard deliberately runs without credentials (§16: no auth, an
+    S3 — and the dashboard deliberately runs without credentials (no auth, an
     SSH tunnel, a read-only ledger mount). Printing the URI is the honest degradation;
     fetching it would mean giving a read-only viewer the campaign's credentials.
     """
@@ -369,7 +369,7 @@ def make_handler(config: DashboardConfig, ledger_path: str, csrf_token: str) -> 
 
 
 def serve(config: DashboardConfig, ledger_path: str) -> None:
-    """Run the dashboard forever. Bind to ``127.0.0.1`` (the default, §16) — there
+    """Run the dashboard forever. Bind to ``127.0.0.1`` (the default) — there
     is no authentication, so never change ``dashboard.bind`` to ``0.0.0.0``."""
     csrf_token = secrets.token_urlsafe(32)
     handler_cls = make_handler(config, ledger_path, csrf_token)

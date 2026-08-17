@@ -66,7 +66,7 @@ jobs:
   # │  |___|_| |_| |_|\__,_|\__, |\___|                │
   # │                       |___/                       │
   # ╚─────────────────────────────────────────────────╝
-  # Processor/worker image for the session-processing pipeline (§12, docker/).
+  # Processor/worker image for the session-processing pipeline (see docker/).
   #
   # Published on RELEASES ONLY (plus manual dispatch, which is a deliberate human
   # act rather than an automatic one). Not on pushes to main: a worker config pins
@@ -183,7 +183,7 @@ jobs:
           echo "### Processor image" >> "$GITHUB_STEP_SUMMARY"
           echo "\`ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Pin \`processor.digest\` to this value in the worker config (§13) — never pin by tag." >> "$GITHUB_STEP_SUMMARY"
+          echo "Pin \`processor.digest\` to this value in the worker config — never pin by tag." >> "$GITHUB_STEP_SUMMARY"
 
   smoke:
     name: Smoke-test processor image

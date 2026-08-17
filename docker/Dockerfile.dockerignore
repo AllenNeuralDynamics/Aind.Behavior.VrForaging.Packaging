@@ -1,5 +1,5 @@
 # Deliberately does NOT exclude `.git` — setuptools_scm needs the tag history
-# to produce a real version, or every sidecar and ledger row gets "0.1.dev1+…" (§12).
+# to produce a real version, or every sidecar and ledger row gets "0.1.dev1+…".
 
 .venv/
 __pycache__/

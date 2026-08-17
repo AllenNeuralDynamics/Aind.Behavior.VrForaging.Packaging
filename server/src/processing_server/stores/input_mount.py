@@ -1,4 +1,4 @@
-"""``mount`` input store — the default (§10). Almost no code: a pass-through that
+"""``mount`` input store — the default. Almost no code: a pass-through that
 reports a path and copies nothing. What makes the path a directory (a genuinely
 local/mounted filesystem, or host-level Mountpoint-S3) is outside this process.
 """
@@ -36,7 +36,7 @@ class MountInputStore:
             raise StoreDataError(f"Session path does not exist or is not mounted: {root}")
         # Rules are advisory here — they describe what *would* be read (for the
         # sidecar's `available_*` figures), not what is actually made accessible;
-        # the whole mounted tree is already visible to the processor (§10).
+        # the whole mounted tree is already visible to the processor.
         selected = select(refs, self._staging.rules)
         missing = missing_required(selected, self._staging.verify_present)
         if missing:

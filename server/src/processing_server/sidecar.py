@@ -121,7 +121,7 @@ class SessionOutputMetadata(BaseModel):
     parameters: dict[str, Any] = {}
     """The CLI flags actually used for this run."""
     staged: dict[str, Any] = {}
-    """What §10's store made available, when known (``input_store``, byte counts, …)."""
+    """What the input store made available, when known (``input_store``, byte counts, …)."""
 
     # ---- server context, when run under the worker ----
     job_id: str | None = None
@@ -173,7 +173,7 @@ def build_code_ref() -> CodeRef:
     """Build a :class:`CodeRef` from the running environment.
 
     ``container``/``provenance`` come from ``PROCESSOR_IMAGE_URI`` (set by the
-    worker at ``docker run`` time, §12) — never guessed. Its absence means a
+    worker at ``docker run`` time) — never guessed. Its absence means a
     local/dev run, recorded as ``provenance="unpinned"`` rather than invented.
     """
     image_uri = os.environ.get("PROCESSOR_IMAGE_URI")
@@ -353,7 +353,7 @@ class SidecarRecorder:
         Any processor failure fails the whole session, and so does an exception
         on the way out of the block — the two are the same event seen from
         inside and outside the loop, and a session missing a table is not a
-        usable partial result (``docs/knowledge/conventions/error-policy.md``).
+        usable partial result.
         A dataset that never opened is likewise an error, not an empty success.
 
         ``"partial"`` is consequently unreachable from here; the type keeps it
