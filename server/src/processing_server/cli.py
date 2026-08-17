@@ -135,6 +135,12 @@ def cmd_work(args: argparse.Namespace) -> None:
             if job is None:
                 print(f"Job {args.job_id} is not pending (already claimed, or does not exist).")
                 return
+            # Heartbeat even for a single foreground job. Only `run_forever` used to,
+            # which left `workers.worker_image` unset for anything run this way — and a
+            # `--job-id` run is not a rehearsal: it claims a real job and publishes real
+            # output to the real store. "Which code produced this?" must not depend on
+            # how the job happened to be launched.
+            worker.heartbeat(running_jobs=1)
             worker.process_job(job)
             print(f"Processed {args.job_id} — see `vr-foraging-server show --job-id {args.job_id}`.")
             return

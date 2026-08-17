@@ -72,13 +72,26 @@ class TestBuildDockerArgs:
         cfg = ProcessorConfig(digest="sha256:abc", write_nwb=True)
         args = _args(cfg)
         assert args[:3] == ["docker", "run", "--rm"]
-        assert "--network=none" in args
         assert "vrf_work:/work" in args
         assert f"PROCESSOR_IMAGE_URI={cfg.image}@sha256:abc" in args
         assert "VRF_JOB_ID=job1" in args
         assert "VRF_WORKER_ID=w1" in args
         assert "--write-nwb" in args
         assert "/work/job1/out" in args
+
+    def test_the_container_gets_a_network_but_no_credentials(self):
+        """`--network=none` must not come back: contraqctor fetches Harp device
+        schemas over HTTPS at load time, and offline every Harp group resolves to zero
+        streams and raises "Data must be a list of DataStreams" — which `classify`
+        charges to the data, since that is what a real parse failure looks like.
+
+        Withholding upload access is a separate mechanism, and it is *absence*: no
+        credentials are passed, `docker run` does not inherit the worker's
+        environment, and nothing mounts `~/.aws`.
+        """
+        args = _args(ProcessorConfig(digest="sha256:abc"))
+        assert not [a for a in args if a.startswith("--network")]
+        assert not [a for a in args if "AWS" in a.upper()]
 
     def test_runs_the_process_subcommand_first(self):
         """`process` must be the first argument after the image ref — the CLI

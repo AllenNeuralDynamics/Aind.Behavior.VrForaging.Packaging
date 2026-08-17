@@ -28,8 +28,12 @@
 #
 # ── AWS credentials ────────────────────────────────────────────────────────────
 # Only the WORKER needs them, and only for `input.store: s3` / `output.store: s3`.
-# The processor containers it launches run `--network=none` and never touch S3 at
-# all (§4c) — everything they read is on a mount or already staged.
+# The processor containers it launches have a network — contraqctor fetches Harp
+# device schemas over HTTPS at load time — but are given no credentials at all, so
+# they cannot upload anywhere (§4c). Everything they read is on a mount or already
+# staged, and everything they write goes to the work volume for the worker to
+# publish. Do not add credentials to a processor container to "make S3 work"; the
+# worker is the only thing that should ever hold them.
 #
 # Pick ONE of the three blocks below. There is no default, deliberately: the right
 # answer differs between a laptop and a campaign host, and guessing produced a

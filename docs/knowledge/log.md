@@ -3,6 +3,39 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-08-17 (the processor container gets a network)
+
+* **Architecture**: `--network=none` is gone from the processor container, and must not
+  come back. `contraqctor` resolves Harp device registers at load time by fetching
+  `harp-tech/whoami` and a per-device `device.yml` over HTTPS, and no session carries a
+  local copy; offline, every Harp device group resolves to zero streams and raises
+  `Data must be a list of DataStreams`. Measured on one session: identical input and
+  image, exit 0 with a network and exit 1 without.
+
+  The container still cannot upload. That property was never the network flag's to
+  provide — it is *absence*: nothing passes credentials in, `docker run` does not
+  inherit the worker's environment, and no `~/.aws` is mounted. S3 remains a
+  worker-only concern. `test_classify.py` now asserts both halves, so neither the
+  flag's return nor a stray `AWS_*` goes unnoticed.
+
+  Vendoring those schemas into the image and feeding them to `contraqctor` via
+  `DeviceYmlByFile` would let the container go offline again. That is the real fix;
+  this is the honest interim.
+
+* **Correction**: sessions previously recorded here and in review as *unprocessable
+  legacy data* were nothing of the kind. `716458_2024-05-13_09-03-55` and
+  `815103_2026-02-09_22-01-14` both fail with `Data must be a list of DataStreams`
+  offline and both **complete** with a network. The failure looked like a parse error
+  and `classify` charged it to `error_kind='data'`, which is exactly right for the
+  signal it had — the sidecar named a processor, so the session took the blame. Worth
+  remembering when reading that column: `data` means the processor raised, not that the
+  session is unusable.
+
+* **Convention**: `work --job-id` now heartbeats before processing. Only `run_forever`
+  used to, so `workers.worker_image` was unset for anything run that way — yet a
+  `--job-id` run claims a real job and publishes real output. What code produced a
+  session must not depend on how the job was launched.
+
 ## 2026-08-17 (orchestration → server)
 
 * **Naming**: the second distribution is the **server**, and it no longer carries the

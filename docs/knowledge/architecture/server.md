@@ -50,7 +50,7 @@ import would otherwise hide.
                        │   2. docker run ─┼──────────────┐                            │
                        │                  │              │                            │
                        │   5. classify ◀──┤              │   ┌── CONTAINER ────────┐  │
-                       │      exit code   │              └──▶│ --network=none      │  │
+                       │      exit code   │              └──▶│ no AWS credentials  │  │
                        │      × sidecar   │                  │                     │  │
                        │                  │                  │ vr-foraging-server  │  │
                        │   6. publish ────┼──▶ S3 or local    │                     │  │
@@ -70,10 +70,21 @@ import would otherwise hide.
 
 Three things in that picture are easy to get wrong, so they are worth naming.
 
-**The container is offline.** `--network=none`. Everything it reads is already on
-a mount or staged to the work volume, and everything it writes goes to
-`/work/{job}/out` for the *worker* to publish. A processor cannot reach S3 even by
-accident, which is also why credentials are a worker-only concern.
+**The container has a network, but no credentials.** It reads its session from a
+mount or the work volume and writes to `/work/{job}/out` for the *worker* to
+publish, and it cannot upload anywhere: nothing passes credentials into it,
+`docker run` does not inherit the worker's environment, and no `~/.aws` is
+mounted. S3 stays a worker-only concern.
+
+It is not `--network=none`, and that must not come back. `contraqctor` resolves
+Harp device registers at load time by fetching `harp-tech/whoami` and a
+per-device `device.yml` over HTTPS, and no session carries a local copy. Offline,
+every Harp device group resolves to zero streams and raises `Data must be a list
+of DataStreams` — which `classify` then charges to the *data*, because that is
+exactly what a genuine parse failure looks like. Measured: same session, same
+image, exit 0 with a network and exit 1 without. Vendoring those schemas into the
+image and feeding them to `contraqctor` via `DeviceYmlByFile` would make offline
+operation possible again.
 
 **The session's identity is its input directory's name.** `session_id` in every
 table comes from `--input-dir`'s basename, unconditionally. So the worker mounts
