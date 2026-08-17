@@ -73,9 +73,13 @@ def _worker_header(ledger: Ledger) -> str:
     for w in workers:
         free = w["disk_free_bytes"]
         free_str = f"{free / 1e9:.0f} GB free" if free is not None else "disk unknown"
+        # Digest only: the full ref is a ~120-char URI that would swamp a one-line
+        # header, and the repository half is identical for every worker anyway.
+        image = w["worker_image"]
+        image_str = f"@{image.rsplit('@', 1)[1][:19]}…" if image and "@" in image else "image unrecorded"
         parts.append(
             f"worker {_esc(w['worker_id'])} · last seen {_age(w['heartbeat_at'])} · "
-            f"{w['running_jobs']} running · {free_str}"
+            f"{w['running_jobs']} running · {free_str} · {_esc(image_str)}"
         )
     return "<p>" + " &nbsp;|&nbsp; ".join(parts) + "</p>"
 
@@ -275,13 +279,23 @@ def _route_get(
 
 
 def _route_get_log(ledger: Ledger, job_id: str) -> _Response:
+    """Serve a job's log when it is reachable from this host, and say where it is
+    when it is not.
+
+    ``log_uri`` names a location in the output store, which for a real campaign is
+    S3 — and the dashboard deliberately runs without credentials (§16: no auth, an
+    SSH tunnel, a read-only ledger mount). Printing the URI is the honest degradation;
+    fetching it would mean giving a read-only viewer the campaign's credentials.
+    """
+    from .stores import StoreConfigError, _uri_to_path
+
     job = ledger.get_job(job_id)
     if job is None or not job.log_uri:
         return _Response("<p>No log for this job.</p>", status=404)
     try:
-        text = open(job.log_uri, encoding="utf-8", errors="replace").read()
-    except OSError:
-        text = "(log file not found on this host)"
+        text = _uri_to_path(job.log_uri).read_text(encoding="utf-8", errors="replace")
+    except (OSError, ValueError, StoreConfigError):
+        return _Response(f"<p>Log published to <code>{_esc(job.log_uri)}</code>, not readable from here.</p>")
     return _Response(text, content_type="text/plain; charset=utf-8")
 
 

@@ -6,15 +6,17 @@ that file — do not share one instance across threads. WAL mode lets the
 worker's writes and the dashboard's queue actions coexist without contention
 (§16): both hold short transactions, and ``busy_timeout`` absorbs the rest.
 
-Migrations are intentionally simple for a from-scratch schema: every table is
-``CREATE TABLE IF NOT EXISTS``. A real ALTER-based migration path is future
-work, needed only once a *deployed* ledger's schema must change in place.
+Migrations are intentionally simple: every table is ``CREATE TABLE IF NOT
+EXISTS``, plus :func:`_add_missing_columns` for columns added to a table that
+already exists in someone's ledger. Additive only — a column drop, rename or
+type change still needs a real migration path, which is future work.
 """
 
 import hashlib
 import logging
 import sqlite3
 import uuid
+from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -110,12 +112,20 @@ CREATE TABLE IF NOT EXISTS ingest_watermarks (
     updated_at  TEXT NOT NULL
 );
 
+-- `worker_image` is which image the worker is itself running (§12). The `jobs`
+-- columns record the *processor's* identity; without this, nothing records what did
+-- the staging, classification and publishing around it.
+--
+-- Comments stay OUTSIDE the column list on purpose: SQLite stores this statement
+-- verbatim and re-parses it after `ALTER TABLE ... DROP COLUMN`, where a trailing
+-- `--` comment among the columns fails with "incomplete input".
 CREATE TABLE IF NOT EXISTS workers (
     worker_id       TEXT PRIMARY KEY,
     started_at      TEXT NOT NULL,
     heartbeat_at    TEXT NOT NULL,
     running_jobs    INTEGER NOT NULL DEFAULT 0,
-    disk_free_bytes INTEGER
+    disk_free_bytes INTEGER,
+    worker_image    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS session_tags (
@@ -146,6 +156,24 @@ def job_key(
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+#: Columns added after a table first shipped. ``CREATE TABLE IF NOT EXISTS`` is a
+#: no-op against an existing table, so a new column in :data:`_SCHEMA` would never
+#: appear in a ledger someone already has — and the failure surfaces as a
+#: ``sqlite3.OperationalError`` on the next write, mid-campaign.
+_ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (("workers", "worker_image", "TEXT"),)
+
+
+def _add_missing_columns(conn: sqlite3.Connection) -> None:
+    """Apply :data:`_ADDED_COLUMNS` to an existing ledger. Idempotent, additive only."""
+    for table, column, decl in _ADDED_COLUMNS:
+        existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            logger.info("Ledger migration: adding %s.%s", table, column)
+            # Interpolated, not bound: DDL cannot take parameters. Every value comes
+            # from _ADDED_COLUMNS, a module constant — no caller reaches this.
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -173,6 +201,7 @@ class Ledger:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA busy_timeout = 30000")
         self._conn.executescript(_SCHEMA)
+        _add_missing_columns(self._conn)
         row = self._conn.execute("SELECT version FROM schema_meta").fetchone()
         if row is None:
             self._conn.execute("INSERT INTO schema_meta (version) VALUES (?)", (_SCHEMA_VERSION,))
@@ -605,16 +634,24 @@ class Ledger:
     # Heartbeat (§16)
     # ------------------------------------------------------------------
 
-    def heartbeat(self, worker_id: str, *, running_jobs: int, disk_free_bytes: int | None = None) -> None:
+    def heartbeat(
+        self,
+        worker_id: str,
+        *,
+        running_jobs: int,
+        disk_free_bytes: int | None = None,
+        worker_image: str | None = None,
+    ) -> None:
         now = _iso(_now())
         self._conn.execute(
-            """INSERT INTO workers (worker_id, started_at, heartbeat_at, running_jobs, disk_free_bytes)
-                VALUES (?,?,?,?,?)
+            """INSERT INTO workers (worker_id, started_at, heartbeat_at, running_jobs, disk_free_bytes, worker_image)
+                VALUES (?,?,?,?,?,?)
                 ON CONFLICT(worker_id) DO UPDATE SET
                     heartbeat_at=excluded.heartbeat_at,
                     running_jobs=excluded.running_jobs,
-                    disk_free_bytes=excluded.disk_free_bytes""",
-            (worker_id, now, now, running_jobs, disk_free_bytes),
+                    disk_free_bytes=excluded.disk_free_bytes,
+                    worker_image=excluded.worker_image""",
+            (worker_id, now, now, running_jobs, disk_free_bytes, worker_image),
         )
 
     def get_worker(self, worker_id: str) -> sqlite3.Row | None:
@@ -635,6 +672,32 @@ class Ledger:
             return None
         tags = ",".join(self.tags_for(row["session_name"])) if row["session_name"] else None
         return _row_to_job(row, tags)
+
+    def job_statuses(self, job_ids: Sequence[str]) -> dict[str, JobStatus]:
+        """Map each of *job_ids* to its current status, omitting ids this ledger has
+        never heard of.
+
+        A batched status-only read for :meth:`Worker.sweep_work_dir`, which asks
+        about one directory name per entry on a shared volume and needs no other
+        column. Chunked because SQLite caps bound parameters per statement
+        (``SQLITE_MAX_VARIABLE_NUMBER``, 999 on older builds) and the number of
+        stranded directories is not bounded by anything we control.
+        """
+        out: dict[str, JobStatus] = {}
+        ids = list(job_ids)
+        for start in range(0, len(ids), 500):
+            chunk = ids[start : start + 500]
+            # The f-string interpolates only the placeholder count; every job id is
+            # still bound, so a directory named `'; DROP TABLE jobs; --` is just a
+            # string that matches nothing.
+            placeholders = ",".join("?" * len(chunk))
+            rows = self._conn.execute(
+                f"SELECT job_id, status FROM jobs WHERE job_id IN ({placeholders})",
+                chunk,
+            ).fetchall()
+            for row in rows:
+                out[row["job_id"]] = row["status"]
+        return out
 
     def get_latest_job_for_session(self, session_name: str) -> Job | None:
         row = self._conn.execute(

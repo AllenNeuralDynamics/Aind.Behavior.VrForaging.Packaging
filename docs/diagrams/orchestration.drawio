@@ -1,253 +1,252 @@
-<mxfile host="app.diagrams.net" type="device">
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.0.6 Chrome/138.0.7204.100 Electron/37.2.3 Safari/537.36" version="28.0.6" pages="3">
   <diagram id="runtime" name="1 · Runtime">
-    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1150" math="0" shadow="0">
+    <mxGraphModel dx="1426" dy="841" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1150" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-
-        <mxCell id="legend" value="&lt;b&gt;Colours&lt;/b&gt;&lt;br&gt;blue = orchestration package (never published)&lt;br&gt;green = packaging package (published to PyPI)&lt;br&gt;grey = data at rest&lt;br&gt;orange = external system" style="shape=note;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;align=left;verticalAlign=top;size=14;fontSize=11;spacingLeft=6;" vertex="1" parent="1">
+        <mxCell id="legend" value="&lt;b&gt;Colours&lt;/b&gt;&lt;br&gt;blue = orchestration package (never published)&lt;br&gt;green = packaging package (published to PyPI)&lt;br&gt;grey = data at rest&lt;br&gt;orange = external system" style="shape=note;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;align=left;verticalAlign=top;size=14;fontSize=11;spacingLeft=6;" parent="1" vertex="1">
           <mxGeometry x="1290" y="880" width="330" height="110" as="geometry" />
         </mxCell>
-
-        <mxCell id="ext_docdb" value="DocDB&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;metadata_index / data_assets&lt;br&gt;read-only, never written back&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="ext_docdb" value="DocDB&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;metadata_index / data_assets&lt;br&gt;read-only, never written back&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="40" y="140" width="170" height="90" as="geometry" />
         </mxCell>
-        <mxCell id="ext_raw" value="Raw sessions&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;S3 prefix or mounted NAS&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="ext_raw" value="Raw sessions&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;S3 prefix or mounted NAS&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="40" y="330" width="170" height="90" as="geometry" />
         </mxCell>
-        <mxCell id="ext_out" value="Output store&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;s3://…/{release}/sessions/&lt;br&gt;or a local tree&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="ext_out" value="Output store&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;s3://…/{release}/sessions/&lt;br&gt;or a local tree&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="40" y="740" width="170" height="100" as="geometry" />
         </mxCell>
-
-        <mxCell id="host" value="HOST&amp;nbsp; ·&amp;nbsp; single-purpose box&amp;nbsp; ·&amp;nbsp; mounts /var/run/docker.sock (root-equivalent)" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 8;fillColor=none;strokeColor=#666666;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+        <mxCell id="host" value="HOST&amp;nbsp; ·&amp;nbsp; single-purpose box&amp;nbsp; ·&amp;nbsp; mounts /var/run/docker.sock (root-equivalent)" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 8;fillColor=none;strokeColor=#666666;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=12;fontStyle=1;" parent="1" vertex="1">
           <mxGeometry x="250" y="60" width="720" height="900" as="geometry" />
         </mxCell>
-
-        <mxCell id="ingest" value="&lt;b&gt;ingest&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;acquisition-type query, then a bounded&lt;br&gt;legacy fallback. Runs on a timer inside&lt;br&gt;the worker, or by hand with --dry-run.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="ingest" value="&lt;b&gt;ingest&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;acquisition-type query, then a bounded&lt;br&gt;legacy fallback. Runs on a timer inside&lt;br&gt;the worker, or by hand with --dry-run.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="290" y="120" width="200" height="90" as="geometry" />
         </mxCell>
-
-        <mxCell id="ledger" value="&lt;b&gt;ledger&lt;/b&gt;&amp;nbsp; jobs.sqlite&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;one row per&lt;br&gt;(session, release, code fingerprint)&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="ledger" value="&lt;b&gt;ledger&lt;/b&gt;&amp;nbsp; jobs.sqlite&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;one row per&lt;br&gt;(session, release, code fingerprint)&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="530" y="115" width="200" height="100" as="geometry" />
         </mxCell>
-
-        <mxCell id="worker" value="&lt;b&gt;worker&lt;/b&gt;&amp;nbsp; ·&amp;nbsp; one job at a time&amp;nbsp; ·&amp;nbsp; run replicas for parallelism (the claim is atomic)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef4fc;strokeColor=#6c8ebf;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="worker" value="&lt;b&gt;worker&lt;/b&gt;&amp;nbsp; ·&amp;nbsp; one job at a time&amp;nbsp; ·&amp;nbsp; run replicas for parallelism (the claim is atomic)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef4fc;strokeColor=#6c8ebf;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="280" y="250" width="470" height="660" as="geometry" />
         </mxCell>
-
-        <mxCell id="s1" value="&lt;b&gt;1 · claim&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;atomic, lease-based. A dead worker's&lt;br&gt;lease expires and the job returns to pending.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="s1" value="&lt;b&gt;1 · claim&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;atomic, lease-based. A dead worker&#39;s&lt;br&gt;lease expires and the job returns to pending.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" parent="1" vertex="1">
           <mxGeometry x="305" y="315" width="420" height="55" as="geometry" />
         </mxCell>
-        <mxCell id="s2" value="&lt;b&gt;2 · stage input&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;InputStore: mount (default, copies&lt;br&gt;nothing) · s3 (download) · local. Include/exclude rules + disk budget.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="s2" value="&lt;b&gt;2 · stage input&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;InputStore: mount (default, copies&lt;br&gt;nothing) · s3 (download) · local. Include/exclude rules + disk budget.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" parent="1" vertex="1">
           <mxGeometry x="305" y="390" width="420" height="55" as="geometry" />
         </mxCell>
-        <mxCell id="s3" value="&lt;b&gt;3 · docker run&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;runner.build_docker_args → subprocess.&lt;br&gt;Combined stdout+stderr captured to logs/{job_id}.log&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="s3" value="&lt;b&gt;3 · docker run&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;runner.build_docker_args → subprocess.&lt;br&gt;Combined stdout+stderr captured to logs/{job_id}.log&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" parent="1" vertex="1">
           <mxGeometry x="305" y="465" width="420" height="55" as="geometry" />
         </mxCell>
-        <mxCell id="s4" value="&lt;b&gt;4 · classify&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;exit code × sidecar → one verdict.&lt;br&gt;See page 3. The worker never guesses from a log string.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="s4" value="&lt;b&gt;4 · classify&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;exit code × sidecar → one verdict.&lt;br&gt;See page 3. The worker never guesses from a log string.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" parent="1" vertex="1">
           <mxGeometry x="305" y="540" width="420" height="55" as="geometry" />
         </mxCell>
-        <mxCell id="s5" value="&lt;b&gt;5 · publish&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;OutputStore. The sidecar is uploaded LAST, so&lt;br&gt;a half-published session never looks complete.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="s5" value="&lt;b&gt;5 · publish&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;OutputStore. The sidecar is uploaded LAST, so&lt;br&gt;a half-published session never looks complete.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" parent="1" vertex="1">
           <mxGeometry x="305" y="615" width="420" height="55" as="geometry" />
         </mxCell>
-        <mxCell id="s6" value="&lt;b&gt;6 · record&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;status, timings, byte counts, warn_count,&lt;br&gt;failed_processors, image digest, all three versions.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="s6" value="&lt;b&gt;6 · record&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;status, timings, byte counts, warn_count,&lt;br&gt;failed_processors, image digest, all three versions.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" parent="1" vertex="1">
           <mxGeometry x="305" y="690" width="420" height="55" as="geometry" />
         </mxCell>
-        <mxCell id="s7" value="&lt;i&gt;also, every loop:&lt;/i&gt;&amp;nbsp; reap expired leases&amp;nbsp; ·&amp;nbsp; heartbeat (disk free, running count)&amp;nbsp; ·&amp;nbsp; ingest on a timer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#b3b3b3;align=left;spacingLeft=8;fontSize=10;dashed=1;" vertex="1" parent="1">
+        <mxCell id="s7" value="&lt;i&gt;also, every loop:&lt;/i&gt;&amp;nbsp; reap expired leases&amp;nbsp; ·&amp;nbsp; heartbeat (disk free, running count)&amp;nbsp; ·&amp;nbsp; ingest on a timer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#b3b3b3;align=left;spacingLeft=8;fontSize=10;dashed=1;" parent="1" vertex="1">
           <mxGeometry x="305" y="765" width="420" height="45" as="geometry" />
         </mxCell>
-        <mxCell id="s8" value="&lt;b&gt;job_dir removed on the way out&lt;/b&gt;, pass or fail — a failed job must not leak disk over 4700 sessions." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#b3b3b3;align=left;spacingLeft=8;fontSize=10;dashed=1;" vertex="1" parent="1">
+        <mxCell id="s8" value="&lt;b&gt;job_dir removed on the way out&lt;/b&gt;, pass or fail — a failed job must not leak disk over 4700 sessions." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#b3b3b3;align=left;spacingLeft=8;fontSize=10;dashed=1;" parent="1" vertex="1">
           <mxGeometry x="305" y="825" width="420" height="45" as="geometry" />
         </mxCell>
-
-        <mxCell id="dash" value="&lt;b&gt;serve&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;one sortable table&lt;br&gt;+ each run's log.&lt;br&gt;127.0.0.1:8080,&lt;br&gt;no auth — never&lt;br&gt;publish on 0.0.0.0&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="dash" value="&lt;b&gt;serve&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;one sortable table&lt;br&gt;+ each run&#39;s log.&lt;br&gt;127.0.0.1:8080,&lt;br&gt;no auth — never&lt;br&gt;publish on 0.0.0.0&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="785" y="260" width="165" height="140" as="geometry" />
         </mxCell>
-        <mxCell id="agg" value="&lt;b&gt;aggregate&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;a separate job kind,&lt;br&gt;not per-session work.&lt;br&gt;&lt;br&gt;Gated on a ledger&lt;br&gt;predicate (nothing in&lt;br&gt;flight), not a cron.&lt;br&gt;&lt;br&gt;Full rebuild, never an&lt;br&gt;incremental append.&lt;br&gt;&lt;br&gt;Skips any session whose&lt;br&gt;sidecar is not ok.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="agg" value="&lt;b&gt;aggregate&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;a separate job kind,&lt;br&gt;not per-session work.&lt;br&gt;&lt;br&gt;Gated on a ledger&lt;br&gt;predicate (nothing in&lt;br&gt;flight), not a cron.&lt;br&gt;&lt;br&gt;Full rebuild, never an&lt;br&gt;incremental append.&lt;br&gt;&lt;br&gt;Skips any session whose&lt;br&gt;sidecar is not ok.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="785" y="430" width="165" height="240" as="geometry" />
         </mxCell>
-
-        <mxCell id="cbound" value="EPHEMERAL CONTAINER&amp;nbsp; ·&amp;nbsp; one per session&amp;nbsp; ·&amp;nbsp; --rm" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 8;fillColor=none;strokeColor=#9673a6;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=12;fontStyle=1;fontColor=#9673A6;" vertex="1" parent="1">
+        <mxCell id="cbound" value="EPHEMERAL CONTAINER&amp;nbsp; ·&amp;nbsp; one per session&amp;nbsp; ·&amp;nbsp; --rm" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 8;fillColor=none;strokeColor=#9673a6;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=12;fontStyle=1;fontColor=#9673A6;" parent="1" vertex="1">
           <mxGeometry x="1060" y="120" width="600" height="720" as="geometry" />
         </mxCell>
-
-        <mxCell id="cnote" value="&lt;b&gt;--network=none&lt;/b&gt; · &lt;b&gt;--memory=8g&lt;/b&gt; · &lt;b&gt;--cpus=2&lt;/b&gt; · image pinned by &lt;b&gt;@sha256 digest&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;It cannot reach S3 even by mistake. The memory cap is kernel-enforced, so one&lt;br&gt;pathological session is killed alone (exit 137 → error_kind=infra) instead of&lt;br&gt;taking the worker and every in-flight sibling with it.&lt;/font&gt;" style="shape=note;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;size=14;fontSize=11;spacingLeft=6;spacingTop=2;" vertex="1" parent="1">
+        <mxCell id="cnote" value="&lt;b&gt;--network=none&lt;/b&gt; · &lt;b&gt;--memory=8g&lt;/b&gt; · &lt;b&gt;--cpus=2&lt;/b&gt; · image pinned by &lt;b&gt;@sha256 digest&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;It cannot reach S3 even by mistake. The memory cap is kernel-enforced, so one&lt;br&gt;pathological session is killed alone (exit 137 → error_kind=infra) instead of&lt;br&gt;taking the worker and every in-flight sibling with it.&lt;/font&gt;" style="shape=note;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;size=14;fontSize=11;spacingLeft=6;spacingTop=2;" parent="1" vertex="1">
           <mxGeometry x="1090" y="155" width="540" height="90" as="geometry" />
         </mxCell>
-
-        <mxCell id="ccmd" value="&lt;b&gt;vr-foraging-orchestrator process&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;--input-dir /mnt/{session_name}&amp;nbsp; --output-dir /work/{job_id}/out&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="ccmd" value="&lt;b&gt;vr-foraging-orchestrator process&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;--input-dir /mnt/{session_name}&amp;nbsp; --output-dir /work/{job_id}/out&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="1090" y="265" width="540" height="60" as="geometry" />
         </mxCell>
-
-        <mxCell id="cload" value="load_dataset(input_dir)&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;done here, not inside process_session, so a session that will not&lt;br&gt;open still produces a sidecar saying so&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="cload" value="load_dataset(input_dir)&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;done here, not inside process_session, so a session that will not&lt;br&gt;open still produces a sidecar saying so&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="1090" y="350" width="540" height="60" as="geometry" />
         </mxCell>
-
-        <mxCell id="cps" value="&lt;b&gt;process_session(...)&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:11px&quot;&gt;the published library does all the work&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;session · position_velocity · sites · licks · sniffing · software_events · events&lt;br&gt;&lt;br&gt;Any processor raising propagates. There is no partial session.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="cps" value="&lt;b&gt;process_session(...)&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:11px&quot;&gt;the published library does all the work&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;session · position_velocity · sites · licks · sniffing · software_events · events&lt;br&gt;&lt;br&gt;Any processor raising propagates. There is no partial session.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="1090" y="435" width="540" height="95" as="geometry" />
         </mxCell>
-
-        <mxCell id="crec" value="&lt;b&gt;SidecarRecorder&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;subscribes to on_output&lt;br&gt;and on_error. Records,&lt;br&gt;then RE-RAISES.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="crec" value="&lt;b&gt;SidecarRecorder&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;subscribes to on_output&lt;br&gt;and on_error. Records,&lt;br&gt;then RE-RAISES.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="1090" y="560" width="255" height="85" as="geometry" />
         </mxCell>
-        <mxCell id="cfiles" value="&lt;b&gt;*.parquet&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;provenance promoted into&lt;br&gt;the parquet schema&lt;br&gt;(+ optional .nwb.zarr)&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="cfiles" value="&lt;b&gt;*.parquet&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;provenance promoted into&lt;br&gt;the parquet schema&lt;br&gt;(+ optional .nwb.zarr)&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="1375" y="560" width="255" height="85" as="geometry" />
         </mxCell>
-
-        <mxCell id="csidecar" value="&lt;b&gt;output.metadata.json&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;written even when the session fails —&lt;br&gt;that is the point. Per-processor status, rows, warn counts, code + image digest.&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="csidecar" value="&lt;b&gt;output.metadata.json&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;written even when the session fails —&lt;br&gt;that is the point. Per-processor status, rows, warn counts, code + image digest.&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="1090" y="670" width="540" height="60" as="geometry" />
         </mxCell>
-
-        <mxCell id="cinv" value="&lt;b&gt;Why /mnt/{session_name} and not /mnt/session&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;session_id in every table is the input directory's own NAME.&lt;br&gt;A generic mount point stamps every row with session_id=&quot;session&quot;&lt;br&gt;and raises nothing. This is why there is no --session-name flag.&lt;/font&gt;" style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;size=14;fontSize=11;spacingLeft=6;spacingTop=2;" vertex="1" parent="1">
+        <mxCell id="cinv" value="&lt;b&gt;Why /mnt/{session_name} and not /mnt/session&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;session_id in every table is the input directory&#39;s own NAME.&lt;br&gt;A generic mount point stamps every row with session_id=&quot;session&quot;&lt;br&gt;and raises nothing. This is why there is no --session-name flag.&lt;/font&gt;" style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;size=14;fontSize=11;spacingLeft=6;spacingTop=2;" parent="1" vertex="1">
           <mxGeometry x="1090" y="750" width="540" height="80" as="geometry" />
         </mxCell>
-
-        <mxCell id="vol" value="&lt;b&gt;named volume&amp;nbsp; vrf_work&amp;nbsp; →&amp;nbsp; /work&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;A NAME, not a host path. The daemon resolves it, so the containerised worker&lt;br&gt;never has to know its own host-side path — which is the one thing that fails&lt;br&gt;silently: the processor would see an empty directory and exit 0.&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="vol" value="&lt;b&gt;named volume&amp;nbsp; vrf_work&amp;nbsp; →&amp;nbsp; /work&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;A NAME, not a host path. The daemon resolves it, so the containerised worker&lt;br&gt;never has to know its own host-side path — which is the one thing that fails&lt;br&gt;silently: the processor would see an empty directory and exit 0.&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
           <mxGeometry x="640" y="1000" width="620" height="110" as="geometry" />
         </mxCell>
-
-        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#d79b00;" edge="1" parent="1" source="ext_docdb" target="ingest">
+        <mxCell id="volLifetime" value="&lt;b&gt;Lifetime of /work/{job_id} &amp;#8212; three owners, one per job state&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Steady state holds &lt;b&gt;concurrent jobs &amp;#215; one session&lt;/b&gt;, not the campaign. process_job clears the directory&lt;br&gt;on ENTRY as well as in a finally, and the entry half is the load-bearing one: job_id is stable across&lt;br&gt;attempts, so an attempt killed mid-write left its wreckage at exactly the path the retry will use &amp;#8212; and&lt;br&gt;publish ships out/ wholesale while the sidecar is rewritten, so the orphan would reach the store inside a&lt;br&gt;session recorded as a clean success. Nothing can finally its way out of SIGKILL; entry-side cleanup is the&lt;br&gt;only ordering that survives one.&lt;br&gt;&lt;br&gt;&amp;#160;&amp;#160;&lt;b&gt;running&lt;/b&gt; &amp;#8212; nobody. Another worker's live job; claim sets running before any mkdir, so no mtime guesswork is needed.&lt;br&gt;&amp;#160;&amp;#160;&lt;b&gt;pending / retrying&lt;/b&gt; &amp;#8212; the next attempt's entry-side cleanup. Also closes the read-then-delete race a sweeper would open.&lt;br&gt;&amp;#160;&amp;#160;&lt;b&gt;completed / failed / dead / skipped&lt;/b&gt; &amp;#8212; sweep_work_dir(), each tick beside reap_expired_leases. Terminal; nobody is coming back.&lt;br&gt;&lt;br&gt;The ledger decides, never the filesystem: workers share this volume, and a directory whose name is not a job id it&lt;br&gt;knows is reported and left alone. min_free_disk_bytes is checked BEFORE claiming &amp;#8212; a job claimed onto a full&lt;br&gt;volume dies on ENOSPC and burns one of max_attempts.&lt;/font&gt;" style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;size=14;fontSize=11;spacingLeft=8;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="640" y="1130" width="620" height="235" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#d79b00;" parent="1" source="ext_docdb" target="ingest" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e1l" value="discover since watermark" style="edgeLabel;html=1;align=center;fontSize=10;" vertex="1" connectable="0" parent="e1">
-          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
-        </mxCell>
-
-        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#6c8ebf;" edge="1" parent="1" source="ingest" target="ledger">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e2l" value="upsert by job_key&lt;br&gt;(idempotent)" style="edgeLabel;html=1;align=center;fontSize=10;" vertex="1" connectable="0" parent="e2">
-          <mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
-        </mxCell>
-
-        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.25;exitY=1;entryX=1;entryY=0.5;strokeColor=#666666;" edge="1" parent="1" source="ledger" target="s1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#d79b00;" edge="1" parent="1" source="ext_raw" target="s2">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.2;entryY=0;strokeColor=#666666;dashed=1;" edge="1" parent="1" source="s2" target="vol">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e5l" value="/work/{job}/in/{session_name}&lt;br&gt;(s3 + local only; mount copies nothing)" style="edgeLabel;html=1;align=center;fontSize=10;" vertex="1" connectable="0" parent="e5">
-          <mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
-        </mxCell>
-
-        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#9673a6;strokeWidth=2;" edge="1" parent="1" source="s3" target="ccmd">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points"><mxPoint x="900" y="493" /><mxPoint x="900" y="295" /></Array>
+        <mxCell id="e1l" value="discover since watermark" style="edgeLabel;html=1;align=center;fontSize=10;" parent="e1" vertex="1" connectable="0">
+          <mxGeometry x="-0.1" relative="1" as="geometry">
+            <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="e6l" value="docker run" style="edgeLabel;html=1;align=center;fontSize=10;fontStyle=1" vertex="1" connectable="0" parent="e6">
-          <mxGeometry x="-0.4" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#6c8ebf;" parent="1" source="ingest" target="ledger" edge="1">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.8;entryY=0;strokeColor=#666666;" edge="1" parent="1" source="csidecar" target="vol">
+        <mxCell id="e2l" value="upsert by job_key&lt;br&gt;(idempotent)" style="edgeLabel;html=1;align=center;fontSize=10;" parent="e2" vertex="1" connectable="0">
           <mxGeometry relative="1" as="geometry">
-            <Array as="points"><mxPoint x="1360" y="960" /><mxPoint x="1136" y="960" /></Array>
+            <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="e7l" value="/work/{job}/out" style="edgeLabel;html=1;align=center;fontSize=10;" vertex="1" connectable="0" parent="e7">
-          <mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.25;exitY=1;entryX=1;entryY=0.5;strokeColor=#666666;" parent="1" source="ledger" target="s1" edge="1">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0;exitY=0.5;entryX=0.5;entryY=1;strokeColor=#666666;dashed=1;" edge="1" parent="1" source="vol" target="s4">
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#d79b00;" parent="1" source="ext_raw" target="s2" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.2;entryY=0;strokeColor=#666666;dashed=1;" parent="1" source="s2" target="vol" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5l" value="/work/{job}/in/{session_name}&lt;br&gt;(s3 + local only; mount copies nothing)" style="edgeLabel;html=1;align=center;fontSize=10;" parent="e5" vertex="1" connectable="0">
           <mxGeometry relative="1" as="geometry">
-            <Array as="points"><mxPoint x="515" y="1055" /></Array>
+            <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="e8l" value="reads the sidecar back&lt;br&gt;across the process boundary" style="edgeLabel;html=1;align=center;fontSize=10;" vertex="1" connectable="0" parent="e8">
-          <mxGeometry x="0.4" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
-        </mxCell>
-
-        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;strokeColor=#d79b00;" edge="1" parent="1" source="s5" target="ext_out">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0.75;entryY=1;strokeColor=#666666;" edge="1" parent="1" source="s6" target="ledger">
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#9673a6;strokeWidth=2;" parent="1" source="s3" target="ccmd" edge="1">
           <mxGeometry relative="1" as="geometry">
-            <Array as="points"><mxPoint x="765" y="718" /><mxPoint x="765" y="230" /><mxPoint x="680" y="230" /></Array>
+            <Array as="points">
+              <mxPoint x="770" y="493" />
+              <mxPoint x="770" y="690" />
+              <mxPoint x="1000" y="690" />
+              <mxPoint x="1000" y="295" />
+            </Array>
           </mxGeometry>
         </mxCell>
-
-        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0.5;entryY=0;strokeColor=#666666;dashed=1;" edge="1" parent="1" source="ledger" target="dash">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e11l" value="read-only" style="edgeLabel;html=1;align=center;fontSize=10;" vertex="1" connectable="0" parent="e11">
-          <mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
-        </mxCell>
-
-        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;dashed=1;" edge="1" parent="1" source="dash" target="agg">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0;exitY=1;entryX=1;entryY=0.25;strokeColor=#d79b00;" edge="1" parent="1" source="agg" target="ext_out">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points"><mxPoint x="785" y="930" /><mxPoint x="230" y="930" /></Array>
+        <mxCell id="e6l" value="docker run" style="edgeLabel;html=1;align=center;fontSize=10;fontStyle=1" parent="e6" vertex="1" connectable="0">
+          <mxGeometry x="-0.4" relative="1" as="geometry">
+            <mxPoint x="96" as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="e13l" value="reads every session's parquet back,&lt;br&gt;writes session.parquet + sites.parquet" style="edgeLabel;html=1;align=center;fontSize=10;" vertex="1" connectable="0" parent="e13">
-          <mxGeometry x="0.2" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.8;entryY=0;strokeColor=#666666;" parent="1" source="csidecar" target="vol" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1390" y="730" />
+              <mxPoint x="1390" y="860" />
+              <mxPoint x="1136" y="860" />
+            </Array>
+          </mxGeometry>
         </mxCell>
-
-        <mxCell id="ehook1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.25;exitY=1;entryX=0.5;entryY=0;strokeColor=#82b366;" edge="1" parent="1" source="cps" target="crec">
+        <mxCell id="e7l" value="/work/{job}/out" style="edgeLabel;html=1;align=center;fontSize=10;" parent="e7" vertex="1" connectable="0">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0;exitY=0.5;entryX=0.5;entryY=1;strokeColor=#666666;dashed=1;" parent="1" source="vol" target="s4" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="515" y="1055" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e8l" value="reads the sidecar back&lt;br&gt;across the process boundary" style="edgeLabel;html=1;align=center;fontSize=10;" parent="e8" vertex="1" connectable="0">
+          <mxGeometry x="0.4" relative="1" as="geometry">
+            <mxPoint y="20" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;strokeColor=#d79b00;" parent="1" source="s5" target="ext_out" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="ehook1l" value="on_output / on_error" style="edgeLabel;html=1;align=center;fontSize=10;" vertex="1" connectable="0" parent="ehook1">
-          <mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0.75;entryY=1;strokeColor=#666666;" parent="1" source="s6" target="ledger" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="765" y="718" />
+              <mxPoint x="765" y="230" />
+              <mxPoint x="680" y="230" />
+            </Array>
+          </mxGeometry>
         </mxCell>
-
-        <mxCell id="ehook2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.75;exitY=1;entryX=0.5;entryY=0;strokeColor=#82b366;" edge="1" parent="1" source="cps" target="cfiles">
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0.5;entryY=0;strokeColor=#666666;dashed=1;" parent="1" source="ledger" target="dash" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="ehook3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.25;entryY=0;strokeColor=#6c8ebf;" edge="1" parent="1" source="crec" target="csidecar">
+        <mxCell id="e11l" value="read-only" style="edgeLabel;html=1;align=center;fontSize=10;" parent="e11" vertex="1" connectable="0">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;dashed=1;" parent="1" source="dash" target="agg" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="ecmd1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#6c8ebf;" edge="1" parent="1" source="ccmd" target="cload">
+        <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0;exitY=1;entryX=1;entryY=0.25;strokeColor=#d79b00;" parent="1" source="agg" target="ext_out" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="785" y="930" />
+              <mxPoint x="230" y="930" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e13l" value="reads every session&#39;s parquet back,&lt;br&gt;writes session.parquet + sites.parquet" style="edgeLabel;html=1;align=center;fontSize=10;" parent="e13" vertex="1" connectable="0">
+          <mxGeometry x="0.2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ehook1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.25;exitY=1;entryX=0.5;entryY=0;strokeColor=#82b366;" parent="1" source="cps" target="crec" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="ecmd2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#82b366;" edge="1" parent="1" source="cload" target="cps">
+        <mxCell id="ehook1l" value="on_output / on_error" style="edgeLabel;html=1;align=center;fontSize=10;" parent="ehook1" vertex="1" connectable="0">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ehook2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.75;exitY=1;entryX=0.5;entryY=0;strokeColor=#82b366;" parent="1" source="cps" target="cfiles" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="eseq" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.02;exitY=1;entryX=0.02;entryY=0;strokeColor=#6c8ebf;dashed=1;endArrow=none;" edge="1" parent="1" source="s1" target="s2">
+        <mxCell id="ehook3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.25;entryY=0;strokeColor=#6c8ebf;" parent="1" source="crec" target="csidecar" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="eseq2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.02;exitY=1;entryX=0.02;entryY=0;strokeColor=#6c8ebf;dashed=1;endArrow=none;" edge="1" parent="1" source="s2" target="s3">
+        <mxCell id="ecmd1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#6c8ebf;" parent="1" source="ccmd" target="cload" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="eseq3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.02;exitY=1;entryX=0.02;entryY=0;strokeColor=#6c8ebf;dashed=1;endArrow=none;" edge="1" parent="1" source="s3" target="s4">
+        <mxCell id="ecmd2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#82b366;" parent="1" source="cload" target="cps" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="eseq4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.02;exitY=1;entryX=0.02;entryY=0;strokeColor=#6c8ebf;dashed=1;endArrow=none;" edge="1" parent="1" source="s4" target="s5">
+        <mxCell id="eseq" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.02;exitY=1;entryX=0.02;entryY=0;strokeColor=#6c8ebf;dashed=1;endArrow=none;" parent="1" source="s1" target="s2" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="eseq5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.02;exitY=1;entryX=0.02;entryY=0;strokeColor=#6c8ebf;dashed=1;endArrow=none;" edge="1" parent="1" source="s5" target="s6">
+        <mxCell id="eseq2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.02;exitY=1;entryX=0.02;entryY=0;strokeColor=#6c8ebf;dashed=1;endArrow=none;" parent="1" source="s2" target="s3" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
+        <mxCell id="eseq3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.02;exitY=1;entryX=0.02;entryY=0;strokeColor=#6c8ebf;dashed=1;endArrow=none;" parent="1" source="s3" target="s4" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eseq4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.02;exitY=1;entryX=0.02;entryY=0;strokeColor=#6c8ebf;dashed=1;endArrow=none;" parent="1" source="s4" target="s5" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eseq5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.02;exitY=1;entryX=0.02;entryY=0;strokeColor=#6c8ebf;dashed=1;endArrow=none;" parent="1" source="s5" target="s6" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-
   <diagram id="packages" name="2 · Packages">
     <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="950" math="0" shadow="0">
       <root>
         <mxCell id="p0" />
         <mxCell id="p1" parent="p0" />
-
         <mxCell id="ptitle" value="Two distributions, one repo (a uv workspace). The dependency runs ONE WAY." style="text;html=1;align=left;verticalAlign=middle;fontSize=16;fontStyle=1" vertex="1" parent="p1">
           <mxGeometry x="60" y="30" width="900" height="30" as="geometry" />
         </mxCell>
-
         <mxCell id="orch" value="&lt;b&gt;aind-behavior-vr-foraging-orchestration&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font color=&quot;#B85450&quot;&gt;NEVER PUBLISHED&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;orchestration/&amp;nbsp; ·&amp;nbsp; classifier &quot;Private :: Do Not Upload&quot; makes an accidental publish FAIL, not succeed&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fontSize=13;" vertex="1" parent="p1">
           <mxGeometry x="60" y="90" width="620" height="480" as="geometry" />
         </mxCell>
-
         <mxCell id="o_sidecar" value="&lt;b&gt;sidecar.py&lt;/b&gt;&amp;nbsp; output.metadata.json + SidecarRecorder&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;lives HERE because a record of how a RUN went is not a data product&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="p1">
           <mxGeometry x="85" y="150" width="570" height="50" as="geometry" />
         </mxCell>
@@ -263,10 +262,9 @@
         <mxCell id="o_run" value="&lt;b&gt;runner.py&lt;/b&gt;&amp;nbsp; docker argv · log capture · the exit-code × sidecar verdict&lt;br&gt;&lt;b&gt;worker.py&lt;/b&gt;&amp;nbsp; the loop on page 1&lt;br&gt;&lt;b&gt;dashboard.py&lt;/b&gt;&amp;nbsp; one table&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;b&gt;cli.py&lt;/b&gt;&amp;nbsp; vr-foraging-orchestrator" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="p1">
           <mxGeometry x="85" y="398" width="570" height="66" as="geometry" />
         </mxCell>
-        <mxCell id="o_deps" value="extra runtime deps: &lt;b&gt;boto3&lt;/b&gt; · &lt;b&gt;aind-data-access-api&lt;/b&gt; · &lt;b&gt;pyyaml&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;none of which can leak into the published wheel's metadata — that is what a separate distribution buys over an extra&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#b3b3b3;align=left;spacingLeft=8;fontSize=11;dashed=1;" vertex="1" parent="p1">
+        <mxCell id="o_deps" value="extra runtime deps: &lt;b&gt;boto3&lt;/b&gt; · &lt;b&gt;aind-data-access-api&lt;/b&gt; · &lt;b&gt;pyyaml&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;none of which can leak into the published wheel&#39;s metadata — that is what a separate distribution buys over an extra&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#b3b3b3;align=left;spacingLeft=8;fontSize=11;dashed=1;" vertex="1" parent="p1">
           <mxGeometry x="85" y="478" width="570" height="50" as="geometry" />
         </mxCell>
-
         <mxCell id="pkg" value="&lt;b&gt;aind-behavior-vr-foraging-packaging&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font color=&quot;#82B366&quot;&gt;PUBLISHED TO PyPI&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;src/&amp;nbsp; ·&amp;nbsp; knows nothing about containers, ledgers, S3 or sidecars&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fontSize=13;" vertex="1" parent="p1">
           <mxGeometry x="60" y="660" width="620" height="240" as="geometry" />
         </mxCell>
@@ -276,17 +274,20 @@
         <mxCell id="k_proc" value="&lt;b&gt;processing/&lt;/b&gt;&amp;nbsp; the 7 processors + 2 legacy variants&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;b&gt;nwb_file/&lt;/b&gt;&amp;nbsp; NwbSession&lt;br&gt;&lt;b&gt;_base.py&lt;/b&gt;&amp;nbsp; AbstractProcessor&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;b&gt;_provenance.py&lt;/b&gt;&amp;nbsp; PackagingProvenance" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="p1">
           <mxGeometry x="85" y="798" width="570" height="66" as="geometry" />
         </mxCell>
-
         <mxCell id="dep_ok" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#82b366;strokeWidth=3;" edge="1" parent="p1" source="orch" target="pkg">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="dep_ok_l" value="&lt;b&gt;depends on&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;calls process_session, imports&lt;br&gt;SESSION_TABLE and PackagingProvenance&lt;/font&gt;" style="edgeLabel;html=1;align=left;fontSize=11;" vertex="1" connectable="0" parent="dep_ok">
-          <mxGeometry x="0.1" relative="1" as="geometry"><mxPoint x="20" as="offset" /></mxGeometry>
+          <mxGeometry x="0.1" relative="1" as="geometry">
+            <mxPoint x="20" as="offset" />
+          </mxGeometry>
         </mxCell>
-
         <mxCell id="dep_no" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.9;exitY=0;entryX=0.9;entryY=1;strokeColor=#b85450;strokeWidth=3;dashed=1;endArrow=none;startArrow=none;" edge="1" parent="p1" source="pkg" target="orch">
           <mxGeometry relative="1" as="geometry">
-            <Array as="points"><mxPoint x="740" y="780" /><mxPoint x="740" y="330" /></Array>
+            <Array as="points">
+              <mxPoint x="740" y="780" />
+              <mxPoint x="740" y="330" />
+            </Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="dep_no_x" value="&lt;font color=&quot;#B85450&quot; style=&quot;font-size:28px&quot;&gt;&lt;b&gt;✕&lt;/b&gt;&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;" vertex="1" parent="p1">
@@ -295,29 +296,23 @@
         <mxCell id="dep_no_l" value="&lt;b&gt;never&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;enforced by&lt;br&gt;tests/test_package_boundary.py,&lt;br&gt;which walks the AST of every&lt;br&gt;published module — function&lt;br&gt;bodies included, because that&lt;br&gt;is where a lazy import hides.&lt;/font&gt;" style="shape=note;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;verticalAlign=top;size=12;fontSize=11;spacingLeft=6;spacingTop=2;" vertex="1" parent="p1">
           <mxGeometry x="775" y="470" width="260" height="130" as="geometry" />
         </mxCell>
-
         <mxCell id="why" value="&lt;b&gt;Why the sidecar had to move — and what replaced it&lt;/b&gt;&lt;br&gt;&lt;br&gt;It used to be a &lt;b&gt;write_sidecar&lt;/b&gt; flag on process_session, in the published&lt;br&gt;package. Moving the file format into orchestration meant process_session&lt;br&gt;would have had to import back OUT of it — the one direction that is&lt;br&gt;forbidden.&lt;br&gt;&lt;br&gt;So process_session grew a generic pair instead:&lt;br&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;&lt;b&gt;on_output(processor, frame, path)&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;&lt;b&gt;on_error(processor, exception)&lt;/b&gt;&lt;br&gt;&lt;br&gt;It knows nothing about JSON, files or containers. SidecarRecorder&lt;br&gt;subscribes to both and owns the whole record.&lt;br&gt;&lt;br&gt;Same move for &lt;b&gt;aggregate(include=…)&lt;/b&gt;: it cannot tell a complete session&lt;br&gt;from one abandoned partway through, so the caller that can, says so." style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;size=16;fontSize=11;spacingLeft=8;spacingTop=4;" vertex="1" parent="p1">
           <mxGeometry x="775" y="90" width="330" height="340" as="geometry" />
         </mxCell>
-
         <mxCell id="reraise" value="&lt;b&gt;Recording is not tolerance&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;SidecarRecorder.on_error appends the failure&lt;br&gt;and then RE-RAISES. A failing processor still&lt;br&gt;propagates, the container still exits nonzero.&lt;br&gt;The sidecar only gains a name for the culprit.&lt;/font&gt;" style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;size=14;fontSize=11;spacingLeft=6;spacingTop=2;" vertex="1" parent="p1">
           <mxGeometry x="775" y="640" width="330" height="90" as="geometry" />
         </mxCell>
-
       </root>
     </mxGraphModel>
   </diagram>
-
   <diagram id="provenance" name="3 · Provenance and verdicts">
     <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="1000" math="0" shadow="0">
       <root>
         <mxCell id="v0" />
         <mxCell id="v1" parent="v0" />
-
         <mxCell id="vtitle" value="What pins what — the chain from a git tag to a row in the ledger" style="text;html=1;align=left;verticalAlign=middle;fontSize=16;fontStyle=1" vertex="1" parent="v1">
           <mxGeometry x="50" y="25" width="900" height="30" as="geometry" />
         </mxCell>
-
         <mxCell id="c1" value="&lt;b&gt;git tag&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;a release is published&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="v1">
           <mxGeometry x="50" y="90" width="180" height="60" as="geometry" />
         </mxCell>
@@ -330,7 +325,6 @@
         <mxCell id="c4" value="&lt;b&gt;GHCR&lt;/b&gt;&amp;nbsp; @sha256:…&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;the digest pins the WHOLE closure —&lt;br&gt;contraqctor, pynwb, numpy — not just our version&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="v1">
           <mxGeometry x="750" y="85" width="290" height="70" as="geometry" />
         </mxCell>
-
         <mxCell id="c5" value="&lt;b&gt;config: processor.digest&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;an operator pins it by hand. Never by tag —&lt;br&gt;allow_unpinned exists only for local dev, and is&lt;br&gt;recorded honestly as provenance=&quot;unpinned&quot;.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="v1">
           <mxGeometry x="750" y="205" width="290" height="80" as="geometry" />
         </mxCell>
@@ -349,74 +343,150 @@
         <mxCell id="c10" value="&lt;b&gt;ledger columns&lt;/b&gt;&amp;nbsp; image_digest · git_commit · packaging_version · data_contract_version · dataset_version&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;and job_key includes the code fingerprint, so a version bump re-queues every session automatically&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="v1">
           <mxGeometry x="620" y="790" width="550" height="90" as="geometry" />
         </mxCell>
-
-        <mxCell id="ve1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d79b00;" edge="1" parent="v1" source="c1" target="c2"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="ve2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d79b00;" edge="1" parent="v1" source="c2" target="c3"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="ve3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d79b00;" edge="1" parent="v1" source="c3" target="c4"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="ve4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;" edge="1" parent="v1" source="c4" target="c5"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="ve5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;" edge="1" parent="v1" source="c5" target="c6"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="ve6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;" edge="1" parent="v1" source="c6" target="c7"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="ve7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;" edge="1" parent="v1" source="c7" target="c8"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="ve8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;" edge="1" parent="v1" source="c8" target="c9"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="ve9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;" edge="1" parent="v1" source="c9" target="c10"><mxGeometry relative="1" as="geometry" /></mxCell>
-
+        <mxCell id="ve1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d79b00;" edge="1" parent="v1" source="c1" target="c2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ve2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d79b00;" edge="1" parent="v1" source="c2" target="c3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ve3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d79b00;" edge="1" parent="v1" source="c3" target="c4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ve4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;" edge="1" parent="v1" source="c4" target="c5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ve5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;" edge="1" parent="v1" source="c5" target="c6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ve6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;" edge="1" parent="v1" source="c6" target="c7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ve7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;" edge="1" parent="v1" source="c7" target="c8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ve8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;" edge="1" parent="v1" source="c8" target="c9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ve9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#666666;" edge="1" parent="v1" source="c9" target="c10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
         <mxCell id="tt" value="&lt;b&gt;classify — exit code × sidecar → one verdict&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Both signals are needed and neither alone is enough. Because any failure propagates, a&lt;br&gt;broken session exits nonzero AND leaves a sidecar naming what broke: the exit code says&lt;br&gt;a failure happened, the sidecar says whether it happened to the DATA or to the RUN.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef4fc;strokeColor=#6c8ebf;verticalAlign=top;align=left;spacingLeft=10;spacingTop=8;fontSize=13;" vertex="1" parent="v1">
           <mxGeometry x="50" y="205" width="660" height="450" as="geometry" />
         </mxCell>
-
-        <mxCell id="th" value="exit" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" vertex="1" parent="v1"><mxGeometry x="75" y="300" width="90" height="30" as="geometry" /></mxCell>
-        <mxCell id="th2" value="sidecar" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" vertex="1" parent="v1"><mxGeometry x="165" y="300" width="130" height="30" as="geometry" /></mxCell>
-        <mxCell id="th3" value="verdict" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" vertex="1" parent="v1"><mxGeometry x="295" y="300" width="150" height="30" as="geometry" /></mxCell>
-        <mxCell id="th4" value="why" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" vertex="1" parent="v1"><mxGeometry x="445" y="300" width="240" height="30" as="geometry" /></mxCell>
-
-        <mxCell id="r1a" value="timeout" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="75" y="330" width="90" height="34" as="geometry" /></mxCell>
-        <mxCell id="r1b" value="—" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="165" y="330" width="130" height="34" as="geometry" /></mxCell>
-        <mxCell id="r1c" value="failed / timeout" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="295" y="330" width="150" height="34" as="geometry" /></mxCell>
-        <mxCell id="r1d" value="killed; may not have written one. RETRIES." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="445" y="330" width="240" height="34" as="geometry" /></mxCell>
-
-        <mxCell id="r2a" value="137" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="75" y="364" width="90" height="34" as="geometry" /></mxCell>
-        <mxCell id="r2b" value="—" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="165" y="364" width="130" height="34" as="geometry" /></mxCell>
-        <mxCell id="r2c" value="failed / infra" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="295" y="364" width="150" height="34" as="geometry" /></mxCell>
-        <mxCell id="r2d" value="OOM-killed by the --memory cap. RETRIES." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="445" y="364" width="240" height="34" as="geometry" /></mxCell>
-
-        <mxCell id="r3a" value="any" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="75" y="398" width="90" height="34" as="geometry" /></mxCell>
-        <mxCell id="r3b" value="unparsable" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="165" y="398" width="130" height="34" as="geometry" /></mxCell>
-        <mxCell id="r3c" value="failed / code" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="295" y="398" width="150" height="34" as="geometry" /></mxCell>
-        <mxCell id="r3d" value="our own writer is broken" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="445" y="398" width="240" height="34" as="geometry" /></mxCell>
-
-        <mxCell id="r4a" value="0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="75" y="432" width="90" height="34" as="geometry" /></mxCell>
-        <mxCell id="r4b" value="missing" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="165" y="432" width="130" height="34" as="geometry" /></mxCell>
-        <mxCell id="r4c" value="failed / code" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="295" y="432" width="150" height="34" as="geometry" /></mxCell>
-        <mxCell id="r4d" value="died before writing — exit 0 is a lie" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="445" y="432" width="240" height="34" as="geometry" /></mxCell>
-
-        <mxCell id="r5a" value="≠ 0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="75" y="466" width="90" height="34" as="geometry" /></mxCell>
-        <mxCell id="r5b" value="missing" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="165" y="466" width="130" height="34" as="geometry" /></mxCell>
-        <mxCell id="r5c" value="failed / code" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="295" y="466" width="150" height="34" as="geometry" /></mxCell>
-        <mxCell id="r5d" value="died before or outside the processor loop — bad flag, import error" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="445" y="466" width="240" height="34" as="geometry" /></mxCell>
-
-        <mxCell id="r6a" value="any" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="75" y="500" width="90" height="42" as="geometry" /></mxCell>
-        <mxCell id="r6b" value="status = error" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;fontStyle=1" vertex="1" parent="v1"><mxGeometry x="165" y="500" width="130" height="42" as="geometry" /></mxCell>
-        <mxCell id="r6c" value="failed / DATA" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;fontStyle=1" vertex="1" parent="v1"><mxGeometry x="295" y="500" width="150" height="42" as="geometry" /></mxCell>
-        <mxCell id="r6d" value="a NAMED processor failed — this session is bad, not our code. The column you sort by." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="445" y="500" width="240" height="42" as="geometry" /></mxCell>
-
-        <mxCell id="r7a" value="≠ 0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="75" y="542" width="90" height="42" as="geometry" /></mxCell>
-        <mxCell id="r7b" value="status = ok" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="165" y="542" width="130" height="42" as="geometry" /></mxCell>
-        <mxCell id="r7c" value="failed / code" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="295" y="542" width="150" height="42" as="geometry" /></mxCell>
-        <mxCell id="r7d" value="a contradiction. Believe the exit code — a session is not usable because a record says so." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="445" y="542" width="240" height="42" as="geometry" /></mxCell>
-
-        <mxCell id="r8a" value="0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="75" y="584" width="90" height="34" as="geometry" /></mxCell>
-        <mxCell id="r8b" value="status = ok" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="165" y="584" width="130" height="34" as="geometry" /></mxCell>
-        <mxCell id="r8c" value="completed" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1" vertex="1" parent="v1"><mxGeometry x="295" y="584" width="150" height="34" as="geometry" /></mxCell>
-        <mxCell id="r8d" value="publish it" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1"><mxGeometry x="445" y="584" width="240" height="34" as="geometry" /></mxCell>
-
+        <mxCell id="th" value="exit" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" vertex="1" parent="v1">
+          <mxGeometry x="75" y="300" width="90" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="th2" value="sidecar" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" vertex="1" parent="v1">
+          <mxGeometry x="165" y="300" width="130" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="th3" value="verdict" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" vertex="1" parent="v1">
+          <mxGeometry x="295" y="300" width="150" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="th4" value="why" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" vertex="1" parent="v1">
+          <mxGeometry x="445" y="300" width="240" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="r1a" value="timeout" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="75" y="330" width="90" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r1b" value="—" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="165" y="330" width="130" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r1c" value="failed / timeout" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="295" y="330" width="150" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r1d" value="killed; may not have written one. RETRIES." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="445" y="330" width="240" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r2a" value="137" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="75" y="364" width="90" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r2b" value="—" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="165" y="364" width="130" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r2c" value="failed / infra" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="295" y="364" width="150" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r2d" value="OOM-killed by the --memory cap. RETRIES." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="445" y="364" width="240" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r3a" value="any" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="75" y="398" width="90" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r3b" value="unparsable" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="165" y="398" width="130" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r3c" value="failed / code" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="295" y="398" width="150" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r3d" value="our own writer is broken" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="445" y="398" width="240" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r4a" value="0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="75" y="432" width="90" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r4b" value="missing" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="165" y="432" width="130" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r4c" value="failed / code" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="295" y="432" width="150" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r4d" value="died before writing — exit 0 is a lie" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="445" y="432" width="240" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r5a" value="≠ 0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="75" y="466" width="90" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r5b" value="missing" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="165" y="466" width="130" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r5c" value="failed / code" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="295" y="466" width="150" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r5d" value="died before or outside the processor loop — bad flag, import error" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="445" y="466" width="240" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r6a" value="any" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="75" y="500" width="90" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="r6b" value="status = error" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;fontStyle=1" vertex="1" parent="v1">
+          <mxGeometry x="165" y="500" width="130" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="r6c" value="failed / DATA" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;fontStyle=1" vertex="1" parent="v1">
+          <mxGeometry x="295" y="500" width="150" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="r6d" value="a NAMED processor failed — this session is bad, not our code. The column you sort by." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="445" y="500" width="240" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="r7a" value="≠ 0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="75" y="542" width="90" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="r7b" value="status = ok" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="165" y="542" width="130" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="r7c" value="failed / code" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="295" y="542" width="150" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="r7d" value="a contradiction. Believe the exit code — a session is not usable because a record says so." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="445" y="542" width="240" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="r8a" value="0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="75" y="584" width="90" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r8b" value="status = ok" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="165" y="584" width="130" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r8c" value="completed" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1" vertex="1" parent="v1">
+          <mxGeometry x="295" y="584" width="150" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="r8d" value="publish it" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b3b3b3;fontSize=10;" vertex="1" parent="v1">
+          <mxGeometry x="445" y="584" width="240" height="34" as="geometry" />
+        </mxCell>
         <mxCell id="retry" value="&lt;b&gt;Retry policy&lt;/b&gt;&amp;nbsp;&amp;nbsp;&lt;font style=&quot;font-size:10px&quot;&gt;transient · infra · timeout retry with backoff until max_attempts, then become&lt;br&gt;&lt;b&gt;dead&lt;/b&gt;. &lt;b&gt;data&lt;/b&gt; and &lt;b&gt;code&lt;/b&gt; are terminal immediately — retrying a deterministic parse failure three&lt;br&gt;times only produces three identical stack traces. So the data/code split is for TRIAGE, not control&lt;br&gt;flow: it is what tells &quot;400 sessions our parser cannot handle&quot; from &quot;the last release is broken&quot;.&lt;/font&gt;" style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;size=14;fontSize=11;spacingLeft=8;spacingTop=4;" vertex="1" parent="v1">
           <mxGeometry x="50" y="675" width="660" height="95" as="geometry" />
         </mxCell>
-
-        <mxCell id="gap" value="&lt;b&gt;⚠ Known gap&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;The chain on the right pins the PROCESSOR. The&lt;br&gt;&lt;b&gt;worker itself&lt;/b&gt; is still run from compose by TAG&lt;br&gt;(:latest), and never records its own image — so&lt;br&gt;nothing says which code did the staging,&lt;br&gt;classification and publishing.&lt;br&gt;&lt;br&gt;Fix: pin the worker service by digest and set&lt;br&gt;PROCESSOR_IMAGE_URI on it too. build_code_ref()&lt;br&gt;already reads the variable and does not care&lt;br&gt;whether it is a parent or a child.&lt;/font&gt;" style="shape=note;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;verticalAlign=top;size=14;fontSize=11;spacingLeft=8;spacingTop=4;" vertex="1" parent="v1">
-          <mxGeometry x="50" y="790" width="540" height="180" as="geometry" />
+        <mxCell id="gap" value="&lt;b&gt;Both halves are pinned&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;The chain on the right pins the PROCESSOR. The &lt;b&gt;worker&lt;/b&gt; is pinned&lt;br&gt;separately, because nothing can discover the image it was started&lt;br&gt;from — it has to be told:&lt;br&gt;&lt;br&gt;&amp;#160;&amp;#160;compose: image: ${VRF_IMAGE:?} &amp;#160;(refuses to start unpinned)&lt;br&gt;&amp;#160;&amp;#160;compose: VRF_WORKER_IMAGE_URI=${VRF_IMAGE:?}&lt;br&gt;&amp;#160;&amp;#160;&amp;#8594; Worker.worker_image() &amp;#8594; heartbeat &amp;#8594; workers.worker_image&lt;br&gt;&lt;br&gt;A distinct variable from the children's PROCESSOR_IMAGE_URI: the two hold&lt;br&gt;the same value today (one image, three entrypoints), and sharing the name&lt;br&gt;would bake that in and make each layer unattributable to itself.&lt;br&gt;&lt;br&gt;&lt;b&gt;doctor&lt;/b&gt; refuses a campaign whose worker cannot say what it is, unless&lt;br&gt;processor.allow_unpinned &amp;#8212; which relaxes BOTH halves, since a run&lt;br&gt;allowed to be unreproducible is allowed to be so on both sides.&lt;/font&gt;" style="shape=note;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;size=14;fontSize=11;spacingLeft=8;spacingTop=4;" vertex="1" parent="v1">
+          <mxGeometry x="50" y="790" width="540" height="215" as="geometry" />
         </mxCell>
-
       </root>
     </mxGraphModel>
   </diagram>

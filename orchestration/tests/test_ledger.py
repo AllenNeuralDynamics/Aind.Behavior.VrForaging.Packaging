@@ -385,3 +385,48 @@ class TestEventsAndCountActive:
 
             ledger.complete_job(claimed.job_id)
             assert ledger.count_active("rel") == 1  # one terminal, one still pending
+
+
+class TestJobStatuses:
+    """The sweeper's read (§4a): status only, batched, silent about ids it has never
+    seen — a directory named after nothing must not be mistaken for a finished job."""
+
+    def test_maps_known_ids_and_omits_unknown(self, tmp_path):
+        with _make_ledger(tmp_path) as ledger:
+            a = _upsert(ledger, "sess_A")
+            b = _upsert(ledger, "sess_B")
+            ledger.claim("worker-1", 60)
+            statuses = ledger.job_statuses([a, b, "not-a-job-id"])
+            assert set(statuses) == {a, b}
+            assert sorted(statuses.values()) == ["pending", "running"]
+
+    def test_empty_input_is_not_a_query(self, tmp_path):
+        with _make_ledger(tmp_path) as ledger:
+            assert ledger.job_statuses([]) == {}
+
+    def test_chunks_past_sqlites_parameter_limit(self, tmp_path):
+        """`SQLITE_MAX_VARIABLE_NUMBER` is 999 on older builds, and the number of
+        stranded directories is not bounded by anything we control."""
+        with _make_ledger(tmp_path) as ledger:
+            ids = [_upsert(ledger, f"sess_{i:04d}") for i in range(1200)]
+            statuses = ledger.job_statuses(ids)
+            assert len(statuses) == 1200
+
+
+class TestAdditiveMigration:
+    def test_column_added_to_a_ledger_that_predates_it(self, tmp_path):
+        """`CREATE TABLE IF NOT EXISTS` is a no-op against an existing table, so a new
+        column would never reach a ledger someone already has — and the failure would
+        surface as an OperationalError on the next heartbeat, mid-campaign."""
+        path = tmp_path / "jobs.sqlite"
+        with Ledger(path) as ledger:
+            ledger._conn.execute("ALTER TABLE workers DROP COLUMN worker_image")
+            cols = {r["name"] for r in ledger._conn.execute("PRAGMA table_info(workers)")}
+            assert "worker_image" not in cols
+
+        with Ledger(path) as ledger:  # reopening applies the migration
+            cols = {r["name"] for r in ledger._conn.execute("PRAGMA table_info(workers)")}
+            assert "worker_image" in cols
+            ledger.heartbeat("w1", running_jobs=0, worker_image="ghcr.io/x@sha256:abc")
+            row = ledger.get_worker("w1")
+            assert row is not None and row["worker_image"] == "ghcr.io/x@sha256:abc"

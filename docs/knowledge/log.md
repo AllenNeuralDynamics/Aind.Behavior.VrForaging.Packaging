@@ -3,6 +3,42 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-08-17 (work-volume lifetime, log uniformity, worker provenance)
+
+* **Architecture**: documented and fixed what happens to a session's bytes on the
+  work volume after publishing, in
+  [orchestration.md](architecture/orchestration.md#what-lives-on-the-work-volume-and-for-how-long).
+  Cleanup now runs on **entry** to `process_job` as well as in a `finally`. The entry
+  half is the load-bearing one and the only correctness fix here: `job_id` is stable
+  across attempts, so an attempt killed mid-write left partial output at exactly the
+  path the retry uses, and since `publish` ships `out/` wholesale while the sidecar is
+  rewritten, the orphan reached the output store inside a session the ledger recorded
+  as a clean success. Nothing can `finally` its way out of SIGKILL; only entry-side
+  cleanup survives one.
+
+  Reclaiming a stranded directory now has exactly one owner per job state —
+  `running` nobody, `pending`/`retrying` the next attempt, terminal states the new
+  `Worker.sweep_work_dir` running beside `reap_expired_leases`. The ledger decides,
+  never the filesystem: workers share the volume, and a directory whose name is not a
+  job id it knows is reported and left alone.
+
+* **Convention**: `jobs.log_uri` now means one kind of thing. Every job's log is
+  published under `output.log_prefix` and the local copy deleted; it previously held a
+  worker-local path on success and an output-store URI on failure, so nothing could
+  follow the column without first guessing which it had.
+
+* **Architecture**: closed the worker-provenance gap the previous entry's diagram
+  recorded as open. `workers.worker_image` (plus the first additive column migration)
+  records which image the worker itself ran, `docker/compose.yaml` pins both services
+  by digest via `${VRF_IMAGE:?}`, and `doctor` refuses a campaign whose worker cannot
+  say what it is unless `processor.allow_unpinned` relaxes both halves.
+
+* **Config**: `worker.max_disk_bytes` → `worker.min_free_disk_bytes`, now actually
+  enforced, and as a pre-claim guard rather than a mid-job check — a job claimed onto a
+  full volume dies on ENOSPC and burns one of `max_attempts`. New
+  `worker.keep_work_dir` / `work --keep-work` for reading a failed job's directory
+  before it disappears.
+
 ## 2026-08-17 (orchestration layer)
 
 * **Architecture**: the repo is now a **`uv` workspace with two distributions**.

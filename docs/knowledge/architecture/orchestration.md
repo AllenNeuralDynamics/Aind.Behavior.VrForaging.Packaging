@@ -89,6 +89,81 @@ paths. The named work volume (`-v vrf_work:/work`) sidesteps this — the daemon
 resolves it by name — and a pass-through mount gets one extra identity-mapped
 bind mount, which `doctor` verifies before a campaign starts.
 
+# What lives on the work volume, and for how long
+
+Nothing, in the steady state. The volume's high-water mark is *concurrent jobs ×
+one session*, not the campaign: `Worker.process_job` owns `/work/{job_id}` for
+exactly one attempt and removes it in a `finally`, and staged input goes even
+earlier — `input_store.release` runs as soon as the container exits, before
+classify and publish. Under `copy_files: false` (a pass-through mount) the input
+side is zero and only `out/` is ever written there.
+
+The load-bearing half is the cleanup on **entry**, not the one on exit:
+
+```python
+job_dir = self.work_dir / job.job_id
+shutil.rmtree(job_dir, ignore_errors=True)   # a previous attempt may have died mid-write
+job_dir.mkdir(parents=True, exist_ok=True)
+try:
+    self._run_job(job, job_dir)
+finally:
+    shutil.rmtree(job_dir, ignore_errors=True)
+```
+
+`job_id` is stable across attempts — reaping an expired lease returns the *same*
+row to `pending` — so an attempt killed mid-write left its wreckage at exactly
+the path the retry is about to use, and `mkdir(exist_ok=True)` adopts it. That is
+not untidiness: `publish` ships `out/` wholesale and the sidecar is rewritten
+every time, so a stale parquet from attempt N reaches the output store inside a
+session the ledger records as a clean success. Cleaning on entry is also the only
+ordering that survives a kill at all — nothing can `finally` its way out of
+SIGKILL, whereas whatever killed attempt N cannot stop attempt N+1 from starting
+clean. `tests/test_worker.py::TestWorkDirLifecycle` is where that is pinned down.
+
+**Three owners, one per job state.** A directory left behind by a crash is
+reclaimed by whichever of these owns the state its job is in:
+
+| state | reclaimed by | why not the others |
+|---|---|---|
+| `running` | nobody | another worker's live job — `claim` sets `running` before any `mkdir`, which is what makes the check race-free without mtime guesswork |
+| `pending`, `retrying` | the next attempt's entry-side cleanup | it must clear the directory anyway; leaving it to the retry also closes the read-then-delete window a sweeper would open against a job being claimed right now |
+| `completed`, `failed`, `dead`, `skipped` | `Worker.sweep_work_dir` | terminal — nothing is ever coming back for it |
+
+`sweep_work_dir` runs each tick of the claim loop, beside
+`reap_expired_leases`, and is the filesystem half of the same phase: reaping is
+what moves a crashed job into a state the sweep may reclaim. The ledger decides,
+never the filesystem — several workers share the volume, and deleting a live
+job's directory is worse than the leak it fixes. Anything whose name is not a job
+id the ledger knows is **reported and left alone**.
+
+One residual, accepted rather than papered over: a `pending` job whose attempt
+crashed and which is never retried (the campaign ends, or it sits behind higher
+priority forever) keeps its directory. Bounded by the crash count, and reclaimed
+if it is ever attempted again.
+
+**`min_free_disk_bytes` is checked before claiming, not during.** A job claimed
+onto a full volume dies on ENOSPC and burns one of `max_attempts`, so an
+unguarded worker chews through real sessions three attempts at a time instead of
+waiting for space. Refusing to claim leaves the queue as it was. `free_disk_bytes`
+walks up to the nearest existing ancestor: measuring a `work_dir` that does not
+exist yet returns "unknown", and unknown does not block — which made the guard a
+silent no-op on exactly the first tick.
+
+`worker.keep_work_dir` (or `work --keep-work`) suppresses both the exit-side
+cleanup and the sweep, for reading a `code`-error job's directory before it
+disappears. It does *not* suppress the entry-side cleanup — preserving a
+directory must never leak it into the next attempt's output. Never leave it on
+for a campaign.
+
+**Logs are not on the work volume.** One `{job_id}.log` per attempt in
+`logging.dir`, published to `{output.uri}/{release}/logs/{job_id}/_log.txt` and
+then deleted locally. Uniformity is the point rather than the ~78 MB a
+4700-session campaign saves: `log_uri` used to hold a worker-local path on
+success and an output-store URI on failure, so nothing could follow the column
+without first guessing which it had. The local copy survives a failed publish,
+and `log_uri` then records the local path — a reachable log in the wrong place
+beats a URI pointing at nothing.
+
 # The sidecar, and why it exists
 
 `output.metadata.json`, one per session, written by the container. It is the only
@@ -173,12 +248,18 @@ output:
   uri: /tmp/vrf/out
 worker:
   ledger: /tmp/vrf/jobs.sqlite
+  min_free_disk_bytes: 1000000000  # 1 GB; the 20 GB default is a campaign figure
 processor:
   image: vrf                       # your local build
   allow_unpinned: true             # local images have no digest
 logging:
   dir: /tmp/vrf/logs
 ```
+
+`allow_unpinned: true` relaxes *both* halves of the provenance chain — the
+processor's digest and the worker's own `VRF_WORKER_IMAGE_URI` — because a run
+allowed to be unreproducible is allowed to be unreproducible on both sides. A
+laptop could not satisfy either.
 
 ```bash
 uv run vr-foraging-orchestrator doctor   --config /tmp/vrf/config.yaml
@@ -190,19 +271,31 @@ uv run vr-foraging-orchestrator serve    --config /tmp/vrf/config.yaml   # :8080
 ```
 
 Run `doctor` first, always. It checks the work volume is writable, the Docker
-daemon is reachable, and an image is actually pinned or explicitly unpinned —
-the three things that are cheap to verify and expensive to discover mid-campaign.
+daemon is reachable, there is room to claim, and that both the processor *and the
+worker itself* are pinned or explicitly unpinned — the things that are cheap to
+verify and expensive to discover mid-campaign. An unpinned worker is otherwise
+only visible in hindsight, once the ledger cannot say what published 4700
+sessions.
+
+It also *reports* stranded work directories without touching them: reclaiming
+them belongs to the claim loop, and `doctor` stays read-only.
 
 `--dry-run` on `ingest` before the real thing, and `work --once` before
 `work` — the loop otherwise runs forever by design.
 
-When a single job misbehaves, run exactly it in the foreground:
+When a single job misbehaves, run exactly it in the foreground and keep the
+evidence:
 
 ```bash
-uv run vr-foraging-orchestrator work --config … --job-id <id>
+uv run vr-foraging-orchestrator work --config … --job-id <id> --keep-work
 uv run vr-foraging-orchestrator show --config … --job-id <id>   # row + event history
-cat /tmp/vrf/logs/<id>.log                                      # the container's own output
+ls /work/<id>/out                                               # only with --keep-work
 ```
+
+`--keep-work` exists because the work directory is normally gone before you can
+read it. The container's own log is published rather than left local — `show`'s
+`log_uri` is where it went, which for a local output store is a path you can
+`cat` directly.
 
 ## What the tests cover without Docker
 
@@ -210,9 +303,17 @@ cat /tmp/vrf/logs/<id>.log                                      # the container'
 |-------|--------|
 | `orchestration/tests/test_process.py` | the container's command: sidecar on success, on a processor failure, and when the dataset never opens |
 | `orchestration/tests/test_classify.py` | the truth table above, plus the argv fed to the **real** parser |
-| `orchestration/tests/test_worker.py` | claim → run → publish with a fake runner; the session-name invariant |
-| `orchestration/tests/test_ledger.py` | claim races, lease reaping, rerun semantics, migrations |
+| `orchestration/tests/test_worker.py` | claim → run → publish with a fake runner; the session-name invariant; work-directory lifetime, the sweeper's state ownership, the disk guard, log publishing, worker provenance |
+| `orchestration/tests/test_ledger.py` | claim races, lease reaping, rerun semantics, the additive column migration |
 | `tests/test_package_boundary.py` | the one-way dependency |
+
+Only `runner.run`/`runner.classify` are faked — the ledger, both local stores,
+staging and publishing all run for real, so a test that publishes is really
+writing files. What that cannot reach is the containerized worker itself: a
+host-run worker sees `work_dir` on the host filesystem while the container it
+launches sees the named volume, and those are different places. That mismatch is
+the §4(a) hazard, so the volume-visibility assertion belongs to `doctor` rather
+than to the test suite.
 
 The argv test is the one to keep. Every other assertion about a command line can
 only prove a string is present in a list — never that the CLI *accepts* it. A

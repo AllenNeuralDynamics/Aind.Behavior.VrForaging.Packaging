@@ -18,7 +18,7 @@ Read in this order:
 - [batch.md](batch.md) — `process_sessions` / `aggregate`: **many** sessions into one queryable parquet export.
 - [cli.md](cli.md) — the `vr-foraging-packaging` command: one subcommand per pipeline function.
 - [data-contract-and-versioning.md](data-contract-and-versioning.md) — The `contraqctor` dataset, Harp streams, AIND metadata, and the three versions the code tracks.
-- [orchestration.md](orchestration.md) — the **second distribution**: how one session becomes one container, the `output.metadata.json` sidecar, and how to run the whole pipeline on a laptop.
+- [orchestration.md](orchestration.md) — the **second distribution**: how one session becomes one container, the `output.metadata.json` sidecar, what the work volume holds and for how long, and how to run the whole pipeline on a laptop.
 
 ## Repo layout
 

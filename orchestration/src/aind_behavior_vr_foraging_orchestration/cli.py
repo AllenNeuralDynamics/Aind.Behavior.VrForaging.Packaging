@@ -124,6 +124,10 @@ def cmd_ingest(args: argparse.Namespace) -> None:
 
 def cmd_work(args: argparse.Namespace) -> None:
     config = _load_config(args.config)
+    if args.keep_work:
+        # One-way: the flag turns the config field on, never off, so
+        # `keep_work_dir: true` in the YAML is not silently overridden by its absence.
+        config.worker.keep_work_dir = True
     worker = _worker(config, worker_id=config.worker.id)
     try:
         if args.job_id:
@@ -158,7 +162,8 @@ def cmd_status(args: argparse.Namespace) -> None:
         for w in ledger.list_workers():
             print(
                 f"\nworker {w['worker_id']}: last heartbeat {w['heartbeat_at']}, "
-                f"{w['running_jobs']} running, disk_free={w['disk_free_bytes']}"
+                f"{w['running_jobs']} running, disk_free={w['disk_free_bytes']}\n"
+                f"  image: {w['worker_image'] or '(unrecorded — see doctor)'}"
             )
 
 
@@ -452,6 +457,12 @@ def build_parser() -> argparse.ArgumentParser:
     _add_config_arg(p)
     p.add_argument("--once", action="store_true", help="Process at most one job, then exit")
     p.add_argument("--job-id", default=None, help="Force-claim and run exactly this job")
+    p.add_argument(
+        "--keep-work",
+        action="store_true",
+        help="Debugging: leave each job's work directory on the volume instead of deleting it. "
+        "Pair with --job-id to inspect one failure; never leave it on for a campaign.",
+    )
     p.set_defaults(func=cmd_work)
 
     p = sub.add_parser("status", help="Ledger counts and worker heartbeat")

@@ -106,7 +106,10 @@ class OutputConfig(BaseModel):
     uri: str
     overwrite: bool = False
     max_aggregate_bytes: int = 5_000_000_000
-    failed_log_prefix: str = "failed/"
+    log_prefix: str = "logs/"
+    """Where per-job logs are published, under ``{uri}/{release}/``. One prefix for
+    every outcome, not just failures: ``jobs.log_uri`` has to mean the same kind of
+    thing in every row, or nothing can follow it without first guessing which."""
 
 
 class ProcessorConfig(BaseModel):
@@ -136,7 +139,26 @@ class WorkerConfig(BaseModel):
     ledger: Path = Path("/var/lib/vrf/jobs.sqlite")
     work_volume: str = "vrf_work"
     max_concurrent_jobs: int = 3
-    max_disk_bytes: int = 200_000_000_000
+    min_free_disk_bytes: int = 20_000_000_000
+    """Refuse to claim below this much free space on the work volume (§4a).
+
+    Free space, not a usage budget: it is what the OS will actually tell you, and
+    what running out of hurts. Enforced *before* claiming rather than mid-job,
+    because a claimed job that dies on ENOSPC burns one of ``max_attempts`` — a
+    full volume would otherwise chew through real sessions three attempts at a
+    time instead of simply pausing.
+    """
+    keep_work_dir: bool = False
+    """Debugging: never delete a job directory automatically (§4a).
+
+    A ``code``-error job's work directory is exactly what you want to read, and it
+    is normally gone before you can. Setting this disables the exit-side cleanup
+    *and* :meth:`Worker.sweep_work_dir`, since a sweeper that reclaims what this
+    flag preserved would make it useless. Entry-side cleanup still runs, so a kept
+    directory is reclaimed if that same job is attempted again. Never leave it on
+    for a campaign — it is the one setting that makes the volume grow without
+    bound.
+    """
     lease_seconds: int = 5400
     max_attempts: int = 3
     poll_interval_s: int = 30
@@ -159,13 +181,18 @@ class DashboardConfig(BaseModel):
 
 
 class LoggingConfig(BaseModel):
-    """§16 — per-job logs, never rotated (measured: ~78 MB for a 4700-session campaign)."""
+    """§16 — one log per job attempt, published to the output store and then removed
+    from local disk (measured: ~78 MB of logs for a 4700-session campaign, which is
+    cheap enough that the reason to upload them is uniformity, not space)."""
 
     model_config = ConfigDict(extra="forbid")
 
     level: str = "INFO"
     dir: Path = Path("/var/lib/vrf/logs")
     upload: bool = True
+    """Publish each job's log under ``output.log_prefix``, then delete the local
+    copy. ``False`` keeps logs local forever and nothing prunes them — only
+    reasonable when the output store is unreachable or the run is a one-off."""
     max_capture_bytes: int = 50_000_000
     suppress: list[str] = []
     """Logger-name prefixes to drop entirely, e.g. pynwb's DynamicTable boilerplate."""
