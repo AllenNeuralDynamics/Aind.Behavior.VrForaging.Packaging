@@ -92,6 +92,11 @@ class PublishManifest:
     """Written last; its presence is the commit marker."""
 
 
+#: The commit marker, for both a session's output and an aggregate's. Written last by
+#: every publish, and removed *first* by a republish — see :meth:`OutputStore.publish`.
+SIDECAR_NAME = "output.metadata.json"
+
+
 class OutputStore(Protocol):
     name: Literal["s3", "local"]
 
@@ -101,13 +106,63 @@ class OutputStore(Protocol):
         ...
 
     def publish(self, src: Path, dest_uri: str) -> PublishManifest:
-        """Upload ``src/**`` to *dest_uri*. Uploads ``output.metadata.json`` last."""
+        """Replace *dest_uri* with ``src/**``. Commit-marker discipline, in order:
+
+        1. delete the destination's ``output.metadata.json`` — an *uncommit*, so a
+           reader during the window sees "incomplete" rather than an old marker
+           vouching for data that is already half-replaced;
+        2. write the data, and delete anything at the destination this publish does
+           not write, so a run producing fewer files cannot leave an earlier run's
+           output behind to be read forever;
+        3. write ``output.metadata.json`` last.
+        """
         ...
 
     def iter_completed(self, prefix: str) -> Iterator[tuple[str, dict]]:
         """Yield ``(session_name, parsed_sidecar)`` for every completed session under
         *prefix* — skips prefixes whose sidecar is missing (interrupted publishes,
         not completed sessions). This is what ``reconcile`` rebuilds the ledger from."""
+        ...
+
+    def read_object(self, uri: str) -> bytes | None:
+        """One object's bytes, or ``None`` when it is absent.
+
+        The read half the store was missing, and all of it: aggregation reads published
+        parquet through here rather than staging it on disk first, which is the whole
+        reason it used to work against ``local`` only. Object storage has no batch read,
+        so a session's tables are two ordinary GETs either way — landing them locally
+        would add a copy and buy nothing.
+
+        An object, not a prefix. Parquet needs to seek to its footer, so it cannot be
+        consumed as a forward-only stream; range requests would only pay off for reading
+        *part* of a file, and aggregation reads every row of both tables.
+        """
+        ...
+
+    def write_object(self, uri: str, payload: bytes) -> int:
+        """Write one object; return bytes written.
+
+        The counterpart to :meth:`read_object`, for a caller that already holds the
+        bytes. :meth:`publish` moves a whole directory and cannot express that — but
+        note it also means write ordering is the caller's problem here: nothing in this
+        method enforces the marker-last discipline that ``publish`` does.
+        """
+        ...
+
+    def copy_prefix(self, src_uri: str, dest_uri: str) -> int:
+        """Copy *src_uri* to *dest_uri* within the store; return files copied.
+
+        Server-side on ``s3`` — promoting an aggregate must not mean re-uploading it.
+        Marker last, as in :meth:`publish`.
+        """
+        ...
+
+    def delete_prefix(self, uri: str) -> int:
+        """Delete everything under *uri*; return objects deleted. Missing is not an error."""
+        ...
+
+    def list_children(self, uri: str) -> list[str]:
+        """Immediate child directory names under *uri*, sorted."""
         ...
 
 
@@ -131,6 +186,18 @@ def _uri_to_path(uri: str) -> Path:
     if parsed.scheme == "":
         return Path(uri)
     raise StoreConfigError(f"Not a local path or file:// URI: {uri!r}")
+
+
+def parse_s3_object_uri(uri: str) -> tuple[str, str]:
+    """Split ``s3://bucket/key`` into ``(bucket, key)``, verbatim.
+
+    Distinct from :func:`parse_s3_uri`, which normalises a *prefix* by appending
+    ``/`` — do that to a key and it matches nothing at all.
+    """
+    parsed = urlparse(uri)
+    if parsed.scheme != "s3":
+        raise StoreConfigError(f"Not an s3:// URI: {uri!r}")
+    return parsed.netloc, parsed.path.lstrip("/")
 
 
 def parse_s3_uri(uri: str) -> tuple[str, str]:

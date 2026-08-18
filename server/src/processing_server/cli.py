@@ -281,46 +281,56 @@ def cmd_priority(args: argparse.Namespace) -> None:
 
 
 def cmd_aggregate(args: argparse.Namespace) -> None:
-    from aind_behavior_vr_foraging_packaging.pipeline.batch import AGGREGATED_TABLES, aggregate
+    """Aggregate now, for any output store.
 
-    from .sidecar import session_completed_ok
-    from .stores import get_output_store
+    There is deliberately no in-flight gate. This runs against a server that ingests
+    continuously, so "nothing is in flight" is a state that may never occur — the
+    watermark, not the queue, decides whether there is work to do. Aggregating over
+    whatever is complete right now is the point; the next run picks up the rest.
+    """
+    from .sidecar import aggregate_watermark
 
     config = _load_config(args.config)
-    with _ledger(config.worker.ledger) as ledger:
-        active = ledger.count_active(config.release)
-        if active > 0 and not args.force:
-            print(f"Gate closed: {active} session job(s) for release {config.release!r} are still in flight.")
-            print("Use `status --kind pending` / `--kind running` / `--kind retrying` to see which, or --force.")
-            return
-        if active > 0:
-            logger.warning("Aggregating with %d session job(s) still in flight (--force).", active)
-
-    output_store = get_output_store(config.output.store)
-    release_prefix = f"{config.output.uri.rstrip('/')}/{config.release}/sessions/"
-    completed = list(output_store.iter_completed(release_prefix))
-    print(f"{len(completed)} completed session(s) found under {release_prefix}")
-    if args.dry_run:
-        return
-    if not completed:
-        print("Nothing to aggregate.")
-        return
-
-    if config.output.store != "local":
+    worker = _worker(config, worker_id=f"aggregate-{uuid.uuid4().hex[:8]}")
+    try:
+        contributions = worker.contributing_sessions()
+        watermark = aggregate_watermark(contributions)
+        current = worker.read_aggregate_manifest()
+        print(f"{len(contributions)} completed session(s) under {worker.sessions_prefix()}")
         print(
-            "aggregate currently only rebuilds directly from a `local` output store; "
-            "for `s3`, sync the release prefix locally first (e.g. `aws s3 sync`) and "
-            "point a temporary config's output.uri at the local copy."
+            f"watermark {watermark}"
+            + (f" (latest aggregate: {current.get('watermark')})" if current else " (no aggregate published yet)")
         )
-        return
+        if args.dry_run:
+            unchanged = bool(current and current.get("watermark") == watermark)
+            days = worker.aggregate_days()
+            print(f"{len(days)} dated aggregate(s) present" + (f", newest {days[-1]}" if days else ""))
+            print("Up to date — would do nothing." if unchanged else "Would rebuild.")
+            return
 
-    sessions_dir = Path(config.output.uri) / config.release / "sessions"
-    out_dir = Path(config.output.uri) / config.release
-    # A session whose sidecar is not `ok` may have partial parquets on disk — only
-    # the processors that ran before one failed got written. `aggregate` cannot
-    # tell that from a directory listing, so we tell it.
-    aggregate(sessions_dir, out_dir, include=session_completed_ok)
-    print(f"Aggregated {len(completed)} session(s) into {out_dir}: {', '.join(AGGREGATED_TABLES)}")
+        job_id, _, n = worker.enqueue_aggregate(force=args.force)
+        if job_id is None:
+            print("Aggregate is already current (watermark unchanged). Use --force to rebuild anyway.")
+            return
+        job = worker.ledger.force_claim(job_id, worker.worker_id, config.aggregation.job_timeout_s)
+        if job is None:
+            print(f"Queued aggregate job {job_id}, but another worker claimed it first — it is running there.")
+            return
+        worker.process_aggregate_job(job)
+        final = worker.ledger.get_job(job_id)
+        status = final.status if final else "unknown"
+        print(f"Aggregate job {job_id} finished: {status} ({n} session(s))")
+        if status != "completed":
+            raise SystemExit(1)
+        # Which prefix it landed in is the one thing a human running this by hand cannot
+        # work out for themselves — the day comes from the manifest, not from `today`.
+        published = worker.read_aggregate_manifest()
+        day = str(published.get("created_at", ""))[:10] if published else ""
+        if day:
+            print(f"  wrote    {worker.aggregate_day_uri(day)}")
+        print(f"  mirrored {worker.aggregate_latest_uri()}")
+    finally:
+        worker.close()
 
 
 # ---------------------------------------------------------------------------

@@ -10,12 +10,17 @@ already makes that safe.
 """
 
 import importlib.metadata
+import json
 import logging
 import os
+import re
 import shutil
 import time
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 from aind_behavior_vr_foraging_packaging._provenance import _PACKAGING_PKG
 
@@ -23,7 +28,7 @@ from . import runner
 from .config import PipelineConfig
 from .ledger import Ledger
 from .models import Job
-from .sidecar import SIDECAR_NAME
+from .sidecar import SIDECAR_NAME, AggregateOutputMetadata, aggregate_watermark, build_code_ref, session_token
 from .sources import get_source
 from .stores import (
     InputStore,
@@ -56,6 +61,33 @@ _LOG_STAGE_PREFIX = "_log_"
 #: sets it before any ``mkdir``, so no mtime guesswork); ``pending``/``retrying`` belong
 #: to the next attempt, whose entry-side cleanup reclaims it.
 _RECLAIMABLE_STATUSES = frozenset({"completed", "failed", "dead", "skipped"})
+
+
+#: Names the ``latest`` mirror, and the pattern every other child of ``aggregate/`` has
+#: to match. Both are needed together: ``latest`` sorts *above* every date, because
+#: digits precede letters — so ``max()`` over the children picks the mirror, not the
+#: newest real aggregate. Anything scanning that prefix filters with ``_DAY_RE`` first.
+_LATEST = "latest"
+_DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _manifest_day(manifest: "AggregateOutputMetadata") -> str:
+    """The UTC day an aggregate belongs to, from its own timestamp rather than from
+    ``now`` — so the prefix a run writes and the prefix it logs cannot disagree if it
+    straddles midnight."""
+    return manifest.created_at.astimezone(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _parquet_rows(payload: bytes) -> int:
+    """Row count from parquet footer metadata — no column data read."""
+    try:
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        return int(pq.ParquetFile(pa.BufferReader(payload)).metadata.num_rows)
+    except Exception as exc:  # a row count is a nicety; never fail an aggregate over it
+        logger.debug("Could not read a parquet row count: %s", exc)
+        return -1
 
 
 class Worker:
@@ -242,7 +274,12 @@ class Worker:
         if job is None:
             return False
         try:
-            self.process_job(job)
+            # Dispatch on kind: an aggregate job has no session to stage and no
+            # container to launch, so it must not go down the session path.
+            if job.kind == "aggregate":
+                self.process_aggregate_job(job)
+            else:
+                self.process_job(job)
         except Exception:
             logger.exception("[%s] Unhandled error processing job %s", job.session_name, job.job_id)
             self.ledger.fail_job(job.job_id, error_kind="code", error="unhandled worker exception — see worker log")
@@ -466,6 +503,227 @@ class Worker:
         return f"{dest}{_LOG_NAME}"
 
     # ------------------------------------------------------------------
+    # Aggregation
+    # ------------------------------------------------------------------
+
+    def sessions_prefix(self) -> str:
+        base = self.config.output.uri.rstrip("/")
+        return f"{base}/{self.config.release}/sessions/"
+
+    def aggregate_uri(self) -> str:
+        """The prefix all aggregates live under: one dated child per day, plus
+        :meth:`aggregate_latest_uri`."""
+        base = self.config.output.uri.rstrip("/")
+        return f"{base}/{self.config.release}/aggregate/"
+
+    def aggregate_day_uri(self, day: str) -> str:
+        """``aggregate/YYYY-MM-DD/`` — where a run actually writes.
+
+        Written first and then left alone, so every past aggregate stays exactly as it
+        was published and a failed run cannot damage one. Storage is the cheap side of
+        this trade: an aggregate a day is not a growth problem worth managing, and
+        "the aggregate as of some date" is the question people actually ask.
+        """
+        return f"{self.aggregate_uri()}{day}/"
+
+    def aggregate_latest_uri(self) -> str:
+        """``aggregate/latest/`` — a full copy of the newest dated aggregate.
+
+        A copy rather than a pointer file: a reader wanting current data should not have
+        to fetch a pointer, parse it and follow it, and copying two small tables
+        server-side costs almost nothing. It also means ``latest`` is readable by
+        anything that can read a parquet path, with no convention to learn.
+        """
+        return f"{self.aggregate_uri()}{_LATEST}/"
+
+    def aggregate_days(self) -> list[str]:
+        """Every dated aggregate present, oldest first. Excludes the ``latest`` mirror."""
+        return [name for name in self.output_store.list_children(self.aggregate_uri()) if _DAY_RE.match(name)]
+
+    def contributing_sessions(self) -> dict[str, str]:
+        """``{session_name: token}`` for every completed session of this release.
+
+        One listing pass, which already reads each sidecar — so the change-detection
+        token comes for free.
+        """
+        return {
+            name: session_token(sidecar)
+            for name, sidecar in self.output_store.iter_completed(self.sessions_prefix())
+            if sidecar.get("status") == "ok"
+        }
+
+    def aggregation_due(self, now: datetime | None = None) -> bool:
+        """Whether today's scheduled aggregation has come round and not yet happened.
+
+        Catch-up rather than strict: a worker that was down at 03:00 aggregates at its
+        next tick instead of skipping the day, which for a data product is the useful
+        behaviour. "Already happened" is read from the ledger, not from process state,
+        so a restart cannot re-trigger a run.
+        """
+        agg = self.config.aggregation
+        if not agg.enabled:
+            return False
+        now_local = now.astimezone(ZoneInfo(agg.timezone)) if now else datetime.now(ZoneInfo(agg.timezone))
+        scheduled = agg.scheduled_time(now_local)
+        if now_local < scheduled:
+            return False
+        last = self.ledger.latest_job_created_at(self.config.release, "aggregate")
+        return last is None or datetime.fromisoformat(last) < scheduled
+
+    def enqueue_aggregate(self, *, force: bool = False) -> tuple[str | None, str, int]:
+        """Queue an aggregate job unless the contributing set is unchanged.
+
+        Returns ``(job_id_or_None, watermark, n_sessions)``. The dedupe is the ledger's
+        own ``job_key`` uniqueness, with the watermark standing in for the processor
+        fingerprint: an unchanged set produces the same key and the insert is a no-op —
+        the same mechanism that makes routine ingestion idempotent, rather than a
+        second bespoke one. *force* appends a nonce so the key is always new.
+        """
+        contributions = self.contributing_sessions()
+        watermark = aggregate_watermark(contributions)
+        if not contributions:
+            # Nothing published yet. Queueing here would put a job in the queue that can
+            # only ever no-op, and on a fresh release that is every tick.
+            return None, watermark, 0
+        fingerprint = f"{watermark}+force-{uuid.uuid4().hex[:8]}" if force else watermark
+        job_id = self.ledger.upsert_job(
+            kind="aggregate",
+            release=self.config.release,
+            asset_id=None,
+            processor_fingerprint=fingerprint,
+            input_store=self.config.output.store,
+            input_uri=self.sessions_prefix(),
+            output_uri=self.aggregate_uri(),
+            session_name=None,
+        )
+        return job_id, watermark, len(contributions)
+
+    def process_aggregate_job(self, job: Job) -> None:
+        """Run one aggregate job.
+
+        No work dir, unlike :meth:`process_job`: aggregation streams parquet from the
+        output store straight back to it, so it never touches the work volume and has
+        no partial state on disk for a killed attempt to leave behind.
+        """
+        self._run_aggregate(job)
+
+    def _run_aggregate(self, job: Job) -> None:
+        """Read every completed session's tables, concatenate them, publish.
+
+        In-process: no container, so nothing to pin and no image plumbing. The
+        concatenation is the packaging library's, shared with its ``aggregate``
+        subcommand rather than reimplemented here.
+        """
+        from aind_behavior_vr_foraging_packaging.pipeline.batch import aggregate_tables
+
+        started = time.monotonic()
+        try:
+            contributions = self.contributing_sessions()
+            if not contributions:
+                logger.info("Nothing to aggregate for release %s", self.config.release)
+                self.ledger.complete_job(job.job_id, partial=False)
+                return
+
+            sessions_prefix = self.sessions_prefix()
+
+            def _read(session_name: str, table: str) -> bytes | None:
+                return self.output_store.read_object(f"{sessions_prefix}{session_name}/{table}.parquet")
+
+            tables = aggregate_tables(contributions, _read)
+            if not tables:
+                # `aggregate_tables` returns nothing rather than raising when it finds no
+                # identity table. Publishing that would replace a good aggregate with an
+                # empty one and report success.
+                self.ledger.fail_job(
+                    job.job_id,
+                    error_kind="data",
+                    error=f"aggregation produced no tables from {len(contributions)} session(s) — not publishing",
+                )
+                return
+
+            manifest = AggregateOutputMetadata(
+                release=self.config.release,
+                created_at=datetime.now(timezone.utc),
+                watermark=aggregate_watermark(contributions),
+                sessions=contributions,
+                tables={name: _parquet_rows(payload) for name, payload in tables.items()},
+                duration_s=round(time.monotonic() - started, 3),
+                code=build_code_ref(),
+            )
+            written = self._publish_aggregate(tables, manifest)
+        except (StoreTransientError, StoreConfigError) as exc:
+            self.ledger.fail_job(job.job_id, error_kind="transient", error=str(exc)[:500])
+            return
+        except StoreDataError as exc:
+            self.ledger.fail_job(job.job_id, error_kind="data", error=str(exc)[:500])
+            return
+
+        self.ledger.complete_job(
+            job.job_id,
+            partial=False,
+            output_bytes=written,
+            t_publish_s=round(time.monotonic() - started, 3),
+            packaging_version=importlib.metadata.version(_PACKAGING_PKG),
+        )
+        logger.info(
+            "Aggregated %d session(s) into %s and %s: %s",
+            len(manifest.sessions),
+            self.aggregate_day_uri(_manifest_day(manifest)),
+            self.aggregate_latest_uri(),
+            ", ".join(f"{k}={v}" for k, v in sorted(manifest.tables.items())),
+        )
+
+    def _publish_aggregate(self, tables: dict[str, bytes], manifest: AggregateOutputMetadata) -> int:
+        """Write today's dated aggregate, then mirror it to ``latest``. Returns bytes written.
+
+        Ordered so that nothing a reader may be relying on is touched until the new
+        aggregate exists in full:
+
+        1. clear today's dated prefix — only ever a previous attempt from today, since
+           past days are immutable;
+        2. write the tables, then the marker **last**. These are individual object
+           writes, not a :meth:`publish`, so nothing else imposes that order: without
+           the marker going last there is no way to tell a finished aggregate from one
+           caught with a single table uploaded;
+        3. only now replace ``latest``, marker last again.
+
+        A failure at any point leaves every previous day intact and, at worst, ``latest``
+        absent — which reads as "rebuilding", not as a torn aggregate, and the newest
+        dated prefix is still there to read instead.
+        """
+        day = _manifest_day(manifest)
+        dated = self.aggregate_day_uri(day)
+        marker = manifest.model_dump_json(indent=2).encode("utf-8")
+
+        self.output_store.delete_prefix(dated)
+        written = sum(
+            self.output_store.write_object(f"{dated}{name}.parquet", payload) for name, payload in tables.items()
+        )
+        written += self.output_store.write_object(f"{dated}{SIDECAR_NAME}", marker)
+
+        latest = self.aggregate_latest_uri()
+        self.output_store.delete_prefix(latest)
+        self.output_store.copy_prefix(dated, latest)
+        return written
+
+    def read_aggregate_manifest(self) -> dict | None:
+        """The ``latest`` mirror's manifest, or ``None`` when there is no complete one.
+
+        Reads the mirror rather than picking the newest dated child, because the mirror
+        is only written once its source is complete — so its marker vouches for the
+        whole promotion, not just for one prefix.
+        """
+        latest = self.aggregate_latest_uri()
+        raw = self.output_store.read_object(f"{latest}{SIDECAR_NAME}")
+        if raw is None:
+            return None
+        try:
+            return json.loads(raw)
+        except ValueError:
+            logger.warning("The aggregate manifest at %s is unreadable", latest)
+            return None
+
+    # ------------------------------------------------------------------
     # Work-volume housekeeping
     # ------------------------------------------------------------------
 
@@ -571,6 +829,16 @@ class Worker:
                 except Exception:
                     logger.exception("Ingest sweep failed")
                 last_ingest = now
+
+            try:
+                if self.aggregation_due():
+                    # Only queues; the claim loop below runs it like any other job, so
+                    # the lease is what stops N replicas aggregating at once.
+                    job_id, watermark, n = self.enqueue_aggregate()
+                    if job_id is not None:
+                        logger.info("Queued aggregate job %s (%d session(s), watermark %s)", job_id, n, watermark)
+            except Exception:
+                logger.exception("Queueing aggregation failed")
 
             if not self._disk_ok():
                 if once:

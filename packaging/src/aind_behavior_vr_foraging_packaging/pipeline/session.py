@@ -10,6 +10,7 @@ See ``docs/guides/session-from-disk.md`` for usage examples.
 import logging
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import IO
 
 import pandas as pd
 import semver
@@ -292,12 +293,16 @@ def _write_nwb_zarr(
     return dest
 
 
-def _write_parquet(df: pd.DataFrame, path: Path) -> None:
+def _write_parquet(df: pd.DataFrame, path: Path | IO[bytes]) -> None:
     """Write *df* to *path*, promoting ``df.attrs`` to first-class parquet metadata.
 
     All keys in ``df.attrs`` are written both in the pandas metadata blob
     (for pandas round-trips) and as top-level key-value entries in the parquet
     schema (readable from DuckDB, R arrow, Polars, Spark, etc.).
+
+    *path* may be a binary sink instead of a path, so a caller with nowhere to put a
+    file — aggregation writing straight to an object store — gets the same bytes as
+    one writing to disk, rather than its own parquet writer.
     """
     import pyarrow as pa
     import pyarrow.parquet as pq

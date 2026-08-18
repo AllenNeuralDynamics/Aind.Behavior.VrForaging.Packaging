@@ -1,10 +1,10 @@
 ---
 type: Component
 title: Containerized pipeline — how the server layer runs the processor
-description: How one session becomes one container, what the sidecar is for, where the trust boundaries are, and how to run the whole thing on a laptop without S3, DocDB or a registry.
+description: How one session becomes one container, what the sidecar is for, how the daily aggregate is published, where the trust boundaries are, and how to run the whole thing on a laptop without S3, DocDB or a registry.
 resource: server/src/processing_server/
-tags: [architecture, server, docker, ledger, sidecar, testing, workspace]
-timestamp: 2026-08-17T00:00:00Z
+tags: [architecture, server, docker, ledger, sidecar, aggregation, testing, workspace]
+timestamp: 2026-08-18T00:00:00Z
 ---
 
 > **Editable diagram:** [`docs/diagrams/server.drawio`](../../diagrams/server.drawio)
@@ -202,6 +202,84 @@ That gives `classify` two independent signals, and it needs both:
 `data` and `code` are both terminal (no retry — three identical stack traces help
 nobody), so the distinction is for triage: it is the column you sort by to tell
 "400 sessions our parser can't handle" from "the last release is broken".
+
+# The aggregate output
+
+A worker keeps an aggregate current for as long as it is alive: once a day at
+`aggregation.at` in `aggregation.timezone`, and on demand via `vrf-server
+aggregate`. The layout under the release prefix:
+
+```
+{release}/sessions/{session}/session.parquet      per-session, written by the container
+{release}/sessions/{session}/output.metadata.json
+{release}/aggregate/2026-08-18/session.parquet    one prefix per day, immutable once written
+{release}/aggregate/2026-08-18/sites.parquet
+{release}/aggregate/2026-08-18/output.metadata.json
+{release}/aggregate/latest/                       a full copy of the newest dated prefix
+```
+
+**Dated prefixes are written first and then never touched.** A run cannot damage
+an earlier aggregate, because the only prefix it writes into is its own day's —
+and a same-day rerun replaces that day rather than accumulating copies of it.
+Storage is the cheap side of the trade: one small aggregate a day is not a growth
+problem worth managing, and "the aggregate as of some date" is the question people
+actually ask.
+
+**`latest` is a full copy, not a pointer.** A reader wanting current data should
+not have to fetch a pointer, parse it and follow it; on `s3` the copy is
+server-side, so promoting costs no upload. It also means `latest` is readable by
+anything that can read a parquet path, with no convention to learn.
+
+**The marker goes last, in both prefixes.** These are individual object writes
+rather than a `publish()`, so nothing else imposes an order — and without the
+marker last there is no way to tell a finished aggregate from one caught with a
+single table uploaded. `latest` is only replaced after its source day is complete,
+so a run that dies partway leaves every past day intact and, at worst, `latest`
+briefly absent — which reads as "rebuilding", not as a torn aggregate.
+
+`latest` sorts **above** every date, because digits precede letters: `max()` over
+the children of `aggregate/` returns the mirror, not the newest real aggregate.
+Anything scanning that prefix filters to date-shaped names first (`Worker.aggregate_days`).
+
+## What decides whether a run happens
+
+The **watermark**: a digest over the sorted `(session_name, job_id)` pairs of every
+completed session. `job_id` rather than a count, because a recompute inserts a new
+job row for the same session — a count would miss it and leave the aggregate
+permanently stale for exactly the case that motivated re-aggregating.
+
+The dedupe is then the ledger's own `job_key` uniqueness, with the watermark
+standing in for the processor fingerprint: an unchanged set produces the same key
+and the insert is a no-op. No separate watermark storage, and the same mechanism
+that makes routine ingestion idempotent.
+
+"Already ran today" is read from the ledger, not from process state, so a restart
+cannot re-trigger a run. The schedule catches up rather than skipping: a worker
+that was down at 03:00 aggregates at its next tick.
+
+## Why there is no local staging
+
+Aggregation reads published parquet straight out of the output store —
+`read_object` in, `write_object` out — and never touches the work volume. Object
+storage has no batch read, so a session's tables are two ordinary `GetObject`
+calls either way; landing them on disk first would add a copy and buy nothing.
+Parquet has to seek to its footer, so it cannot be consumed as a forward-only
+stream regardless, and range requests only pay off for reading *part* of a file,
+whereas aggregation reads every row of both tables.
+
+The reads are latency-bound rather than bandwidth-bound, so they run on a thread
+pool — and results are reassembled in **sorted session order, never completion
+order**, or an unchanged input set would produce different bytes and no digest
+over the output would mean anything.
+
+This is also why there is no derived cache to invalidate on the worker side: the
+concatenation is rebuilt per run from the store and thrown away, so a recomputed
+session cannot leave stale rows behind.
+
+One corrupt per-session parquet is logged and left out rather than raising.
+Aggregation runs on a schedule over a growing set, so failing the whole run would
+mean no aggregate at all for anyone until someone deletes the bad file. The
+shortfall is visible in the manifest's row counts.
 
 # Running it locally
 

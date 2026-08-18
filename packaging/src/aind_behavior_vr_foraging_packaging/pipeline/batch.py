@@ -8,6 +8,7 @@ a slow Phase 1 does not have to be repeated to re-cut the aggregates. The
 ``vr-foraging-packaging`` CLI in :mod:`.cli` exposes each as its own subcommand.
 """
 
+import io
 import logging
 import shutil
 from collections.abc import Callable, Iterable, Sequence
@@ -149,6 +150,91 @@ def _clear_previous_outputs(output_dir: Path, sessions_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+def aggregate_tables(
+    session_names: Iterable[str],
+    read: Callable[[str, str], bytes | None],
+    *,
+    max_workers: int = 16,
+) -> dict[str, bytes]:
+    """Concatenate per-session parquet *bytes* into one parquet per aggregated table.
+
+    The concatenation itself, decoupled from where the bytes came from and where they
+    are going: *read* is called as ``read(session_name, table)`` and returns that
+    session's parquet bytes, or ``None`` when it has no such table. Returns
+    ``{table: parquet_bytes}``.
+
+    Bytes rather than paths because the caller may have no filesystem in the picture at
+    all. The server aggregates straight out of the output store — object storage has no
+    batch read, so a session's tables are two ordinary GETs and landing them on disk
+    first would buy nothing. :func:`aggregate` is the filesystem-shaped caller, so both
+    it and the server concatenate through this one implementation rather than two that
+    can drift apart.
+
+    Returns an **empty** dict when no session has a ``session.parquet``: without the
+    identity table there is nothing to join on, so no table is written at all rather
+    than a set of aggregates with no key. Callers decide whether that is an error —
+    :func:`aggregate` logs it, the server fails the job.
+
+    *read* is called concurrently. These reads are latency-bound rather than
+    bandwidth-bound — one round trip for a small file — so N sessions serially is
+    almost pure waiting.
+    """
+    names = sorted(session_names)
+    pairs = [(name, table) for name in names for table in AGGREGATED_TABLES]
+    if not pairs:
+        logger.warning("No sessions to aggregate.")
+        return {}
+
+    def _read_one(pair: tuple[str, str]) -> tuple[tuple[str, str], pd.DataFrame | None]:
+        name, table = pair
+        buf = read(name, table)
+        if buf is None:
+            logger.debug("  %s: no %s.parquet — skipping", name, table)
+            return pair, None
+        # Parsed here, inside the worker thread: parquet decode releases the GIL, so it
+        # parallelises, and the compressed bytes are freed as soon as the frame exists
+        # instead of every session's buffer being held alive until the pool drains.
+        try:
+            df = pd.read_parquet(io.BytesIO(buf))
+        except Exception as exc:
+            # One corrupt session must not wedge the aggregate for every other session:
+            # this runs on a schedule against a growing set, so raising here would mean
+            # no aggregate at all until someone deletes the bad file. Loud in the log,
+            # and visible in the manifest as a row count short of what it should be.
+            logger.warning("  %s: %s.parquet is unreadable (%s) — leaving it out", name, table, exc)
+            return pair, None
+        if "session_id" not in df.columns:
+            df.insert(0, "session_id", name)
+        return pair, df
+
+    with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(pairs)))) as executor:
+        parsed = dict(executor.map(_read_one, pairs))
+
+    out: dict[str, bytes] = {}
+    for table in AGGREGATED_TABLES:
+        # Reassembled in sorted name order, never completion order: an unchanged set of
+        # sessions has to produce the same bytes, or no digest over the result means
+        # anything.
+        frames = [df for name in names if (df := parsed[(name, table)]) is not None]
+        if not frames:
+            logger.warning("  %s: no parquet files found across any session — skipped.", table)
+            continue
+        combined = pd.concat(frames, ignore_index=True)
+        sink = io.BytesIO()
+        _write_parquet(combined, sink)
+        out[table] = sink.getvalue()
+        logger.info("  %s → %d rows from %d session(s)", table, len(combined), len(frames))
+
+    if SESSION_TABLE not in out:
+        logger.error(
+            "No %s.parquet found in any session — the export has no identity table "
+            "and nothing to join on; aborting aggregation.",
+            SESSION_TABLE,
+        )
+        return {}
+    return out
+
+
 def aggregate(
     sessions_dir: Path,
     output_dir: Path,
@@ -158,7 +244,8 @@ def aggregate(
     """Concatenate per-session parquets into experiment-level files.
 
     Writes one flat ``output_dir/{table}.parquet`` for each name in
-    :data:`AGGREGATED_TABLES`, with a ``session_id`` column for joins.
+    :data:`AGGREGATED_TABLES`, with a ``session_id`` column for joins. The
+    filesystem-shaped entry point to :func:`aggregate_tables`, which does the work.
 
     What gets aggregated is fixed, not configurable: the set is a property of
     the schema — which tables are small enough to scan experiment-wide — rather
@@ -203,37 +290,13 @@ def aggregate(
             logger.warning("Every session was excluded; nothing to aggregate.")
             return
 
-    for table in AGGREGATED_TABLES:
-        wrote = _aggregate_table(table, session_dirs, output_dir)
-        if table == SESSION_TABLE and not wrote:
-            logger.error(
-                "No %s.parquet found in any session — the export has no identity table "
-                "and nothing to join on; aborting aggregation.",
-                SESSION_TABLE,
-            )
-            return
+    def _read(name: str, table: str) -> bytes | None:
+        path = sessions_dir / name / f"{table}.parquet"
+        return path.read_bytes() if path.exists() else None
 
-
-def _aggregate_table(table: str, session_dirs: list[Path], output_dir: Path) -> bool:
-    """Concatenate one table across *session_dirs*; return whether anything was written."""
-    frames: list[pd.DataFrame] = []
-
-    for sd in session_dirs:
-        p = sd / f"{table}.parquet"
-        if not p.exists():
-            logger.debug("  %s: no %s.parquet in %s — skipping", table, table, sd.name)
-            continue
-        df = pd.read_parquet(p)
-        if "session_id" not in df.columns:
-            df.insert(0, "session_id", sd.name)
-        frames.append(df)
-
-    if not frames:
-        logger.warning("  %s: no parquet files found across any session — skipped.", table)
-        return False
-
-    combined = pd.concat(frames, ignore_index=True)
-    dest = output_dir / f"{table}.parquet"
-    _write_parquet(combined, dest)
-    logger.info("  %s → %d rows → %s", table, len(combined), dest.name)
-    return True
+    tables = aggregate_tables([d.name for d in session_dirs], _read)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for table, payload in tables.items():
+        dest = output_dir / f"{table}.parquet"
+        dest.write_bytes(payload)
+        logger.info("  %s → %s", table, dest.name)

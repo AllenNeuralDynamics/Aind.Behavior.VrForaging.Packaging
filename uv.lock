@@ -1566,6 +1566,7 @@ dependencies = [
     { name = "aind-data-access-api" },
     { name = "boto3" },
     { name = "pyyaml" },
+    { name = "tzdata" },
 ]
 
 [package.metadata]
@@ -1574,6 +1575,7 @@ requires-dist = [
     { name = "aind-data-access-api", specifier = ">=1.0" },
     { name = "boto3", specifier = ">=1.26" },
     { name = "pyyaml" },
+    { name = "tzdata" },
 ]
 
 [[package]]

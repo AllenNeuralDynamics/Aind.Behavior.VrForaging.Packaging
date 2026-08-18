@@ -23,5 +23,9 @@ worker:
   id: worker-1
   min_free_disk_bytes: 20000000000
 
+aggregation:
+  at: "03:00"                      # once a day, local clock time
+  timezone: America/Los_Angeles    # IANA name; validated at startup
+
 logging:
   dir: /var/lib/vrf/logs

@@ -7,11 +7,13 @@ nested delimiter (e.g. ``VRF__WORKER__MAX_CONCURRENT_JOBS=5``), and take priorit
 over the YAML file — see :meth:`PipelineConfig.settings_customise_sources`.
 """
 
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 _DEFAULT_SESSION_RE = r"^(behavior_)?\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$"
@@ -150,6 +152,45 @@ class WorkerConfig(BaseModel):
     poll_interval_s: int = 30
 
 
+class AggregationConfig(BaseModel):
+    """Once-a-day re-aggregation, inside the worker. Runs for as long as the worker lives.
+
+    A wall-clock schedule rather than an interval: aggregation reads every published
+    session, so it belongs at a quiet hour, not on a poll loop.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    at: str = "03:00"
+    """Local clock time to run, ``HH:MM`` (24-hour), once per day in :attr:`timezone`."""
+    timezone: str = "America/Los_Angeles"
+    """IANA name. Validated here so a typo fails at startup rather than at 3am."""
+    job_timeout_s: int = 3600
+
+    @field_validator("at")
+    @classmethod
+    def _valid_at(cls, value: str) -> str:
+        hour, _, minute = value.partition(":")
+        if not (hour.isdigit() and minute.isdigit() and 0 <= int(hour) <= 23 and 0 <= int(minute) <= 59):
+            raise ValueError(f"aggregation.at must be HH:MM in 24-hour time, got {value!r}")
+        return value
+
+    @field_validator("timezone")
+    @classmethod
+    def _valid_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except Exception as exc:
+            raise ValueError(f"aggregation.timezone {value!r} is not a known IANA zone: {exc}") from exc
+        return value
+
+    def scheduled_time(self, now_local: datetime) -> datetime:
+        """Today's scheduled moment, in *now_local*'s zone."""
+        hour, minute = (int(part) for part in self.at.split(":"))
+        return now_local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+
 class DashboardConfig(BaseModel):
     """One sortable sessions table with a whitelisted set of queue actions."""
 
@@ -199,6 +240,7 @@ class PipelineConfig(BaseSettings):
     output: OutputConfig
     processor: ProcessorConfig = ProcessorConfig()
     worker: WorkerConfig = WorkerConfig()
+    aggregation: AggregationConfig = AggregationConfig()
     dashboard: DashboardConfig = DashboardConfig()
     logging: LoggingConfig = LoggingConfig()
 

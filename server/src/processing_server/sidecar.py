@@ -12,6 +12,7 @@ way. :class:`SidecarRecorder` plugs into ``process_session``'s generic
 ``on_output``/``on_error`` hooks; that function has never heard of this file.
 """
 
+import hashlib
 import importlib.metadata
 import json
 import logging
@@ -229,6 +230,55 @@ def session_completed_ok(session_dir: Path) -> bool:
     except (OSError, ValueError) as exc:
         logger.warning("%s: could not read sidecar (%s) — keeping session", session_dir.name, exc)
         return True
+
+
+class AggregateOutputMetadata(BaseModel):
+    """The aggregate output's own sidecar — same filename, same commit-marker role.
+
+    Without it a reader cannot tell a complete aggregate from one caught mid-write,
+    which matters far more now that it is rewritten continuously rather than once at
+    the end of a campaign. It also answers "which sessions are in this?" without
+    recomputing anything, and carries the watermark forward for the next run.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["1.0.0"] = _SIDECAR_SCHEMA_VERSION
+    kind: Literal["aggregate"] = "aggregate"
+    release: str
+    created_at: datetime
+    watermark: str
+    """Digest of the contributing set — see :func:`aggregate_watermark`."""
+    sessions: dict[str, str]
+    """``session_name`` → the token identifying *which run* of it contributed."""
+    tables: dict[str, int] = {}
+    """Table name → row count, for a cheap "did this actually change" read."""
+    duration_s: float | None = None
+    code: CodeRef
+
+
+def session_token(sidecar: dict) -> str:
+    """What identifies *which run* of a session produced the output on the store.
+
+    ``job_id`` is the honest answer: a reprocess inserts a row with
+    ``job_key(..., run_count + 1)``, so a recomputed session publishes a different
+    one. Falls back to ``finished_at`` for sidecars written by the plain packaging
+    CLI, which has no job. Last resort is a constant, which makes such a session
+    invisible to change detection rather than making every run look changed.
+    """
+    return str(sidecar.get("job_id") or sidecar.get("finished_at") or "unversioned")
+
+
+def aggregate_watermark(contributions: dict[str, str]) -> str:
+    """Digest of ``{session_name: token}`` — the "has anything changed" key.
+
+    Deliberately not a count or a max timestamp: both miss a *recompute*, which
+    leaves the aggregate permanently stale for exactly the case that motivates
+    re-aggregating. A digest over the whole set catches additions, recomputes and
+    removals alike, and costs nothing on top of the listing already being done.
+    """
+    payload = "\n".join(f"{name}={contributions[name]}" for name in sorted(contributions))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
 
 
 class SidecarRecorder:

@@ -3,6 +3,21 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-08-18 (continuous aggregation, and no local staging)
+
+* **Architecture**: [server.md](architecture/server.md) gains *The aggregate output* —
+  the daily aggregate layout (`aggregate/{YYYY-MM-DD}/` written first and immutable, a
+  full copy at `aggregate/latest/`, the commit marker last in both), the `job_id`-based
+  watermark that decides whether a run happens at all, and why `latest` sorting above
+  every date is a trap for anything scanning that prefix.
+* **Architecture**: [batch.md](architecture/batch.md) — Phase 2 splits into
+  `aggregate_tables` (the concatenation, over parquet *bytes*) and `aggregate` (the
+  filesystem caller). The server aggregates straight out of its output store with
+  nothing landing on disk, so the alternative was two implementations of the same
+  concatenation drifting apart. Also records that an unreadable per-session parquet is
+  now skipped with a warning rather than raising, and that results are reassembled in
+  sorted name order so identical inputs give identical bytes.
+
 ## 2026-08-17 (the processor container gets a network)
 
 * **Architecture**: `--network=none` is gone from the processor container, and must not

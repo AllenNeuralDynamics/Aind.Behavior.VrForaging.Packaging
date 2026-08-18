@@ -747,6 +747,18 @@ class Ledger:
         """Full transition history for one job — the ``show`` command."""
         return self._conn.execute("SELECT * FROM job_events WHERE job_id=? ORDER BY event_id", (job_id,)).fetchall()
 
+    def latest_job_created_at(self, release: str, kind: str) -> str | None:
+        """When a job of *kind* was last queued for *release*, or ``None``.
+
+        The whole state a once-a-day schedule needs, and it lives in the ledger rather
+        than in the worker — so a restart cannot re-trigger a run that already happened.
+        Served by the ``(release, kind, status)`` index.
+        """
+        row = self._conn.execute(
+            "SELECT MAX(created_at) AS at FROM jobs WHERE release=? AND kind=?", (release, kind)
+        ).fetchone()
+        return row["at"] if row and row["at"] else None
+
     def count_active(self, release: str, *, kind: str = "session") -> int:
         """Sessions still in flight (pending/running/retrying) for *release* — the
         aggregate gate: closed while this is nonzero, open once every session

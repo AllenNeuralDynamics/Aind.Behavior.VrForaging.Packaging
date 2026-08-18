@@ -10,7 +10,7 @@ Three layers, each a thin wrapper over the one below:
   public function above.
 """
 
-from .batch import AGGREGATED_TABLES, SESSION_TABLE, aggregate, process_sessions
+from .batch import AGGREGATED_TABLES, SESSION_TABLE, aggregate, aggregate_tables, process_sessions
 from .session import (
     create_processors,
     filter_processors,
@@ -23,6 +23,7 @@ __all__ = [
     "AGGREGATED_TABLES",
     "SESSION_TABLE",
     "aggregate",
+    "aggregate_tables",
     "create_processors",
     "filter_processors",
     "process_session",

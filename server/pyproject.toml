@@ -34,6 +34,9 @@ dependencies = [
     "aind-data-access-api>=1.0",   # DocDB discovery
     "boto3>=1.26",                 # S3 input staging and output publishing
     "pyyaml",                      # the config file
+    # `aggregation.timezone` resolves through zoneinfo, which has no tz database of
+    # its own on Windows and none guaranteed in a slim Linux image.
+    "tzdata",
     # The dashboard is stdlib http.server — one table and a few form POSTs.
     # Add fastapi/uvicorn only if that view has to grow.
 ]

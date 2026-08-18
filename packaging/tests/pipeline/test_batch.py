@@ -1,5 +1,6 @@
 """Unit tests for pipeline/batch.py — no real dataset I/O required."""
 
+import io
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -11,6 +12,7 @@ from aind_behavior_vr_foraging_packaging.pipeline.batch import (
     AGGREGATED_TABLES,
     SESSION_TABLE,
     aggregate,
+    aggregate_tables,
     process_sessions,
 )
 from aind_behavior_vr_foraging_packaging.processing import SessionMetadataProcessor
@@ -388,3 +390,34 @@ def test_no_clean_keeps_the_previous_runs_outputs(tmp_path):
 
     assert (out / "sessions" / "sess_old").exists()
     assert (out / "sessions" / "sess_new").exists()
+
+
+def test_an_unreadable_parquet_is_left_out_rather_than_raising(tmp_path):
+    """Aggregation runs on a schedule over a growing set, so one corrupt session must
+    not mean no aggregate at all until someone deletes the bad file."""
+    sessions_dir = tmp_path / "sessions"
+    _write_fake_session(sessions_dir, "sess_ok", "s1")
+    bad = sessions_dir / "sess_bad"
+    bad.mkdir(parents=True)
+    (bad / "session.parquet").write_bytes(b"not-parquet")
+
+    aggregate(sessions_dir, tmp_path)  # must not raise
+    df = pd.read_parquet(tmp_path / "session.parquet")
+    assert sorted(df["session_id"].unique()) == ["sess_ok"]
+
+
+def test_aggregate_tables_reassembles_in_sorted_order_not_completion_order(tmp_path):
+    """An unchanged set of sessions has to produce the same bytes, or no digest over the
+    result means anything — so the row order cannot depend on which read finishes first."""
+    sessions_dir = tmp_path / "sessions"
+    for name in ("sess_c", "sess_a", "sess_b"):
+        _write_fake_session(sessions_dir, name, "s1")
+
+    def _read(name, table):
+        path = sessions_dir / name / f"{table}.parquet"
+        return path.read_bytes() if path.exists() else None
+
+    first = aggregate_tables(["sess_c", "sess_a", "sess_b"], _read)
+    second = aggregate_tables(["sess_a", "sess_b", "sess_c"], _read)
+    assert first["session"] == second["session"], "output bytes depend on the input order"
+    assert list(pd.read_parquet(io.BytesIO(first["session"]))["session_id"]) == ["sess_a", "sess_b", "sess_c"]
