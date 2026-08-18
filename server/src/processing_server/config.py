@@ -38,8 +38,9 @@ class IngestionConfig(BaseModel):
     legacy_fallback: LegacyFallbackConfig | None = None
     buckets: list[str] = []
     deny_list_file: Path | None = None
-    interval_s: int = 3600
-    """Ingest-timer poll interval, inside the worker."""
+    interval_s: int = 300
+    """Ingest-timer poll interval, inside the worker. Rounded up to the next
+    ``worker.poll_interval_s`` tick, and per worker process."""
     subject_ids: list[str] = []
     session_after: str | None = None
     root: Path | None = None
