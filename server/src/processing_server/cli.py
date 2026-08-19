@@ -137,9 +137,13 @@ def cmd_work(args: argparse.Namespace) -> None:
             worker.process_job(job)
             print(f"Processed {args.job_id} — see `vr-foraging-server show --job-id {args.job_id}`.")
             return
-        worker.run_forever(once=args.once)
+        code = worker.run_forever(once=args.once)
     finally:
         worker.close()
+    # Only ever nonzero under `worker.exit_when_drained`; a server that is stopped
+    # externally has no verdict to report.
+    if code:
+        raise SystemExit(code)
 
 
 # ---------------------------------------------------------------------------
@@ -561,3 +565,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
     args.func(args)
+
+
+if __name__ == "__main__":  # `python -m processing_server.cli` — the console script's
+    main()  # entry point is `main`, and without this it silently exits 0

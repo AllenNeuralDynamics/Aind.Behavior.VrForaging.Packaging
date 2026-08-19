@@ -21,7 +21,7 @@ class LocalSource:
     stand-in for acquisition time.
     """
 
-    name: Literal["docdb", "local"] = "local"
+    name: Literal["docdb", "local", "manifest"] = "local"
 
     def __init__(self, root: Path | str, *, name_pattern: str = _DEFAULT_SESSION_RE) -> None:
         self.root = Path(root)

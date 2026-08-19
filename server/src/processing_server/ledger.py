@@ -450,6 +450,8 @@ class Ledger:
         packaging_version: str | None = None,
         data_contract_version: str | None = None,
         dataset_version: str | None = None,
+        session_start: str | None = None,
+        subject_id: str | None = None,
     ) -> None:
         now = _now()
         row = self._conn.execute("SELECT started_at, status FROM jobs WHERE job_id=?", (job_id,)).fetchone()
@@ -468,7 +470,14 @@ class Ledger:
                     exit_code=?, error_kind=?, error=?, sidecar=?, log_uri=?,
                     staged_bytes=?, read_files=?, read_bytes=?, output_bytes=?, warn_count=?, failed_processors=?,
                     image_ref=?, image_digest=?, git_commit=?, packaging_version=?, data_contract_version=?,
-                    dataset_version=?
+                    dataset_version=?,
+                    -- Backfill, never overwrite. A source that already knew these at
+                    -- discovery (DocDB reads a metadata index) keeps its value; a source
+                    -- that could not know them (a manifest is a name and a URI; a
+                    -- directory scan is a name) gets them from the session's own
+                    -- metadata once something has actually opened it.
+                    session_start=COALESCE(session_start, ?),
+                    subject_id=COALESCE(subject_id, ?)
                 WHERE job_id=?""",
                 (
                     status,
@@ -497,6 +506,8 @@ class Ledger:
                     packaging_version,
                     data_contract_version,
                     dataset_version,
+                    session_start,
+                    subject_id,
                     job_id,
                 ),
             )
@@ -769,6 +780,20 @@ class Ledger:
             (release, kind),
         ).fetchone()
         return row["n"]
+
+    def status_counts(self, release: str, *, kind: str = "session") -> dict[str, int]:
+        """``{status: n}`` for *release*, every status, terminal included.
+
+        Distinct from :meth:`count_active`, which answers "is there work left"; this
+        answers "how did the run go", which a drained batch run needs in order to pick
+        an exit code — and it also distinguishes "all terminal" from "no jobs at all",
+        which an active count of zero cannot.
+        """
+        rows = self._conn.execute(
+            "SELECT status, COUNT(*) AS n FROM jobs WHERE release=? AND kind=? GROUP BY status",
+            (release, kind),
+        ).fetchall()
+        return {row["status"]: row["n"] for row in rows}
 
     # ------------------------------------------------------------------
     # Internal

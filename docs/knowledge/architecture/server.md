@@ -3,8 +3,8 @@ type: Component
 title: Containerized pipeline — how the server layer runs the processor
 description: How one session becomes one container, what the sidecar is for, how the daily aggregate is published, where the trust boundaries are, and how to run the whole thing on a laptop without S3, DocDB or a registry.
 resource: server/src/processing_server/
-tags: [architecture, server, docker, ledger, sidecar, aggregation, testing, workspace]
-timestamp: 2026-08-18T00:00:00Z
+tags: [architecture, server, docker, ledger, sidecar, aggregation, ingestion, testing, workspace]
+timestamp: 2026-08-19T00:00:00Z
 ---
 
 > **Editable diagram:** [`docs/diagrams/server.drawio`](../../diagrams/server.drawio)
@@ -202,6 +202,93 @@ That gives `classify` two independent signals, and it needs both:
 `data` and `code` are both terminal (no retry — three identical stack traces help
 nobody), so the distinction is for triage: it is the column you sort by to tell
 "400 sessions our parser can't handle" from "the last release is broken".
+
+# Two shapes: a server, and a campaign
+
+The same worker runs both, and one config field decides which.
+
+**A server** (`ingestion.type: docdb`) polls for new sessions every
+`ingestion.interval_s`, processes them as they appear, re-aggregates daily, and runs
+until it is stopped. There is no end state.
+
+**A campaign** (`ingestion.type: manifest` + `worker.exit_when_drained: true`) processes
+exactly the sessions named in a file, aggregates once, and exits with a status. The
+manifest is a JSON file of `{session_name, location}` entries:
+
+```json
+{"sessions": [{"session_name": "707349_2024-04-17_10-34-09",
+               "location": "s3://aind-open-data/707349_2024-04-17_10-34-09"}]}
+```
+
+A bare top-level list works too. Sibling keys some dedup step may leave beside
+`sessions` — `ambiguous`, `unmatched` — are **reported and not processed**, since an
+entry that landed in one of those has no location to read.
+
+Why a manifest rather than a narrower DocDB query: a manuscript's session list is
+decided, reviewed and then has to *stay* decided. A query is evaluated at run time and
+may answer differently next month; a file in version control cannot.
+
+## What the manifest source does not do
+
+- **No watermark.** `discover` ignores `since` and yields the whole list every sweep.
+  A finite static set has nothing to be incremental about, and a cursor would only
+  create a way for a run to skip part of the list it was handed. `job_key` uniqueness
+  absorbs the re-delivery, so adding lines to the file works without resetting anything.
+- **No inferred acquisition time — it is backfilled instead.** `subject_id` comes from
+  the leading numeric field of the session name (a convention `name_pattern` already
+  encodes), but `session_start` is left blank at discovery. The folder name carries a
+  timestamp and treating it as acquisition metadata is a guess. The real value is inside
+  the session, in the Session stream the processor parses, and the sidecar already
+  computes it — so `_finish_success` writes it back on completion. The ledger uses
+  `COALESCE(session_start, ?)`, so this is a *backfill*: a source that knew the value at
+  discovery (DocDB reads a metadata index) keeps its own, and `local` gets the same
+  correction a manifest does.
+- **No per-bucket configuration.** Locations come from the file and may span buckets;
+  `S3InputStore` takes the bucket from each `input_uri`.
+
+Everything is validated **when the source is constructed**, which `doctor` does as a
+pre-flight: a missing mount, unparsable JSON, a missing `sessions` key, an entry with no
+location, a misnamed session, a duplicate. A 1700-session campaign must not discover on
+session 1699 that the file had a typo.
+
+## How a drained run decides it is finished
+
+`worker.exit_when_drained` is read from the config rather than inferred from the source
+type. Whether a container exits is the most consequential thing about how it behaves, so
+it should be legible in one field instead of derived from another.
+
+The exit condition is deliberately *not* "the claim loop found nothing to do":
+
+- **Every session job for the release must be terminal**, read via
+  `ledger.count_active`. A job in `retrying` with a future `next_eligible_at` is
+  unclaimable right now and still outstanding — those two states look identical from the
+  claim loop and are opposite in meaning.
+- **At least one ingest sweep must have succeeded.** A source that raises every time
+  otherwise looks exactly like a source with nothing left to give.
+- **Zero jobs is a failure, not a clean drain.** It is the shape of every
+  misconfiguration that matters — an unmounted manifest, a mistyped release — and all of
+  them would otherwise exit 0 having processed nothing.
+
+Then it aggregates, **bypassing the `aggregation.at` wall clock**: a batch run that
+finishes at 14:00 must not exit without the table it was run to produce. The verdict comes
+from the *published* manifest's watermark, not from the aggregate job this step queued —
+an unchanged watermark makes `enqueue_aggregate` decline identically whether an earlier
+scheduled aggregation succeeded or failed, so trusting our own job row would let a failed
+aggregation exit 0.
+
+Exit code: **0 only if every session completed (or was skipped) and the published
+aggregate covers this run's watermark**; 1 if any session is `failed`/`dead`. `skipped` is
+not a failure — it means the output was already there and `output.overwrite` is false.
+One bad session therefore fails a 1700-session run; which ones failed is in the ledger
+(`status`, `show`), and `rerun` retries them.
+
+`worker.fail_fast` stops at the first session that fails *for good*, instead of working
+through the rest — the useful mode when a run is a canary for a code change rather than a
+campaign, since the answer arrives after one session instead of 1700. It is independent of
+`exit_when_drained`, because it makes even a long-running worker exit. Two deliberate
+details: `retrying` does not trigger it, so a blip in S3 does not end the run; and nothing
+is aggregated on this path, because an aggregate over a partial set would be published as
+though the campaign had finished.
 
 # The aggregate output
 

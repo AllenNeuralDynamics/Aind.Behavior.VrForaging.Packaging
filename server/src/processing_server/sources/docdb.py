@@ -56,7 +56,7 @@ def _parse_dt(value: str | None) -> datetime | None:
 class DocDbSource:
     """Query DocDB for VR-foraging raw sessions. See module docstring for the two passes."""
 
-    name: Literal["docdb", "local"] = "docdb"
+    name: Literal["docdb", "local", "manifest"] = "docdb"
 
     def __init__(
         self,

@@ -3,6 +3,38 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-08-19 (config fields describe themselves)
+
+* **Convention**: [tooling-and-style.md](conventions/tooling-and-style.md) — config fields
+  use `Field(description=...)` rather than attribute docstrings, because a description is
+  part of the model and reaches `model_json_schema()` and any generated CLI, while a
+  docstring reaches nothing at runtime. All 46 fields in `config.py` now carry one;
+  longer rationale stays as a comment above the field.
+
+## 2026-08-19 (a manifest source, and a run that ends)
+
+* **Architecture**: [server.md](architecture/server.md) gains *Two shapes: a server, and
+  a campaign*. `ingestion.type: manifest` processes exactly the sessions named in a JSON
+  file — chosen over a narrower DocDB query because a manuscript's session list has to
+  stay decided, and a query is re-evaluated every run. Records what the source
+  deliberately does not do (no watermark, no inferred `session_start`, no per-bucket
+  config) and that the whole file is validated at construction, which `doctor` triggers
+  as a pre-flight.
+* **Architecture**: same document — `session_start` is *backfilled* from the sidecar on
+  completion rather than inferred from a directory name at discovery. The authoritative
+  acquisition time is inside the session's Session stream, which only the processor opens;
+  the ledger's `COALESCE` makes this a fill-if-null, so DocDB's discovery-time value is
+  never clobbered and `local` gains the same correction as `manifest`.
+* **Architecture**: same document — `worker.fail_fast` stops at the first terminal session
+  failure. `retrying` does not count (a transient with attempts left is not a failure yet),
+  and nothing is aggregated on that path.
+* **Architecture**: same document — how `worker.exit_when_drained` decides a run is
+  finished. "Nothing left to claim" is not "the work is done": a `retrying` job with a
+  future eligibility looks identical from the claim loop, a source that always raises
+  looks like a source with nothing left, and zero jobs is a misconfiguration rather than
+  a clean drain. The final aggregation bypasses the wall clock and is judged by the
+  published watermark rather than by the job row the drain step queued.
+
 ## 2026-08-18 (continuous aggregation, and no local staging)
 
 * **Architecture**: [server.md](architecture/server.md) gains *The aggregate output* —

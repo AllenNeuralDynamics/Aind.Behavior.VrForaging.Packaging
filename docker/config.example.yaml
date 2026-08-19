@@ -4,7 +4,16 @@
 release: manuscript-2026-08-13     # campaign name → output prefix; one release, one digest
 
 ingestion:
-  type: docdb                      # or `local` with `root:` for testing
+  type: docdb                      # docdb | local (with `root:`) | manifest (with `manifest_file:`)
+
+# A fixed-list campaign instead: process exactly these sessions, then exit.
+# ingestion:
+#   type: manifest
+#   manifest_file: /etc/vrf/sessions.json   # {"sessions": [{session_name, location}, ...]}
+#   interval_s: 86400                       # a static file needs no polling
+# worker:
+#   exit_when_drained: true                 # aggregate and stop, instead of serving forever
+#   fail_fast: true                         # or: stop at the first session that fails for good
 
 input:
   store: mount                     # mount | s3 | local

@@ -62,6 +62,10 @@ _LOG_STAGE_PREFIX = "_log_"
 #: to the next attempt, whose entry-side cleanup reclaims it.
 _RECLAIMABLE_STATUSES = frozenset({"completed", "failed", "dead", "skipped"})
 
+#: Terminal states that mean the session did not produce output. ``skipped`` is not one:
+#: it means the output was already there and ``output.overwrite`` is false.
+_FAILED_STATUSES = frozenset({"failed", "dead"})
+
 
 #: Names the ``latest`` mirror, and the pattern every other child of ``aggregate/`` has
 #: to match. Both are needed together: ``latest`` sorts *above* every date, because
@@ -160,6 +164,8 @@ class Worker:
         if not self.config.processor.digest and not self.config.processor.allow_unpinned:
             problems.append("processor.digest is unset and processor.allow_unpinned is false — no image to launch")
 
+        problems.extend(self._ingestion_problems())
+
         # The processor's pin is half the chain; `allow_unpinned` governs both halves.
         image = self.worker_image()
         if not self.config.processor.allow_unpinned:
@@ -201,6 +207,31 @@ class Worker:
         if self.config.worker.keep_work_dir:
             logger.warning("worker.keep_work_dir is set — nothing will reclaim work directories. Debugging only.")
 
+        return problems
+
+    def _ingestion_problems(self) -> list[str]:
+        """Discovery-side pre-flight, split out of :meth:`doctor` only for its size.
+
+        Parsing the manifest *is* the whole of constructing the source, so asking for it
+        here reports a typo, an unmounted file or an unusable entry now rather than at
+        the first sweep — which is the point of a pre-flight.
+        """
+        problems: list[str] = []
+        if self.config.ingestion.type == "manifest":
+            from .sources.manifest import ManifestError, ManifestSource
+
+            try:
+                source = self.source()
+                if isinstance(source, ManifestSource):
+                    logger.info("Manifest %s holds %d session(s)", source.path.name, len(source))
+            except ManifestError as exc:
+                problems.append(str(exc))
+
+        if self.config.worker.exit_when_drained and self.config.ingestion.type == "docdb":
+            logger.warning(
+                "worker.exit_when_drained is set with ingestion.type 'docdb' — DocDB is not a finite set, "
+                "so this run will exit as soon as it happens to catch up, not when a campaign is complete."
+            )
         return problems
 
     # ------------------------------------------------------------------
@@ -256,6 +287,8 @@ class Worker:
         ing = self.config.ingestion
         if ing.type == "local":
             return {"root": ing.root, "name_pattern": ing.name_pattern}
+        if ing.type == "manifest":
+            return {"path": ing.manifest_file, "name_pattern": ing.name_pattern}
         kwargs: dict = {"acquisition_types": ing.acquisition_types, "name_pattern": ing.name_pattern}
         if ing.legacy_fallback is not None:
             kwargs["legacy_project_name"] = ing.legacy_fallback.project_name
@@ -430,6 +463,15 @@ class Worker:
             packaging_version=versions.get("packaging_version"),
             data_contract_version=versions.get("data_contract_version"),
             dataset_version=versions.get("dataset_version"),
+            # The authoritative acquisition start: parsed from the session's own Session
+            # stream by the processor, not guessed from a directory name. Only a source
+            # that reads metadata at discovery time (DocDB) can supply this up front, so
+            # for the others the ledger row is filled in here — `COALESCE` in the ledger
+            # means an existing value is never overwritten.
+            session_start=(
+                verdict.sidecar.session_start.isoformat() if verdict.sidecar and verdict.sidecar.session_start else None
+            ),
+            subject_id=(verdict.sidecar.subject_id if verdict.sidecar else None),
         )
 
     #: Container-side parent directory for a session living outside the work
@@ -810,11 +852,17 @@ class Worker:
             worker_image=self.worker_image(),
         )
 
-    def run_forever(self, *, once: bool = False) -> None:
+    def run_forever(self, *, once: bool = False) -> int:
         """The worker's main loop: repair state, ingest on a timer, claim and process
         jobs, heartbeat. Sequential — one job at a time; see the module docstring on
-        intra-worker concurrency."""
+        intra-worker concurrency.
+
+        Returns a process exit code. It is always ``0`` for a server that runs until it
+        is stopped; it is meaningful only under ``worker.exit_when_drained``, where the
+        loop terminates on its own and something is waiting to hear how it went.
+        """
         last_ingest = 0.0
+        ingested = False
         while True:
             # Reap before sweep: reaping is what moves a crashed job into a state the
             # sweep may reclaim, so the disk check below can benefit in the same tick.
@@ -826,6 +874,11 @@ class Worker:
             if now - last_ingest >= self.config.ingestion.interval_s:
                 try:
                     self.ingest_once()
+                    # Only a *successful* sweep may enable the drain check. Otherwise a
+                    # source that raises on every attempt looks exactly like a source
+                    # with nothing left to give, and the run exits reporting success
+                    # over zero sessions.
+                    ingested = True
                 except Exception:
                     logger.exception("Ingest sweep failed")
                 last_ingest = now
@@ -842,15 +895,128 @@ class Worker:
 
             if not self._disk_ok():
                 if once:
-                    return
+                    return 0
                 time.sleep(self.config.worker.poll_interval_s)
                 continue
 
             processed = self.claim_and_process_one()
+            if processed and (code := self._abort_on_failure()) is not None:
+                return code
             if once:
-                return
+                return 0
+            if not processed and self.config.worker.exit_when_drained and ingested:
+                code = self._finish_if_drained()
+                if code is not None:
+                    return code
             if not processed:
                 time.sleep(self.config.worker.poll_interval_s)
+
+    def _abort_on_failure(self) -> int | None:
+        """``1`` when ``worker.fail_fast`` should end the run now, else ``None``."""
+        if not self.config.worker.fail_fast:
+            return None
+        failed = self._terminal_failures()
+        if not failed:
+            return None
+        logger.error(
+            "worker.fail_fast: %d session(s) reached a terminal failure — stopping with %d job(s) still "
+            "outstanding. Nothing is aggregated: an aggregate over a partial set would be published as "
+            "though the campaign had finished.",
+            failed,
+            self.ledger.count_active(self.config.release, kind="session"),
+        )
+        return 1
+
+    def _terminal_failures(self) -> int:
+        """How many session jobs have failed for good.
+
+        ``retrying`` deliberately does not count: a transient failure with attempts left
+        is not a failure yet, and stopping the run on one would make ``fail_fast`` fire on
+        a blip in S3 rather than on bad data or broken code.
+        """
+        counts = self.ledger.status_counts(self.config.release, kind="session")
+        return sum(n for status, n in counts.items() if status in _FAILED_STATUSES)
+
+    def _finish_if_drained(self) -> int | None:
+        """``None`` while work remains; otherwise the exit code for the finished run.
+
+        "Drained" is *every session job terminal*, read from the ledger — not "the claim
+        loop found nothing to do". Those differ: a job in ``retrying`` with a future
+        ``next_eligible_at`` is unclaimable right now and still very much outstanding,
+        and ``count_active`` counts it.
+
+        Zero jobs is not drained either. It is the shape of every misconfiguration that
+        matters here — an empty manifest, an unmounted file, a release name that does not
+        match what was ingested — and all of them would otherwise exit 0 having done
+        nothing at all.
+        """
+        release = self.config.release
+        if self.ledger.count_active(release, kind="session") > 0:
+            return None
+
+        counts = self.ledger.status_counts(release, kind="session")
+        total = sum(counts.values())
+        if total == 0:
+            logger.error(
+                "worker.exit_when_drained: no session jobs exist for release %r after a completed ingest sweep. "
+                "Nothing was processed — check ingestion and the release name.",
+                release,
+            )
+            return 1
+
+        aggregate_failed = self._aggregate_before_exit()
+        failed = sum(n for status, n in counts.items() if status in _FAILED_STATUSES)
+        logger.info(
+            "Drained release %r: %s",
+            release,
+            ", ".join(f"{status}={n}" for status, n in sorted(counts.items())),
+        )
+        if failed:
+            # The caller asked for a nonzero exit on any failure. Which sessions failed
+            # is in the ledger — `status --failed`, and `rerun` to retry them.
+            logger.error("%d of %d session(s) did not complete — exiting nonzero", failed, total)
+        return 1 if (failed or aggregate_failed) else 0
+
+    def _aggregate_before_exit(self) -> bool:
+        """Aggregate once, now. Returns whether it failed.
+
+        Deliberately not gated on :meth:`aggregation_due`: that is a wall clock for a
+        long-lived server, and a batch run that finishes at 14:00 must not exit without
+        the table it was run to produce. An unchanged watermark still short-circuits, so
+        re-running a completed campaign does not rebuild an identical aggregate.
+        """
+        if not self.config.aggregation.enabled:
+            logger.info("aggregation.enabled is false — exiting without aggregating.")
+            return False
+
+        job_id, watermark, n = self.enqueue_aggregate()
+        if job_id is not None:
+            job = self.ledger.force_claim(job_id, self.worker_id, self.config.aggregation.job_timeout_s)
+            if job is not None:
+                self.process_aggregate_job(job)
+            else:
+                logger.warning("Aggregate job %s was claimed by another worker", job_id)
+
+        # The verdict comes from what is *published*, not from the job row this call
+        # happened to create. An unchanged watermark means `enqueue_aggregate` declines,
+        # and it declines identically whether the existing aggregate succeeded or failed
+        # earlier this run — so asking the ledger about our own job would let a failed
+        # scheduled aggregation exit 0. What a campaign needs on exit is one thing: the
+        # published aggregate covers the sessions it just processed.
+        published = self.read_aggregate_manifest()
+        if published is None:
+            logger.error("Exiting with no published aggregate at %s", self.aggregate_latest_uri())
+            return True
+        if published.get("watermark") != watermark:
+            logger.error(
+                "The published aggregate covers watermark %s, not the %s this run produced "
+                "(%d contributing session(s)) — it is stale",
+                published.get("watermark"),
+                watermark,
+                n,
+            )
+            return True
+        return False
 
     def _disk_ok(self) -> bool:
         """Whether there is room for another job.
