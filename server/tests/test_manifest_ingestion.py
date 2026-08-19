@@ -63,9 +63,16 @@ class TestManifestParsing:
     def test_a_bare_list_is_accepted(self, tmp_path):
         assert len(ManifestSource(_manifest(tmp_path, _SESSIONS))) == 2
 
-    def test_subject_id_comes_from_the_session_name(self, tmp_path):
+    def test_nothing_is_derived_from_the_name(self, tmp_path):
+        """Not the subject, not the date. Both live in the session's own metadata and are
+        backfilled from the sidecar; deriving either here would be a guess that *wins*,
+        because the ledger backfills with `COALESCE` and never corrects a value that was
+        already present."""
         source = ManifestSource(_manifest(tmp_path, {"sessions": _SESSIONS}))
-        assert [r.subject_id for r in source.discover(None)] == ["707349", "808728"]
+        for ref in source.discover(None):
+            assert ref.subject_id is None
+            assert ref.session_start is None
+            assert ref.asset_id is None
 
     def test_no_cursor_is_emitted(self, tmp_path):
         """A finite static set has no watermark. Emitting one would give the run a way to
@@ -92,13 +99,14 @@ class TestManifestParsing:
             assert len(ManifestSource(path)) == 2
         assert "missing session_name or location" in caplog.text
 
-    def test_a_misnamed_session_is_skipped(self, tmp_path, caplog):
-        path = _manifest(
-            tmp_path, {"sessions": [*_SESSIONS, {"session_name": "not-a-session", "location": "s3://b/x"}]}
-        )
-        with caplog.at_level("WARNING"):
-            assert len(ManifestSource(path)) == 2
-        assert "does not match the expected session-name pattern" in caplog.text
+    def test_an_unconventional_name_is_still_used(self, tmp_path):
+        """No name shape is enforced. The file is a decision someone already made, and a
+        filter on the shape of a name cannot tell "not a session" from "a session named
+        unexpectedly" — it silently discards both."""
+        odd = {"session_name": "not-a-session", "location": "s3://b/x"}
+        source = ManifestSource(_manifest(tmp_path, {"sessions": [*_SESSIONS, odd]}))
+        assert len(source) == 3
+        assert "not-a-session" in {r.session_name for r in source.discover(None)}
 
     def test_duplicates_are_collapsed_once(self, tmp_path):
         """`job_key` would absorb a duplicate anyway, but then the count this source
@@ -393,6 +401,21 @@ class TestSessionStartIsBackfilled:
     def test_discovery_leaves_it_blank_rather_than_guessing(self, tmp_path):
         source = ManifestSource(_manifest(tmp_path, {"sessions": _SESSIONS}))
         assert all(r.session_start is None for r in source.discover(None))
+
+    def test_subject_id_is_backfilled_too(self, tmp_path):
+        """Same argument, same mechanism: the name's leading digits are the subject by
+        convention, but the session's metadata is the record."""
+        worker = _worker(tmp_path)
+        try:
+            worker.ingest_once()
+            job = worker.ledger.claim("w1", 600)
+            assert job is not None
+            assert job.subject_id is None, "nothing should have derived this from the name"
+            worker.ledger.complete_job(job.job_id, partial=False, subject_id="707349")
+            done = worker.ledger.get_job(job.job_id)
+            assert done is not None and done.subject_id == "707349"
+        finally:
+            worker.close()
 
     def test_completion_fills_it_in_from_the_sidecar(self, tmp_path):
         worker = _worker(tmp_path)

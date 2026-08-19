@@ -16,7 +16,6 @@ Requires the ``pipeline`` optional dependency group (``aind-data-access-api``).
 """
 
 import logging
-import re
 from collections.abc import Iterator
 from datetime import datetime
 from typing import Any, Literal
@@ -26,8 +25,6 @@ from aind_data_access_api.document_db import MetadataDbClient
 from ..models import SessionRef
 
 logger = logging.getLogger(__name__)
-
-SESSION_RE = r"^(behavior_)?\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$"
 
 _PROJECTION = {
     "_id": 1,
@@ -65,15 +62,12 @@ class DocDbSource:
         database: str = "metadata_index",
         collection: str = "data_assets",
         acquisition_types: list[str] | None = None,
-        name_pattern: str = SESSION_RE,
         legacy_project_name: str | None = "Cognitive flexibility in patch foraging",
         legacy_session_before: str = "2026-01-01",
         client: MetadataDbClient | None = None,
     ) -> None:
         self._client = client or MetadataDbClient(host=host, database=database, collection=collection)
         self._acquisition_types = acquisition_types or ["AindVrForaging"]
-        self._pattern = re.compile(name_pattern)
-        self._name_pattern = name_pattern
         self._legacy_project_name = legacy_project_name
         self._legacy_session_before = legacy_session_before
 
@@ -116,7 +110,6 @@ class DocDbSource:
     def _pass_a(self, since: str | None) -> Iterator[SessionRef]:
         query: dict[str, Any] = {
             "data_description.data_level": "raw",
-            "name": {"$regex": self._name_pattern},
             "$or": [
                 {"acquisition.acquisition_type": {"$in": self._acquisition_types}},
                 {"session.session_type": {"$in": self._acquisition_types}},
@@ -134,7 +127,6 @@ class DocDbSource:
     def _pass_b(self, since: str | None) -> Iterator[SessionRef]:
         query: dict[str, Any] = {
             "data_description.data_level": "raw",
-            "name": {"$regex": self._name_pattern},
             "data_description.project_name": self._legacy_project_name,
             "acquisition.acquisition_type": {"$exists": False},
             "session.session_type": {"$exists": False},

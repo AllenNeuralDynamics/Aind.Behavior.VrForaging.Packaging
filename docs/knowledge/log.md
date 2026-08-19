@@ -3,6 +3,23 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-08-19 (no source filters on the shape of a name)
+
+* **Architecture**: [server.md](architecture/server.md) gains *No source filters on the
+  shape of a name*. The session-name regex is gone from all four places it was duplicated
+  — `config.ingestion.name_pattern`, and the module-level copy in each of the three
+  sources — including the `{"name": {"$regex": …}}` clause in both DocDB passes. A
+  name-shaped filter cannot tell "not a session" from "a session named unexpectedly" and
+  silently discards both; `staging.verify_present` now rejects a non-session as a named
+  `data` failure instead. Measured cost recorded: the local cache's two empty `…;C`
+  artifacts are now queued and fail in staging rather than being skipped in silence.
+* **Architecture**: same document — the last name-derived value is gone too. The manifest
+  source no longer extracts `subject_id` from the session name; it is backfilled from the
+  sidecar like `session_start`. A discovery-time guess would have *won* permanently, since
+  the ledger backfills with `COALESCE`. No regex in either package now matches a session
+  name: what remains matches staging globs, Windows drive letters, and the dated
+  `aggregate/` prefixes this code writes itself.
+
 ## 2026-08-19 (config fields describe themselves)
 
 * **Convention**: [tooling-and-style.md](conventions/tooling-and-style.md) — config fields

@@ -11,7 +11,6 @@ processes the list, aggregates, and exits.
 
 import json
 import logging
-import re
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Literal
@@ -19,12 +18,6 @@ from typing import Any, Literal
 from ..models import SessionRef
 
 logger = logging.getLogger(__name__)
-
-_DEFAULT_SESSION_RE = r"^(behavior_)?\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$"
-
-#: The subject id is the leading numeric field of the session name, by the naming
-#: convention ``_DEFAULT_SESSION_RE`` already encodes.
-_SUBJECT_RE = re.compile(r"^(?:behavior_)?(\d+)_")
 
 #: Sibling keys a dedup/matching step may leave beside ``sessions``. Reported, never
 #: processed — an entry that reached one of these has no location to read.
@@ -46,13 +39,16 @@ class ManifestSource:
     would only create a way for the run to skip part of the list it was given; every
     sweep re-yields everything and ``job_key`` uniqueness absorbs the duplicates. Adding
     lines to the file therefore works without resetting anything.
+
+    Nothing is inferred from a session's name — not its shape, not the subject, not the
+    date. A name is an identifier to be carried, and the metadata it superficially
+    resembles is read from the session itself.
     """
 
     name: Literal["docdb", "local", "manifest"] = "manifest"
 
-    def __init__(self, path: Path | str, *, name_pattern: str = _DEFAULT_SESSION_RE) -> None:
+    def __init__(self, path: Path | str) -> None:
         self.path = Path(path)
-        self._pattern = re.compile(name_pattern)
         self._entries = self._load()
 
     def __len__(self) -> int:
@@ -71,7 +67,7 @@ class ManifestSource:
         if not entries:
             raise ManifestError(
                 f"Manifest {self.path} yielded no usable sessions out of {considered} entr(ies) — "
-                "every one was missing a location, misnamed or a duplicate"
+                "every one was missing a session_name or a location, or was a duplicate"
             )
         logger.info(
             "Manifest %s: %d session(s) to process%s",
@@ -123,9 +119,10 @@ class ManifestSource:
                 continue
             name, location = str(item.get("session_name") or ""), str(item.get("location") or "")
             if not name or not location:
+                # The only rejection left. A name this source cannot use is one it cannot
+                # locate — nothing about the *shape* of a name disqualifies it, because
+                # the file is a decision someone already made.
                 skipped.append(f"[{index}] {name or '<unnamed>'}: missing session_name or location")
-            elif not self._pattern.match(name):
-                skipped.append(f"[{index}] {name}: does not match the expected session-name pattern")
             elif name in seen:
                 # Deduped here rather than left to `job_key`, so the count this source
                 # reports is the number of sessions that will actually be processed.
@@ -138,15 +135,15 @@ class ManifestSource:
 
     def discover(self, since: str | None) -> Iterator[SessionRef]:
         for name, location in self._entries:
-            subject = _SUBJECT_RE.match(name)
+            # Identity only, and nothing derived from it. `subject_id` and `session_start`
+            # both live in the session's own metadata, which only the processor opens, and
+            # both are filled in from its sidecar on completion. Reading them out of the
+            # name instead would be a guess that *wins*: the ledger backfills with
+            # `COALESCE`, so a value present at discovery is never corrected later.
             yield SessionRef(
                 session_name=name,
                 input_uri=location,
-                subject_id=subject.group(1) if subject else None,
-                # No cursor: see the class docstring. And no `session_start` — the folder
-                # name carries a timestamp, but inferring acquisition metadata from a
-                # directory name is a guess, and a wrong one is worse than a blank.
-                cursor=None,
+                cursor=None,  # a finite static set has no watermark; see the class docstring
                 discovered_by="manifest",
             )
 

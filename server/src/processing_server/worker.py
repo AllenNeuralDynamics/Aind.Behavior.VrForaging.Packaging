@@ -286,10 +286,10 @@ class Worker:
     def _source_kwargs(self) -> dict:
         ing = self.config.ingestion
         if ing.type == "local":
-            return {"root": ing.root, "name_pattern": ing.name_pattern}
+            return {"root": ing.root}
         if ing.type == "manifest":
-            return {"path": ing.manifest_file, "name_pattern": ing.name_pattern}
-        kwargs: dict = {"acquisition_types": ing.acquisition_types, "name_pattern": ing.name_pattern}
+            return {"path": ing.manifest_file}
+        kwargs: dict = {"acquisition_types": ing.acquisition_types}
         if ing.legacy_fallback is not None:
             kwargs["legacy_project_name"] = ing.legacy_fallback.project_name
             kwargs["legacy_session_before"] = ing.legacy_fallback.session_before

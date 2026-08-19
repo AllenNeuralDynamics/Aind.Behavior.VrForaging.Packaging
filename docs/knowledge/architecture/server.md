@@ -4,7 +4,7 @@ title: Containerized pipeline — how the server layer runs the processor
 description: How one session becomes one container, what the sidecar is for, how the daily aggregate is published, where the trust boundaries are, and how to run the whole thing on a laptop without S3, DocDB or a registry.
 resource: server/src/processing_server/
 tags: [architecture, server, docker, ledger, sidecar, aggregation, ingestion, testing, workspace]
-timestamp: 2026-08-19T00:00:00Z
+timestamp: 2026-08-19T12:00:00Z
 ---
 
 > **Editable diagram:** [`docs/diagrams/server.drawio`](../../diagrams/server.drawio)
@@ -228,15 +228,37 @@ Why a manifest rather than a narrower DocDB query: a manuscript's session list i
 decided, reviewed and then has to *stay* decided. A query is evaluated at run time and
 may answer differently next month; a file in version control cannot.
 
+## No source filters on the shape of a name
+
+There is no `name_pattern` anywhere. Every source ingests everything it finds: every
+subdirectory under `ingestion.root`, every entry in a manifest that has a location, and
+every DocDB record matching the *semantic* filters (`data_level: raw`, acquisition type,
+project name) with no `{"name": {"$regex": …}}` clause.
+
+A name-shaped filter cannot distinguish "not a session" from "a session named
+unexpectedly", and it discards both without a word. What replaces it is failing loudly:
+a directory that is not a session is rejected in staging by `staging.verify_present`,
+as a `data` failure naming the file that was missing. That is a row in the ledger someone
+can act on, rather than an absence nobody can see.
+
+The cost is real and worth stating: the local integration cache contains two empty
+`…;C` download artifacts beside its seven sessions, so a local ingest now queues nine
+jobs and two of them fail in staging. Previously they were skipped in silence. Under
+`worker.fail_fast` those two would end the run — which is the correct signal that the
+ingest root has something in it that should not be there.
+
 ## What the manifest source does not do
 
 - **No watermark.** `discover` ignores `since` and yields the whole list every sweep.
   A finite static set has nothing to be incremental about, and a cursor would only
   create a way for a run to skip part of the list it was handed. `job_key` uniqueness
   absorbs the re-delivery, so adding lines to the file works without resetting anything.
-- **No inferred acquisition time — it is backfilled instead.** `subject_id` comes from
-  the leading numeric field of the session name (a convention `name_pattern` already
-  encodes), but `session_start` is left blank at discovery. The folder name carries a
+- **Nothing is derived from a session's name.** Not its shape, not the subject, not the
+  date. `subject_id` and `session_start` both live in the session's own metadata, which
+  only the processor opens, and both are filled in from its sidecar on completion. The
+  ledger backfills with `COALESCE`, so a value present at discovery is never corrected
+  later — which is exactly why a name-derived guess must not be written there: it would
+  *win* over the record. A manifest carries identity, and nothing else. The folder name carries a
   timestamp and treating it as acquisition metadata is a guess. The real value is inside
   the session, in the Session stream the processor parses, and the sidecar already
   computes it — so `_finish_success` writes it back on completion. The ledger uses

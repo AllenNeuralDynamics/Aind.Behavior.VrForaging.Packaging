@@ -21,8 +21,6 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
-_DEFAULT_SESSION_RE = r"^(behavior_)?\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$"
-
 
 class LegacyFallbackConfig(BaseModel):
     """Pass B — bounded legacy fallback for sessions predating typed acquisition metadata."""
@@ -55,10 +53,6 @@ class IngestionConfig(BaseModel):
     acquisition_types: list[str] = Field(
         default=["AindVrForaging"],
         description="`docdb` only — acquisition/session types treated as VR foraging.",
-    )
-    name_pattern: str = Field(
-        default=_DEFAULT_SESSION_RE,
-        description="Regex a session name must match to be ingested, for every source.",
     )
     legacy_fallback: LegacyFallbackConfig | None = Field(
         default=None,
