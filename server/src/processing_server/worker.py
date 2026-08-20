@@ -125,6 +125,8 @@ class Worker:
     def _input_store_kwargs(self) -> dict:
         if self.config.input.store == "local":
             return {"copy_files": self.config.input.copy_files}
+        if self.config.input.store == "s3":
+            return {"anonymous": self.config.input.anonymous}
         return {}
 
     def close(self) -> None:

@@ -1,10 +1,12 @@
 """Dashboard — one sortable table of sessions, per-job log links, and a
 whitelisted set of queue actions. stdlib ``http.server`` only.
 
-No authentication: bind to ``127.0.0.1`` (the default) and reach it over an
-SSH tunnel. A CSRF token in the action form is the only defense needed at
-that trust boundary — see ``dashboard.allow_actions`` to disable writes
-entirely and fall back to a read-only view.
+No authentication: the security boundary is the host-side port binding in
+``compose.yaml`` (``127.0.0.1:8080:8080``), not the bind address. Inside a
+container the server must bind to ``0.0.0.0`` so the port forwarder can reach
+it. A CSRF token in the action form is the only defense needed at that trust
+boundary — see ``dashboard.allow_actions`` to disable writes entirely and fall
+back to a read-only view.
 """
 
 import html
@@ -369,8 +371,12 @@ def make_handler(config: DashboardConfig, ledger_path: str, csrf_token: str) -> 
 
 
 def serve(config: DashboardConfig, ledger_path: str) -> None:
-    """Run the dashboard forever. Bind to ``127.0.0.1`` (the default) — there
-    is no authentication, so never change ``dashboard.bind`` to ``0.0.0.0``."""
+    """Run the dashboard forever on ``config.bind:config.port``.
+
+    The default bind is ``0.0.0.0`` — required inside a container so the host-side port
+    forwarder can reach the server. Security lives in the ``ports:`` restriction in
+    compose (``127.0.0.1:8080:8080``), not in the bind address.
+    """
     csrf_token = secrets.token_urlsafe(32)
     handler_cls = make_handler(config, ledger_path, csrf_token)
     with ThreadingHTTPServer((config.bind, config.port), handler_cls) as httpd:

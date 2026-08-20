@@ -10,7 +10,9 @@ from pathlib import Path
 from typing import Literal
 
 import boto3
+from botocore import UNSIGNED
 from botocore.client import BaseClient
+from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
 from ..config import StagingConfig
@@ -27,11 +29,25 @@ class S3InputStore:
 
     name: Literal["s3", "mount", "local"] = "s3"
 
-    def __init__(self, staging: StagingConfig | None = None, *, client: BaseClient | None = None) -> None:
+    def __init__(
+        self,
+        staging: StagingConfig | None = None,
+        *,
+        client: BaseClient | None = None,
+        anonymous: bool = False,
+    ) -> None:
         self._staging = staging or StagingConfig()
-        # Ambient credentials (instance role / profile / env) — NOT anonymous:
-        # ~77% of raw sessions are in a private bucket.
-        self._client = client or boto3.client("s3")
+        if client is not None:
+            self._client = client
+        elif anonymous:
+            # Unsigned requests: no credentials read, none required. Only a public
+            # bucket allows this — a private one returns AccessDenied for every call,
+            # which is the correct failure rather than something to fall back from.
+            self._client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+        else:
+            # Ambient credentials (instance role / profile / env) — NOT anonymous:
+            # ~77% of raw sessions are in a private bucket.
+            self._client = boto3.client("s3")
 
     def list_objects(self, session_uri: str) -> list[ObjectRef]:
         bucket, prefix = parse_s3_uri(session_uri)

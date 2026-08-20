@@ -127,6 +127,12 @@ class InputConfig(BaseModel):
         description="Record which files the processor actually opened, via `sys.addaudithook`, "
         "into `sidecar.staged.read_files`.",
     )
+    anonymous: bool = Field(
+        default=False,
+        description="`s3` only — list and download without credentials (unsigned requests). "
+        "Only public buckets allow this; a private one returns AccessDenied for every "
+        "object. No credentials are read or required at all when this is set.",
+    )
 
 
 class StagingRule(BaseModel):
@@ -330,12 +336,13 @@ class DashboardConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(default=True, description="Serve the dashboard.")
-    # Inside a container behind a published port this has to be 0.0.0.0, or the port
-    # forwarder cannot reach into the container's netns; restrict the host side instead.
+    # Security lives in the host-side `ports:` restriction ("127.0.0.1:8080:8080"), not
+    # here. Inside a container the port forwarder lives outside the container's netns,
+    # so binding to 127.0.0.1 would make the service unreachable — 0.0.0.0 is required.
     bind: str = Field(
-        default="127.0.0.1",
-        description="Address to listen on. There is no authentication, so do not expose this — "
-        "reach it over an SSH tunnel.",
+        default="0.0.0.0",
+        description="Address to listen on. There is no authentication — restrict access "
+        "via the host-side port binding in compose (`127.0.0.1:8080:8080`) rather than here.",
     )
     port: int = Field(default=8080, description="Port to listen on.")
     refresh_s: int = Field(default=30, description="Seconds between browser auto-refreshes.")

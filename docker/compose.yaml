@@ -57,13 +57,17 @@ services:
     restart: unless-stopped
 
   dashboard:
-    # Same digest as the worker — it reads that worker's ledger.
+    # Same digest as the worker — it reads (and, when allow_actions is true, writes)
+    # that worker's ledger. The ledger must NOT be :ro: Ledger.__init__ runs DDL and
+    # an INSERT on every open, so a read-only mount prevents any query from succeeding.
     image: ${VRF_IMAGE:?}
     command: ["serve", "--config", "/etc/vrf/config.yaml"]
     volumes:
-      - vrf_ledger:/var/lib/vrf:ro
+      - vrf_ledger:/var/lib/vrf   # rw: Ledger.__init__ writes DDL even for read-only queries
       - ./config.yaml:/etc/vrf/config.yaml:ro
-    ports: ["127.0.0.1:8080:8080"]   # no auth — never publish on 0.0.0.0
+    ports: ["127.0.0.1:8080:8080"]   # restricts to localhost on the host — the security boundary.
+    # dashboard.bind must be 0.0.0.0 inside the container so the port forwarder can
+    # reach it; this is the default — keep the host-side restriction here in ports:.
     restart: unless-stopped
 
 volumes:
