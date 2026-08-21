@@ -10,7 +10,6 @@ ingestion:
 # ingestion:
 #   type: manifest
 #   manifest_file: /etc/vrf/sessions.json   # {"sessions": [{session_name, location}, ...]}
-#   interval_s: 86400                       # a static file needs no polling
 # worker:
 #   exit_when_drained: true                 # aggregate and stop, instead of serving forever
 #   fail_fast: true                         # or: stop at the first session that fails for good
@@ -24,17 +23,11 @@ output:
   uri: s3://your-bucket/vr-foraging
 
 processor:
+  # Default image is the full ghcr.io path (production). For a local build:
+  # image: vrf
   image: ghcr.io/allenneuraldynamics/aind-behavior-vr-foraging-packaging
   digest: sha256:...               # required; same digest as VRF_IMAGE in .env
-  write_nwb: true
-
-worker:
-  id: worker-1
-  min_free_disk_bytes: 20000000000
 
 aggregation:
   at: "03:00"                      # once a day, local clock time
   timezone: America/Los_Angeles    # IANA name; validated at startup
-
-logging:
-  dir: /var/lib/vrf/logs

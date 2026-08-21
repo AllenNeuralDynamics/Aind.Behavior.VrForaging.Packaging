@@ -209,7 +209,9 @@ class ProcessorConfig(BaseModel):
 
     image: str = Field(
         default="ghcr.io/allenneuraldynamics/aind-behavior-vr-foraging-packaging",
-        description="Processor image, without a tag or digest.",
+        description="Processor image, without a tag or digest. "
+        "Defaults to the production registry path. "
+        "Override with `vrf` for a local build (`docker build … -t vrf:latest`).",
     )
     digest: str | None = Field(
         default=None,
