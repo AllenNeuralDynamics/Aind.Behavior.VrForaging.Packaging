@@ -239,6 +239,27 @@ Use `--dead` instead of `--failed` to catch sessions that exhausted all retries 
 
 ---
 
+## Re-aggregate
+
+Rebuild the flat tables against already-published output — without re-running the processor. Use this after a partial run, after requeuing failed sessions, or whenever you want the aggregate to reflect the current state of `sessions/`.
+
+```bash
+# Preview: show session count, watermark, and whether a rebuild is needed
+docker compose run --rm worker aggregate --config /etc/vrf/config.yaml --dry-run
+
+# Rebuild (skips automatically if the watermark is unchanged)
+docker compose run --rm worker aggregate --config /etc/vrf/config.yaml
+
+# Force a rebuild even when the watermark matches
+docker compose run --rm worker aggregate --config /etc/vrf/config.yaml --force
+```
+
+The command is watermark-gated: it hashes the set of completed sessions and skips if nothing has changed since the last aggregate. Exit code `0` if the aggregate completed or was already current; `1` if it failed.
+
+Works against any output store — point `config.yaml` at `output.uri: s3://…` and add credentials to the worker service, same as the [full run](#scaling-up-to-the-full-run).
+
+---
+
 ## Scaling up to the full run
 
 Three things change for a production run over private data:
