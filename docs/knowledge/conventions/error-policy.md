@@ -2,7 +2,7 @@
 type: Convention
 title: Error policy — known anomalies vs. general failures
 description: What strict_parsing does and does not cover; why processors must never gate a bare `except Exception` on it, and why the pipeline propagates every failure rather than isolating it.
-resource: src/aind_behavior_vr_foraging_packaging/_base.py
+resource: packaging/src/aind_behavior_vr_foraging_packaging/_base.py
 tags: [conventions, error-handling, strict_parsing, processor, robustness]
 timestamp: 2026-08-16T00:00:00Z
 ---
@@ -96,7 +96,7 @@ There is now exactly one flag in the package, and its scope is narrow:
 |---|---|---|
 | `strict_parsing` | `AbstractProcessor` and every processor; `create_processors`, `process_session`, `process_sessions`, and the CLI's `--strict-parsing` | Is a *known, anticipated* anomaly fatal, or do we degrade past it? |
 
-A second, orchestration-level `raise_on_error` existed briefly on
+A second, server-level `raise_on_error` existed briefly on
 `pipeline.batch` to choose between propagating and carrying on. It was removed
 once the pipeline settled on propagating unconditionally (below), which left it
 with a single caller and no meaningful `False` case. **It exists nowhere in the
@@ -152,15 +152,15 @@ Unfixed as of 2026-08-14, both in the pre-0.6.0 path
 ```bash
 # Should return nothing in processing/ or acquisition/ —
 # a hit is either a new violation or a deliberate, commented exception.
-rg -n "except Exception" src/aind_behavior_vr_foraging_packaging/processing \
-                         src/aind_behavior_vr_foraging_packaging/acquisition
+rg -n "except Exception" packaging/src/aind_behavior_vr_foraging_packaging/processing \
+                         packaging/src/aind_behavior_vr_foraging_packaging/acquisition
 
 # Should return nothing at all: pipeline/batch.py isolates nothing.
-rg -n "except" src/aind_behavior_vr_foraging_packaging/pipeline/batch.py
+rg -n "except" packaging/src/aind_behavior_vr_foraging_packaging/pipeline/batch.py
 
 # Should return exactly one hit — process_session's opt-in `on_error` callback,
 # which defaults to None (propagate) and has no in-package caller.
-rg -n -B2 -A5 "except Exception" src/aind_behavior_vr_foraging_packaging/pipeline/session.py
+rg -n -B2 -A5 "except Exception" packaging/src/aind_behavior_vr_foraging_packaging/pipeline/session.py
 
 # Should return nothing anywhere: the flag was removed in August 2026.
 rg -n "raise_on_error" src/ tests/

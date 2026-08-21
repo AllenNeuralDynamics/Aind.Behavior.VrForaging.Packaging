@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=77", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "processing-server"
+description = "Runs the VR Foraging packaging pipeline at scale: job ledger, session discovery, container worker, dashboard."
+authors = [
+    {name = "Bruno Cruz", email = "bruno.cruz@alleninstitute.org"},
+    ]
+license = "MIT"
+dynamic = ["version"]
+requires-python = ">=3.11"
+classifiers = [
+    # NOT a mistake, and not a placeholder. This package is deliberately never
+    # published: it is deployment machinery for one lab's hosts, it pins a
+    # container digest, and its config models describe our S3 layout and our
+    # DocDB. `twine`/`uv publish` refuse an unknown classifier, so this line
+    # turns "someone runs the publish command in the wrong directory" from a
+    # silent success into an error.
+    "Private :: Do Not Upload",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+readme = {file = "README.md", content-type = "text/markdown"}
+
+dependencies = [
+    # The processor. This is the one direction the dependency runs: server
+    # knows about packaging, never the reverse — which is why the sidecar lives
+    # here rather than in `pipeline/`. Resolved from the workspace root, not PyPI
+    # (see [tool.uv.sources] below).
+    "aind-behavior-vr-foraging-packaging",
+    "aind-data-access-api>=1.0",   # DocDB discovery
+    "boto3>=1.26",                 # S3 input staging and output publishing
+    "pyyaml",                      # the config file
+    # `aggregation.timezone` resolves through zoneinfo, which has no tz database of
+    # its own on Windows and none guaranteed in a slim Linux image.
+    "tzdata",
+    # The dashboard is stdlib http.server — one table and a few form POSTs.
+    # Add fastapi/uvicorn only if that view has to grow.
+]
+
+[project.scripts]
+vr-foraging-server = "processing_server.cli:main"
+
+[tool.uv.sources]
+aind-behavior-vr-foraging-packaging = { workspace = true }
+
+[tool.setuptools_scm]
+# Shares the repo's tags with the packaging distribution, so a sidecar's
+# recorded version and the image it came from agree.
+root = ".."

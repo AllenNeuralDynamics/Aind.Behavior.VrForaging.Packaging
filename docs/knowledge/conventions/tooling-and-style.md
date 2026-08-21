@@ -21,7 +21,7 @@ uv version <x.y.z>      # set the project version (used by release)
 
 Dev dependencies live in the `dev` dependency group (default group): `ruff`,
 `pytest`, `pytest-cov`, `codespell`, `ty`, and `boto3`. `boto3` is there because
-`tests/integration/conftest.py` imports it at module scope — conftest files are
+`packaging/tests/integration/conftest.py` imports it at module scope — conftest files are
 imported at *collection* time, so deselecting integration tests with
 `-m 'not integration'` does not make it optional.
 
@@ -97,6 +97,12 @@ See [testing/index.md](../testing/index.md) for the full harness. Style rules:
   `__init__`. Follow this when adding one.
 - Google-style docstrings with explicit units in field/param descriptions
   (e.g. "(unit: cm/s)").
+- **Config fields document themselves via `Field(description=...)`, not attribute
+  docstrings.** A description is part of the model, so it reaches
+  `model_json_schema()` and any CLI generated from the settings classes; an
+  attribute docstring reaches nothing at runtime. Keep the description to a help
+  string and put longer rationale in a comment above the field. See
+  `server/src/processing_server/config.py`, where every field carries one.
 - Error policy is explicit and threaded via `strict_parsing`, which covers
   **named data anomalies only** — never a bare `except Exception`. Catch narrowly,
   let general failures propagate, and raise `DatasetProcessorError` for hard

@@ -2,7 +2,7 @@
 type: Reference
 title: Data contract, Harp streams, and the three versions
 description: How the library reads sessions via contraqctor/aind-behavior-vr-foraging, the three semver versions it tracks and dispatches on, and where each lands in the parquet and NWB outputs.
-resource: src/aind_behavior_vr_foraging_packaging/_provenance.py
+resource: packaging/src/aind_behavior_vr_foraging_packaging/_provenance.py
 tags: [architecture, data-contract, contraqctor, harp, semver, versioning, provenance]
 timestamp: 2026-08-09T00:00:00Z
 ---

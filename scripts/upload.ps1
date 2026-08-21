@@ -1,7 +1,7 @@
 # ============================================================
 # Process, aggregate, and (optionally) upload to s3://aind-scratch-data/vr-foraging/
 #
-# 1. Runs aind-vr-export (clean + full pipeline) against the integration cache.
+# 1. Runs vr-foraging-packaging batch (clean + full pipeline) against the integration cache.
 # 2. Uploads the output to an S3 prefix (skipped with -SkipUpload).
 #
 # Usage:
@@ -39,7 +39,7 @@ if (-not (Get-Command aws -ErrorAction SilentlyContinue)) {
 # --- Phase 1 + 2: process and aggregate ---
 
 Write-Host "Running export pipeline: $InputDir -> $OutputDir ..."
-uv run aind-vr-export --input-dir $InputDir --output-dir $OutputDir --write-nwb
+uv run vr-foraging-packaging batch --input-dir $InputDir --output-dir $OutputDir --write-nwb
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Pipeline failed. Aborting upload." -ForegroundColor Red
     exit 1

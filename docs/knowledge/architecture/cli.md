@@ -2,7 +2,7 @@
 type: Component
 title: CLI — vr-foraging-packaging
 description: One subcommand per pipeline function (session / batch / aggregate), built on pydantic-settings CliSubCommand; adds no behaviour beyond dispatch and two guards.
-resource: src/aind_behavior_vr_foraging_packaging/pipeline/cli.py
+resource: packaging/src/aind_behavior_vr_foraging_packaging/pipeline/cli.py
 tags: [architecture, cli, pipeline, pydantic-settings]
 timestamp: 2026-08-16T00:00:00Z
 ---

@@ -1,0 +1,33 @@
+# Copy to config.yaml and edit. `extra: forbid` everywhere, so a typo fails loudly.
+# Full field reference: server/src/processing_server/config.py
+
+release: manuscript-2026-08-13     # campaign name → output prefix; one release, one digest
+
+ingestion:
+  type: docdb                      # docdb | local (with `root:`) | manifest (with `manifest_file:`)
+
+# A fixed-list campaign instead: process exactly these sessions, then exit.
+# ingestion:
+#   type: manifest
+#   manifest_file: /etc/vrf/sessions.json   # {"sessions": [{session_name, location}, ...]}
+# worker:
+#   exit_when_drained: true                 # aggregate and stop, instead of serving forever
+#   fail_fast: true                         # or: stop at the first session that fails for good
+
+input:
+  store: mount                     # mount | s3 | local
+  root: /data/raw                  # identity-mapped host path
+
+output:
+  store: s3
+  uri: s3://your-bucket/vr-foraging
+
+processor:
+  # Default image is the full ghcr.io path (production). For a local build:
+  # image: vrf
+  image: ghcr.io/allenneuraldynamics/aind-behavior-vr-foraging-packaging
+  digest: sha256:...               # required; same digest as VRF_IMAGE in .env
+
+aggregation:
+  at: "03:00"                      # once a day, local clock time
+  timezone: America/Los_Angeles    # IANA name; validated at startup

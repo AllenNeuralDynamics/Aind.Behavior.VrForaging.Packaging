@@ -2,9 +2,9 @@
 type: Component
 title: Batch pipeline — many sessions to a queryable export
 description: pipeline/batch.py runs the session pipeline over many session directories, writes per-session parquets, optionally writes one NWB-Zarr store per session, and concatenates chosen tables into flat per-experiment parquet files; driven by the vr-foraging-packaging CLI.
-resource: src/aind_behavior_vr_foraging_packaging/pipeline/batch.py
+resource: packaging/src/aind_behavior_vr_foraging_packaging/pipeline/batch.py
 tags: [architecture, pipeline, parquet, nwb, export, cli, aggregation]
-timestamp: 2026-08-16T00:00:00Z
+timestamp: 2026-08-18T00:00:00Z
 ---
 
 `pipeline/batch.py` is the multi-session layer above [session.md](session.md).
@@ -102,13 +102,24 @@ expensive now memoize via `cached_frame` (see
 [processor-abstraction.md](processor-abstraction.md)), so `write_nwb=True` costs
 the NWB assembly and write rather than a second full parse of every stream.
 
-# Phase 2 — `aggregate`
+# Phase 2 — `aggregate` / `aggregate_tables`
 
 ```python
-aggregate(sessions_dir, output_dir) -> None
+aggregate(sessions_dir, output_dir) -> None                 # filesystem in, filesystem out
+aggregate_tables(session_names, read) -> dict[str, bytes]   # the concatenation itself
 ```
 
-Two positional arguments and no options. **What gets aggregated is fixed, not
+`aggregate_tables` is where the work happens, and it deals in **bytes** rather than
+paths: `read(session_name, table)` returns that session's parquet bytes, or `None`
+when it has no such table. `aggregate` is the filesystem-shaped caller on top of it.
+
+The split exists because the server has no filesystem in the picture — it
+aggregates straight out of its output store (see
+[server.md](server.md)) — and two implementations of "concatenate the
+per-session tables" would drift apart. Both callers therefore produce the same
+bytes from the same inputs.
+
+`aggregate` takes two positional arguments and no options. **What gets aggregated is fixed, not
 configurable:** the module constant
 
 ```python
@@ -130,7 +141,13 @@ varied.
   `output_dir/{table}.parquet`, inserting a `session_id` column at position 0
   when the table does not already carry one — the session directory's name,
   which is the same value `SessionMetadataProcessor` writes into
-  `session.parquet`. Sessions missing a table are skipped with a debug log.
+  `session.parquet`. Sessions missing a table are skipped with a debug log, and
+  a session whose parquet is *unreadable* is skipped with a warning rather than
+  raising: aggregation runs on a schedule over a growing set, so one corrupt file
+  must not mean no aggregate at all.
+- Sessions are read on a thread pool but reassembled in **sorted name order**,
+  never completion order — an unchanged set of inputs has to produce identical
+  bytes, or no digest over the output means anything.
 - `session` goes through the same path as every other table; it used to have a
   bespoke concat block above the loop. It is listed first because a missing
   identity table aborts the rest: without it the export has nothing to join on.

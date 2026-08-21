@@ -3,6 +3,224 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-08-19 (no source filters on the shape of a name)
+
+* **Architecture**: [server.md](architecture/server.md) gains *No source filters on the
+  shape of a name*. The session-name regex is gone from all four places it was duplicated
+  — `config.ingestion.name_pattern`, and the module-level copy in each of the three
+  sources — including the `{"name": {"$regex": …}}` clause in both DocDB passes. A
+  name-shaped filter cannot tell "not a session" from "a session named unexpectedly" and
+  silently discards both; `staging.verify_present` now rejects a non-session as a named
+  `data` failure instead. Measured cost recorded: the local cache's two empty `…;C`
+  artifacts are now queued and fail in staging rather than being skipped in silence.
+* **Architecture**: same document — the last name-derived value is gone too. The manifest
+  source no longer extracts `subject_id` from the session name; it is backfilled from the
+  sidecar like `session_start`. A discovery-time guess would have *won* permanently, since
+  the ledger backfills with `COALESCE`. No regex in either package now matches a session
+  name: what remains matches staging globs, Windows drive letters, and the dated
+  `aggregate/` prefixes this code writes itself.
+
+## 2026-08-19 (config fields describe themselves)
+
+* **Convention**: [tooling-and-style.md](conventions/tooling-and-style.md) — config fields
+  use `Field(description=...)` rather than attribute docstrings, because a description is
+  part of the model and reaches `model_json_schema()` and any generated CLI, while a
+  docstring reaches nothing at runtime. All 46 fields in `config.py` now carry one;
+  longer rationale stays as a comment above the field.
+
+## 2026-08-19 (a manifest source, and a run that ends)
+
+* **Architecture**: [server.md](architecture/server.md) gains *Two shapes: a server, and
+  a campaign*. `ingestion.type: manifest` processes exactly the sessions named in a JSON
+  file — chosen over a narrower DocDB query because a manuscript's session list has to
+  stay decided, and a query is re-evaluated every run. Records what the source
+  deliberately does not do (no watermark, no inferred `session_start`, no per-bucket
+  config) and that the whole file is validated at construction, which `doctor` triggers
+  as a pre-flight.
+* **Architecture**: same document — `session_start` is *backfilled* from the sidecar on
+  completion rather than inferred from a directory name at discovery. The authoritative
+  acquisition time is inside the session's Session stream, which only the processor opens;
+  the ledger's `COALESCE` makes this a fill-if-null, so DocDB's discovery-time value is
+  never clobbered and `local` gains the same correction as `manifest`.
+* **Architecture**: same document — `worker.fail_fast` stops at the first terminal session
+  failure. `retrying` does not count (a transient with attempts left is not a failure yet),
+  and nothing is aggregated on that path.
+* **Architecture**: same document — how `worker.exit_when_drained` decides a run is
+  finished. "Nothing left to claim" is not "the work is done": a `retrying` job with a
+  future eligibility looks identical from the claim loop, a source that always raises
+  looks like a source with nothing left, and zero jobs is a misconfiguration rather than
+  a clean drain. The final aggregation bypasses the wall clock and is judged by the
+  published watermark rather than by the job row the drain step queued.
+
+## 2026-08-18 (continuous aggregation, and no local staging)
+
+* **Architecture**: [server.md](architecture/server.md) gains *The aggregate output* —
+  the daily aggregate layout (`aggregate/{YYYY-MM-DD}/` written first and immutable, a
+  full copy at `aggregate/latest/`, the commit marker last in both), the `job_id`-based
+  watermark that decides whether a run happens at all, and why `latest` sorting above
+  every date is a trap for anything scanning that prefix.
+* **Architecture**: [batch.md](architecture/batch.md) — Phase 2 splits into
+  `aggregate_tables` (the concatenation, over parquet *bytes*) and `aggregate` (the
+  filesystem caller). The server aggregates straight out of its output store with
+  nothing landing on disk, so the alternative was two implementations of the same
+  concatenation drifting apart. Also records that an unreadable per-session parquet is
+  now skipped with a warning rather than raising, and that results are reassembled in
+  sorted name order so identical inputs give identical bytes.
+
+## 2026-08-17 (the processor container gets a network)
+
+* **Architecture**: `--network=none` is gone from the processor container, and must not
+  come back. `contraqctor` resolves Harp device registers at load time by fetching
+  `harp-tech/whoami` and a per-device `device.yml` over HTTPS, and no session carries a
+  local copy; offline, every Harp device group resolves to zero streams and raises
+  `Data must be a list of DataStreams`. Measured on one session: identical input and
+  image, exit 0 with a network and exit 1 without.
+
+  The container still cannot upload. That property was never the network flag's to
+  provide — it is *absence*: nothing passes credentials in, `docker run` does not
+  inherit the worker's environment, and no `~/.aws` is mounted. S3 remains a
+  worker-only concern. `test_classify.py` now asserts both halves, so neither the
+  flag's return nor a stray `AWS_*` goes unnoticed.
+
+  Vendoring those schemas into the image and feeding them to `contraqctor` via
+  `DeviceYmlByFile` would let the container go offline again. That is the real fix;
+  this is the honest interim.
+
+* **Correction**: sessions previously recorded here and in review as *unprocessable
+  legacy data* were nothing of the kind. `716458_2024-05-13_09-03-55` and
+  `815103_2026-02-09_22-01-14` both fail with `Data must be a list of DataStreams`
+  offline and both **complete** with a network. The failure looked like a parse error
+  and `classify` charged it to `error_kind='data'`, which is exactly right for the
+  signal it had — the sidecar named a processor, so the session took the blame. Worth
+  remembering when reading that column: `data` means the processor raised, not that the
+  session is unusable.
+
+* **Convention**: `work --job-id` now heartbeats before processing. Only `run_forever`
+  used to, so `workers.worker_image` was unset for anything run that way — yet a
+  `--job-id` run claims a real job and publishes real output. What code produced a
+  session must not depend on how the job was launched.
+
+## 2026-08-17 (orchestration → server)
+
+* **Naming**: the second distribution is the **server**, and it no longer carries the
+  project's name. It is private and never published, so the
+  `aind-behavior-vr-foraging-` prefix bought nothing but length at every import site:
+
+  | was | now |
+  |---|---|
+  | `orchestration/` | `server/` |
+  | `aind_behavior_vr_foraging_orchestration` | `processing_server` |
+  | `aind-behavior-vr-foraging-orchestration` | `processing-server` |
+  | `vr-foraging-orchestrator` | `vr-foraging-server` |
+  | `architecture/orchestration.md` | [architecture/server.md](architecture/server.md) |
+  | `diagrams/orchestration.drawio` | `diagrams/server.drawio` |
+
+  The console script is the one thing that keeps the project prefix, deliberately.
+  An import path is only ever read inside this repo; a console script lands on a
+  shared PATH, where `processing-server` says nothing about whose server it is.
+
+  Nothing about the design changed: the dependency still runs one way, server →
+  packaging, still enforced by `tests/test_package_boundary.py`, and the layer still
+  owns the ledger, discovery, stores, the worker and the dashboard.
+
+  Note that the entries **below this one describe the same package under its old
+  name**. Their identifiers and paths have been updated so links and code references
+  still resolve — a change log that points at files nobody can open is worse than one
+  whose prose is a little anachronistic — but the history itself is untouched.
+
+## 2026-08-17 (work-volume lifetime, log uniformity, worker provenance)
+
+* **Architecture**: documented and fixed what happens to a session's bytes on the
+  work volume after publishing, in
+  [server.md](architecture/server.md#what-lives-on-the-work-volume-and-for-how-long).
+  Cleanup now runs on **entry** to `process_job` as well as in a `finally`. The entry
+  half is the load-bearing one and the only correctness fix here: `job_id` is stable
+  across attempts, so an attempt killed mid-write left partial output at exactly the
+  path the retry uses, and since `publish` ships `out/` wholesale while the sidecar is
+  rewritten, the orphan reached the output store inside a session the ledger recorded
+  as a clean success. Nothing can `finally` its way out of SIGKILL; only entry-side
+  cleanup survives one.
+
+  Reclaiming a stranded directory now has exactly one owner per job state —
+  `running` nobody, `pending`/`retrying` the next attempt, terminal states the new
+  `Worker.sweep_work_dir` running beside `reap_expired_leases`. The ledger decides,
+  never the filesystem: workers share the volume, and a directory whose name is not a
+  job id it knows is reported and left alone.
+
+* **Convention**: `jobs.log_uri` now means one kind of thing. Every job's log is
+  published under `output.log_prefix` and the local copy deleted; it previously held a
+  worker-local path on success and an output-store URI on failure, so nothing could
+  follow the column without first guessing which it had.
+
+* **Architecture**: closed the worker-provenance gap the previous entry's diagram
+  recorded as open. `workers.worker_image` (plus the first additive column migration)
+  records which image the worker itself ran, `docker/compose.yaml` pins both services
+  by digest via `${VRF_IMAGE:?}`, and `doctor` refuses a campaign whose worker cannot
+  say what it is unless `processor.allow_unpinned` relaxes both halves.
+
+* **Config**: `worker.max_disk_bytes` → `worker.min_free_disk_bytes`, now actually
+  enforced, and as a pre-claim guard rather than a mid-job check — a job claimed onto a
+  full volume dies on ENOSPC and burns one of `max_attempts`. New
+  `worker.keep_work_dir` / `work --keep-work` for reading a failed job's directory
+  before it disappears.
+
+## 2026-08-17 (server layer)
+
+* **Architecture**: the repo is now a **`uv` workspace with two distributions**.
+  `processing-server` lives in `server/`, is never
+  published (`Private :: Do Not Upload`, so an accidental `uv publish` fails rather
+  than succeeds), and holds the SQLite job ledger, DocDB/local discovery, input
+  staging and output stores, the `docker run` worker, and the dashboard. New concept:
+  [server.md](architecture/server.md), with a diagram and a local-run
+  guide.
+
+  The dependency runs **one way** — server → packaging — and
+  `tests/test_package_boundary.py` enforces it by walking the AST of every published
+  module, including function bodies where a lazy import would hide. Two packages
+  rather than an extra: an extra would put boto3 and DocDB in the published wheel's
+  metadata and leave the import direction to convention.
+
+* **Architecture**: the `output.metadata.json` sidecar belongs to the server
+  package, not to `pipeline/`. `process_session` instead grew a generic
+  `on_output(processor, frame, path)` hook beside the existing `on_error`, and knows
+  nothing about sidecars, JSON, or containers. `SidecarRecorder` plugs into both.
+
+  Recording is not tolerance: `SidecarRecorder.on_error` appends the failure and
+  then re-raises, so a failing processor still propagates and the container still
+  exits nonzero — the sidecar just names the culprit on the way past.
+
+* **Architecture**: `aggregate()` takes an `include: Callable[[Path], bool]`
+  predicate instead of reading sidecars itself. It cannot tell a complete session
+  from one abandoned partway through — both are a directory of parquets — so a
+  caller that can, says so. Server passes `session_completed_ok`.
+
+* **Architecture**: the container runs `vr-foraging-server process`, and that
+  is the image's `ENTRYPOINT`. `vr-foraging-packaging` is still on PATH inside the
+  image for a human poking around, but nothing launches it.
+
+* **Convention**: a session's identity is its **input directory's name**, and the
+  server layer upholds that by mounting each session at its true name
+  (`/mnt/{session_name}`, or `in/{session_name}` when staged). There is no
+  `--session-name` override. Getting it wrong raises nothing — every table is
+  stamped with the wrong session — so it is tested as an invariant.
+
+* **Convention**: list-valued CLI flags must be **repeated per value**
+  (`--exclude-processors a --exclude-processors b`). pydantic-settings gives a list
+  field an `append` action; the space-separated form exits 2. Previously documented
+  the wrong way round in `pipeline/cli.py`.
+
+* **CI/CD**: the processor image is built and pushed to GHCR on **releases only**
+  (plus manual dispatch), not on pushes to `main`. A worker config pins
+  `processor.digest`, so every image reaching the registry is something an operator
+  may run for a whole campaign; tying that to a release keeps the runnable digests
+  equal to the released versions, and keeps `setuptools_scm` from stamping images
+  with `.dev` versions nobody can reproduce. `latest` now follows release events
+  rather than `is_default_branch`, which would otherwise never match again.
+
+* **Testing**: the post-build image check moved out of the workflow into
+  [`docker/smoke-test.sh`](../../docker/smoke-test.sh), so the same assertions can be
+  pointed at a local build or a released digest without a runner.
+
 ## 2026-08-16 (scoped `clean`)
 
 * **Architecture**: `process_sessions(clean=True)` no longer does
@@ -15,13 +233,13 @@ Add an entry here whenever you add, remove, or materially revise a concept.
   POSIX it would not have crashed — the log would simply have disappeared
   mid-run while the handler wrote on to a deleted inode. Scoping the delete also
   means `--output-dir ~/data` no longer erases unrelated contents of `~/data`.
-  Regression tests in `tests/pipeline/test_batch.py`.
+  Regression tests in `packaging/tests/pipeline/test_batch.py`.
 
 ## 2026-08-16 (pipeline package + subcommand CLI)
 
 * **Architecture**: `session_pipeline.py` and `export_pipeline.py` moved into a
   `pipeline/` package as `session.py` and `batch.py`, joined by `cli.py`. Tests
-  mirror it under `tests/pipeline/`, and the bundle pages were renamed to match
+  mirror it under `packaging/tests/pipeline/`, and the bundle pages were renamed to match
   (`session-pipeline.md` → [session.md](architecture/session.md),
   `export-pipeline.md` → [batch.md](architecture/batch.md), plus a new
   [cli.md](architecture/cli.md)).
@@ -139,7 +357,7 @@ user-facing pages under `docs/guides/`, `docs/api/` and `docs/getting-started.md
 * The `session_path` argument, gone from `create_processors` and
   `process_session`, was still documented as required for `session.parquet`.
 * **`raise_on_error` no longer exists anywhere in the codebase.** Several pages
-  still documented it as a live orchestration flag, including a signature and a
+  still documented it as a live server flag, including a signature and a
   "two flags, deliberately separate" table. `strict_parsing` is now the only
   flag; [error-policy.md](conventions/error-policy.md) says so explicitly so the
   next reader who greps for the old name gets an answer.
@@ -164,7 +382,7 @@ user-facing pages under `docs/guides/`, `docs/api/` and `docs/getting-started.md
 
 * **Conventions**: `raise_on_error` renamed to `strict_parsing` on the
   processor layer. The old name promised general exception gating and did the
-  opposite. A separate orchestration-level `raise_on_error` was briefly added to
+  opposite. A separate server-level `raise_on_error` was briefly added to
   `pipeline.batch` and then removed once the pipeline settled on propagating
   every failure, which left it with one caller and no meaningful `False` case.
   Only `--strict-parsing` is exposed on the CLI. See
@@ -234,7 +452,7 @@ user-facing pages under `docs/guides/`, `docs/api/` and `docs/getting-started.md
   "Examples: PEP 723 inline scripts" section. Query backends (`duckdb`,
   `polars`) are no longer distribution dependencies at all — each script in
   `examples/` declares its own via an inline `# /// script` block. `boto3`
-  moved into the `dev` group because `tests/integration/conftest.py` imports it
+  moved into the `dev` group because `packaging/tests/integration/conftest.py` imports it
   at collection time. Supersedes the `[db]` entry further down this section.
 * **Architecture**: Renamed `pipeline.md` → [session.md](architecture/session.md)
   to track the `pipeline.py` → `pipeline/session.py` rename and to disambiguate

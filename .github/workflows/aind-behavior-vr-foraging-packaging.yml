@@ -54,7 +54,172 @@ jobs:
         run: uv run pytest
 
       - name: Build
-        run: uv build
+        # Named explicitly: a workspace, and `processing-server` must never be built into
+        # a distributable. This job's output is what reaches PyPI.
+        run: uv build --package aind-behavior-vr-foraging-packaging
+
+  # ╔─────────────────────────────────────────────────╗
+  # │   ___                                            │
+  # │  |_ _|_ __ ___   __ _  __ _  ___                 │
+  # │   | || '_ ` _ \ / _` |/ _` |/ _ \                │
+  # │   | || | | | | | (_| | (_| |  __/                │
+  # │  |___|_| |_| |_|\__,_|\__, |\___|                │
+  # │                       |___/                       │
+  # ╚─────────────────────────────────────────────────╝
+  # Processor/worker image for the session-processing pipeline (see docker/).
+  #
+  # Published on RELEASES ONLY (plus manual dispatch, which is a deliberate human
+  # act rather than an automatic one). Not on pushes to main: a worker config pins
+  # `processor.digest`, so every image that reaches GHCR is something an operator
+  # may end up running for a whole campaign. Tying that to a release keeps the set
+  # of runnable digests equal to the set of released versions — and keeps
+  # setuptools_scm from stamping images with `.dev` versions nobody can reproduce.
+
+  # Builds the image WITHOUT pushing and smoke-tests it, on every PR and push to main.
+  # The `image` job below only runs on releases, so a broken Dockerfile used to stay
+  # invisible until release day — and one did. No registry, no digest, no `latest`.
+  image-smoke:
+    name: Build image & smoke-test (no push)
+    needs: tests
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # setuptools_scm needs the tag history — the very thing that broke
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          load: true      # into the runner's daemon, so the next step can run it
+          tags: vrf:ci
+          build-args: GIT_COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Restore integration data cache
+        uses: actions/cache@v6
+        with:
+          path: packaging/tests/integration/.cache
+          key: integration-data-${{ hashFiles('packaging/tests/integration/datasets.yml') }}
+          restore-keys: |
+            integration-data-
+
+      - name: Entrypoint runs at all
+        run: docker run --rm vrf:ci --help
+
+      - name: Run against one cached session and validate the sidecar
+        run: |
+          set -euo pipefail
+          SESSION_DIR=$(find packaging/tests/integration/.cache -mindepth 2 -maxdepth 2 -type d | head -n 1)
+          if [ -z "$SESSION_DIR" ]; then
+            echo "No cached session available (cache miss) — the build itself still passed."
+            exit 0
+          fi
+          # No digest argument: a local build has none, so provenance is honestly
+          # recorded as `unpinned` and those assertions are skipped rather than faked.
+          ./docker/smoke-test.sh vrf:ci "$SESSION_DIR"
+
+  image:
+    name: Build & push processor image
+    needs: tests
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'release' && github.event.action == 'published')
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      image: ${{ steps.meta.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # setuptools_scm needs full tag history — see docker/Dockerfile
+          # Checkout the tag itself, as prepare-release does. On a release event the
+          # default SHA is already the tagged commit, but only an exact tag makes
+          # setuptools_scm emit `0.0.15` rather than a guessed `0.0.16.devN`.
+          ref: ${{ github.event.release.tag_name || github.sha }}
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            # `latest` on a release, not on the default branch: releases are now
+            # the only thing that publishes, so `is_default_branch` would never
+            # match and `docker/compose.yaml`'s `:latest` would go stale forever.
+            type=raw,value=latest,enable=${{ github.event_name == 'release' }}
+
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: GIT_COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Job summary
+        run: |
+          echo "### Processor image" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Pin \`processor.digest\` to this value in the worker config — never pin by tag." >> "$GITHUB_STEP_SUMMARY"
+
+  smoke:
+    name: Smoke-test processor image
+    needs: image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Entrypoint runs at all
+        run: docker run --rm "ghcr.io/${{ github.repository }}@${{ needs.image.outputs.digest }}" --help
+
+      - name: Restore integration data cache
+        uses: actions/cache@v6
+        with:
+          path: packaging/tests/integration/.cache
+          key: integration-data-${{ hashFiles('packaging/tests/integration/datasets.yml') }}
+          restore-keys: |
+            integration-data-
+
+      # The assertions live in docker/smoke-test.sh, not here, so the same check
+      # can be pointed at a local build or someone else's image without a runner.
+      - name: Run against one cached session and validate the sidecar
+        run: |
+          set -euo pipefail
+          SESSION_DIR=$(find packaging/tests/integration/.cache -mindepth 2 -maxdepth 2 -type d | head -n 1)
+          if [ -z "$SESSION_DIR" ]; then
+            echo "No cached session available (cache miss) — skipping content assertions."
+            exit 0
+          fi
+          ./docker/smoke-test.sh \
+            "ghcr.io/${{ github.repository }}@${{ needs.image.outputs.digest }}" \
+            "$SESSION_DIR" \
+            "${{ needs.image.outputs.digest }}"
 
   # ╔─────────────────────────────────────────────────╗
   # │   ___       _                        _   _              │
@@ -87,8 +252,8 @@ jobs:
       - name: Restore integration data cache
         uses: actions/cache@v6
         with:
-          path: tests/integration/.cache
-          key: integration-data-${{ hashFiles('tests/integration/datasets.yml') }}
+          path: packaging/tests/integration/.cache
+          key: integration-data-${{ hashFiles('packaging/tests/integration/datasets.yml') }}
           restore-keys: |
             integration-data-
 
@@ -121,7 +286,9 @@ jobs:
           enable-cache: true
 
       - name: Build
-        run: uv build
+        # Named explicitly: a workspace, and `processing-server` must never be built into
+        # a distributable. This job's output is what reaches PyPI.
+        run: uv build --package aind-behavior-vr-foraging-packaging
 
       - name: Upload wheels as artifact
         uses: actions/upload-artifact@v7

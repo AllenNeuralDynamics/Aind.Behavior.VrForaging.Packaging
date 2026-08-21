@@ -2,13 +2,13 @@
 type: Component
 title: AbstractProcessor — the processor contract
 description: The abstract base class every processor implements; defines compute()/_compute(), nwbize(), output_name, provenance stamping, and the opt-in cached_frame decorator.
-resource: src/aind_behavior_vr_foraging_packaging/_base.py
+resource: packaging/src/aind_behavior_vr_foraging_packaging/_base.py
 tags: [architecture, processor, base-class, contract, provenance, caching]
 timestamp: 2026-08-16T00:00:00Z
 ---
 
 Every unit of parsing logic is a subclass of `AbstractProcessor`
-(`src/aind_behavior_vr_foraging_packaging/_base.py`). A processor wraps one
+(`packaging/src/aind_behavior_vr_foraging_packaging/_base.py`). A processor wraps one
 loaded dataset and knows how to turn it into exactly one tabular output and,
 optionally, one NWB representation.
 
@@ -104,7 +104,7 @@ class RewardRateProcessor(AbstractProcessor):
         return nwb_file
 ```
 
-Then register it in [session_pipeline.create_processors](session.md) and export it
+Then register it in [session.create_processors](session.md) and export it
 from `processing/__init__.py`.
 
 # Design notes

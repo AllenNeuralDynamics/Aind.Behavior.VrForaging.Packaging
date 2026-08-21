@@ -13,6 +13,26 @@ resolution-markers = [
     "python_full_version < '3.12' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
+[manifest]
+members = [
+    "aind-behavior-vr-foraging-packaging",
+    "processing-server",
+]
+
+[manifest.dependency-groups]
+dev = [
+    { name = "codespell" },
+    { name = "processing-server", editable = "server" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+    { name = "ty" },
+]
+docs = [
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.27" },
+    { name = "zensical", specifier = ">=0.0.43" },
+]
+
 [[package]]
 name = "aind-behavior-curriculum"
 version = "0.0.42"
@@ -63,7 +83,7 @@ data = [
 
 [[package]]
 name = "aind-behavior-vr-foraging-packaging"
-source = { editable = "." }
+source = { editable = "packaging" }
 dependencies = [
     { name = "aind-behavior-vr-foraging", extra = ["data"] },
     { name = "aind-nwb-utils" },
@@ -79,20 +99,6 @@ dependencies = [
     { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "boto3" },
-    { name = "codespell" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-    { name = "ty" },
-]
-docs = [
-    { name = "mkdocstrings", extra = ["python"] },
-    { name = "zensical" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "aind-behavior-vr-foraging", extras = ["data"], specifier = ">=1.2.1" },
@@ -102,24 +108,24 @@ requires-dist = [
     { name = "pandas" },
     { name = "pyarrow", specifier = ">=14.0.0" },
     { name = "pydantic", specifier = ">=2.10" },
-    { name = "pydantic-settings" },
     { name = "pydantic-settings", specifier = ">=2.10.1" },
     { name = "pynwb", specifier = ">=4.1" },
     { name = "scipy" },
 ]
 
-[package.metadata.requires-dev]
-dev = [
-    { name = "boto3", specifier = ">=1.26" },
-    { name = "codespell" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-    { name = "ty" },
+[[package]]
+name = "aind-data-access-api"
+version = "1.10.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "boto3" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "requests" },
 ]
-docs = [
-    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.27" },
-    { name = "zensical", specifier = ">=0.0.43" },
+sdist = { url = "https://files.pythonhosted.org/packages/0b/7c/210906ebf642a19cd5eca57f84a32e7b6d24ff97b7b8b7f315a819b2fad9/aind_data_access_api-1.10.0.tar.gz", hash = "sha256:78dfdcdf8052af95b716e897099b9ed2f912fb3c03741ed08bb65a42163df8d4", size = 72394, upload-time = "2026-04-21T23:30:02.986Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/43/d6/8fd44feb29df9eaa2d65418d41b7e3303cfc65e66eeccc6159882d5ac673/aind_data_access_api-1.10.0-py3-none-any.whl", hash = "sha256:a463917e13674cfd4e88518beaf1b81a6d077aa80a1fc54ee7d682f462e4ac24", size = 18962, upload-time = "2026-04-21T23:30:01.64Z" },
 ]
 
 [[package]]
@@ -1550,6 +1556,26 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412, upload-time = "2025-05-15T12:30:07.975Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538, upload-time = "2025-05-15T12:30:06.134Z" },
+]
+
+[[package]]
+name = "processing-server"
+source = { editable = "server" }
+dependencies = [
+    { name = "aind-behavior-vr-foraging-packaging" },
+    { name = "aind-data-access-api" },
+    { name = "boto3" },
+    { name = "pyyaml" },
+    { name = "tzdata" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aind-behavior-vr-foraging-packaging", editable = "packaging" },
+    { name = "aind-data-access-api", specifier = ">=1.0" },
+    { name = "boto3", specifier = ">=1.26" },
+    { name = "pyyaml" },
+    { name = "tzdata" },
 ]
 
 [[package]]

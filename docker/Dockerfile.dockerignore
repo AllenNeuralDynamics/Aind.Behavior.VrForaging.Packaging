@@ -1,0 +1,23 @@
+# Deliberately does NOT exclude `.git` — setuptools_scm needs the tag history
+# to produce a real version, or every sidecar and ledger row gets "0.1.dev1+…".
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+dist/
+build/
+*.egg-info/
+
+# Test caches can be tens of GB of raw session data; never belongs in the image.
+packaging/tests/integration/.cache/
+
+scratch/
+docs/
+site/
+.vscode/
+.idea/

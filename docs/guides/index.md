@@ -41,4 +41,14 @@ Step-by-step walkthroughs for the most common tasks.
 
     [:octicons-arrow-right-24: Open guide](contraqctor-streams.md)
 
+-   :material-docker:{ .lg .middle } **Run a batch campaign**
+
+    ---
+
+    Process a fixed session list end-to-end with the Docker-based pipeline:
+    stage from S3, run processors in containers, write parquet and NWB
+    locally, and aggregate. Includes a no-credentials smoke test.
+
+    [:octicons-arrow-right-24: Open guide](batch-campaign.md)
+
 </div>

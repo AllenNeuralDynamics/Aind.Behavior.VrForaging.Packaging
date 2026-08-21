@@ -2,7 +2,7 @@
 type: Component
 title: NwbSession — building and writing the NWB file
 description: NwbSession builds a base NWBFile via aind-nwb-utils, stamps provenance into was_generated_by, drives each processor's nwbize(), then writes NWB-Zarr.
-resource: src/aind_behavior_vr_foraging_packaging/nwb_file/__init__.py
+resource: packaging/src/aind_behavior_vr_foraging_packaging/nwb_file/__init__.py
 tags: [architecture, nwb, zarr, metadata, provenance]
 timestamp: 2026-08-09T00:00:00Z
 ---

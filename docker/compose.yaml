@@ -1,0 +1,75 @@
+# Deployment sketch for the session-processing pipeline.
+#
+# Setup:
+#   cp config.example.yaml config.yaml     # then edit release / output.uri
+#   echo VRF_IMAGE=ghcr.io/...@sha256:... > .env
+#   docker compose run --rm worker doctor --config /etc/vrf/config.yaml
+#
+# Pin VRF_IMAGE by digest, not tag; the release workflow prints it. `${VRF_IMAGE:?}`
+# makes compose refuse to start unpinned rather than silently drift with `:latest`.
+# The same digest goes in config.yaml's `processor.digest` — worker and processor are
+# the same image, and pinning only one leaves half the provenance chain unrecorded.
+#
+# ── AWS credentials ────────────────────────────────────────────────────────────
+# Only the WORKER needs them, and only for `input.store: s3` / `output.store: s3`.
+# Processor containers get none, so they cannot upload. Do not add credentials
+# to one to "make S3 work".
+#
+# Pick ONE. No default, deliberately — guessing produced a broken config once:
+#
+#   (a) PRODUCTION — instance role. Nothing to set; refreshes forever.
+#   (b) LOCAL DEV, SSO — `aws sso login` on the host, then mount ~/.aws READ-WRITE.
+#       botocore writes to ~/.aws/sso/cache/ to refresh, so `:ro` fails mid-run. The
+#       token still expires (~8-12 h) and cannot be renewed from a container.
+#   (c) ANY HOST — export short-lived keys and pass them in:
+#         aws configure export-credentials --profile <p> --format env-no-export > .aws.env
+#       then `env_file: .aws.env`. Do not commit it.
+
+services:
+  worker:
+    image: ${VRF_IMAGE:?set VRF_IMAGE to a digest-pinned image ref}
+    # Subcommand only — ENTRYPOINT is already `vr-foraging-server`.
+    command: ["work", "--config", "/etc/vrf/config.yaml"]
+    environment:
+      # Nothing can discover its own image; the worker has to be told. Recorded on
+      # each heartbeat into `workers.worker_image`.
+      - VRF_WORKER_IMAGE_URI=${VRF_IMAGE:?}
+      # (b) SSO also needs the profile name:
+      # - AWS_PROFILE=your-sso-profile
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # root-equivalent; single-purpose host only
+      - vrf_ledger:/var/lib/vrf
+      - vrf_work:/work                              # SAME named volume the processor gets
+      - ./config.yaml:/etc/vrf/config.yaml:ro
+      # - /data/raw:/data/raw:ro                    # identity-mapped; only for input.store: mount
+      # (b) SSO — note the absence of `:ro`:
+      # - ${HOME}/.aws:/home/runner/.aws
+    #
+    # (c) exported credentials:
+    # env_file: .aws.env
+    #
+    # The image runs as uid 10001. Reading docker.sock needs that user in a group
+    # matching the socket's GID on THIS host (`stat -c '%g' /var/run/docker.sock`).
+    # Do NOT use `user: root` instead: the worker creates /work/{job_id} and the
+    # processor writes inside it as uid 10001.
+    # group_add:
+    #   - "999"
+    restart: unless-stopped
+
+  dashboard:
+    # Same digest as the worker — it reads (and, when allow_actions is true, writes)
+    # that worker's ledger. The ledger must NOT be :ro: Ledger.__init__ runs DDL and
+    # an INSERT on every open, so a read-only mount prevents any query from succeeding.
+    image: ${VRF_IMAGE:?}
+    command: ["serve", "--config", "/etc/vrf/config.yaml"]
+    volumes:
+      - vrf_ledger:/var/lib/vrf   # rw: Ledger.__init__ writes DDL even for read-only queries
+      - ./config.yaml:/etc/vrf/config.yaml:ro
+    ports: ["127.0.0.1:8080:8080"]   # restricts to localhost on the host — the security boundary.
+    # dashboard.bind must be 0.0.0.0 inside the container so the port forwarder can
+    # reach it; this is the default — keep the host-side restriction here in ports:.
+    restart: unless-stopped
+
+volumes:
+  vrf_ledger:
+  vrf_work:
