@@ -81,7 +81,7 @@ NWB alike.
 The store is written to:
 
 ```text
-output_dir/sessions/{session_id}/{session_id}.nwb.zarr
+output_dir/sessions/{session_id}/behavior.nwb.zarr
 ```
 
 collocated with the parquets for that session, because `process_session`'s

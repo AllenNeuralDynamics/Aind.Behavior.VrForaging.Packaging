@@ -146,7 +146,7 @@ independent switches over the same computed frames:
 # Parquet only (the default)
 process_session(ds, "output/my_session/")
 
-# Both — writes output/my_session/<session_id>.nwb.zarr alongside the parquets
+# Both — writes output/my_session/behavior.nwb.zarr alongside the parquets
 process_session(ds, "output/my_session/", write_nwb=True)
 
 # NWB only

@@ -90,7 +90,7 @@ batch run without the caller having to pass a label down.
 1. Creates `output_dir` if either writer is enabled.
 2. For each processor, calls `compute()` and, when `write_parquet`, writes
    `output_dir/<output_name>.parquet`.
-3. When `write_nwb`, writes `output_dir/<session_id>.nwb.zarr`.
+3. When `write_nwb`, writes `output_dir/behavior.nwb.zarr`.
 4. Returns `dict[str, pd.DataFrame]` keyed by `output_name`.
 
 Output filenames come straight from each processor's `output_name`: `session`,

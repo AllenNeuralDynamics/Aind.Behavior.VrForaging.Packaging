@@ -98,7 +98,7 @@ class _ProcessingCommand(_Command):
     write_parquet: bool = True
     """Write per-session parquet tables."""
     write_nwb: bool = False
-    """Write one NWB-Zarr store per session, named ``{session_id}.nwb.zarr``."""
+    """Write one NWB-Zarr store per session, named ``behavior.nwb.zarr``."""
 
 
 # ---------------------------------------------------------------------------
