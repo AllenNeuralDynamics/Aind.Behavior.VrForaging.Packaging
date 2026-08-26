@@ -102,8 +102,8 @@ def test_write_nwb_false_by_default(tmp_path):
     nwb_cls.assert_not_called()
 
 
-def test_write_nwb_writes_store_named_for_the_session_dir(tmp_path):
-    """The store is <output_dir>/<session dir name>.nwb.zarr, built from the same
+def test_write_nwb_writes_store_named_behavior_nwb_zarr(tmp_path):
+    """The store is <output_dir>/behavior.nwb.zarr, built from the same
     processor list as the parquets — one filtered selection, two formats."""
     from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
 
@@ -124,7 +124,7 @@ def test_write_nwb_writes_store_named_for_the_session_dir(tmp_path):
     nwb_cls.assert_called_once_with(root, dataset=ds)
     session = nwb_cls.return_value
     session.run.assert_called_once_with(*procs)
-    session.write_nwb_zarr.assert_called_once_with(out / "behavior_815103_2025-11-05_22-52-21.nwb.zarr")
+    session.write_nwb_zarr.assert_called_once_with(out / "behavior.nwb.zarr")
 
 
 def test_write_nwb_uses_the_filtered_processor_list(tmp_path):
@@ -214,7 +214,7 @@ def test_nwb_only_writes_no_parquet(tmp_path):
         process_session(ds, out, write_parquet=False, write_nwb=True)
 
     assert not (out / "sites.parquet").exists()
-    nwb_cls.return_value.write_nwb_zarr.assert_called_once_with(out / "sess_A.nwb.zarr")
+    nwb_cls.return_value.write_nwb_zarr.assert_called_once_with(out / "behavior.nwb.zarr")
 
 
 def test_both_writers_off_creates_no_output_dir(tmp_path):

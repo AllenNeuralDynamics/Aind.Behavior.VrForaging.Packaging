@@ -193,7 +193,7 @@ def process_session(
         ``False`` to compute without touching disk — the frames still come back
         in the return value.
     write_nwb:
-        When ``True``, write ``output_dir/{session_id}.nwb.zarr`` from the same
+        When ``True``, write ``output_dir/behavior.nwb.zarr`` from the same
         processor list, so one filtered selection can produce both output
         formats. Requires the AIND metadata JSON files in the session root; a
         session missing them fails the NWB step, and that failure propagates
@@ -254,7 +254,7 @@ def _write_nwb_zarr(
     output_dir: Path,
     processors: Sequence[AbstractProcessor],
 ) -> Path:
-    """Build and write one NWB-Zarr store to ``output_dir/{session_id}.nwb.zarr``.
+    """Build and write one NWB-Zarr store to ``output_dir/behavior.nwb.zarr``.
 
     Held to the same rule as the processors: a session whose NWB step failed is
     not a usable partial result, so nothing is caught here.
@@ -263,7 +263,7 @@ def _write_nwb_zarr(
 
     from ..nwb_file import NwbSession
 
-    dest = output_dir / f"{root.name}.nwb.zarr"
+    dest = output_dir / "behavior.nwb.zarr"
 
     session = NwbSession(root, dataset=dataset)
     session.run(*processors)
