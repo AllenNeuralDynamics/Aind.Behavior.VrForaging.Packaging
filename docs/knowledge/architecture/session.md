@@ -1,10 +1,10 @@
 ---
 type: Component
 title: Session pipeline — version dispatch, fan-out, and parquet output
-description: pipeline/session.py selects the correct processor set for a dataset version, runs them over one session via process_session, and writes provenance-stamped parquet files.
+description: pipeline/session.py selects the correct processor set for a dataset version, runs them over one session via process_session, and calls each processor's write_parquet() to produce provenance-stamped parquet files.
 resource: src/aind_behavior_vr_foraging_packaging/pipeline/session.py
-tags: [architecture, pipeline, parquet, version-dispatch]
-timestamp: 2026-08-16T00:00:00Z
+tags: [architecture, pipeline, parquet, version-dispatch, json]
+timestamp: 2026-08-30T00:00:00Z
 ---
 
 `pipeline/session.py` is the thin orchestration layer for **one** session. It
@@ -39,6 +39,18 @@ dataset-level filtering: `session_id` is the session directory's name, while
 stream. The stream's own `session_name` field is ignored — it is `null` on
 pre-0.6 datasets and, where populated, formatted differently from the
 directory that every other layer keys on.
+
+It also carries the raw `Behavior/InputSchemas/{Session,Rig,TaskLogic}`
+streams **verbatim**, one JSON-text column each (`SessionMetadata.session`,
+`.rig`, `.task_logic` — pydantic `Json[Any]` fields), so the full session/rig/
+task-logic config is discoverable straight from `session.parquet` without a
+second pass over the dataset. Legacy (`< 1.0`) schema versions read these as
+plain `Json` streams (already a dict); current versions read them as
+`PydanticModel`s and `model_dump(mode="json")` them first — either way the
+column ends up holding the same JSON text. See
+[processor-abstraction.md](processor-abstraction.md) for `write_parquet()`,
+which is how these three columns end up tagged with Parquet's native `JSON`
+logical type rather than an opaque string (below).
 
 Two convenience getters return a single version-correct processor without
 building the whole list:
@@ -88,7 +100,8 @@ Log lines are prefixed with `[{session_id}]`, taken from the dataset via
 batch run without the caller having to pass a label down.
 
 1. Creates `output_dir` if either writer is enabled.
-2. For each processor, calls `compute()` and, when `write_parquet`, writes
+2. For each processor, calls `compute()` and, when `write_parquet`, calls
+   `proc.write_parquet(output_dir)`, which writes
    `output_dir/<output_name>.parquet`.
 3. When `write_nwb`, writes `output_dir/behavior.nwb.zarr`.
 4. Returns `dict[str, pd.DataFrame]` keyed by `output_name`.
@@ -129,12 +142,21 @@ returning normally skips that processor, re-raising aborts. It defaults to
 
 # Provenance in parquet
 
-`_write_parquet` promotes every key in `df.attrs` (see
-[processor-abstraction.md](processor-abstraction.md)) into the parquet schema
-metadata **twice**: inside the pandas metadata blob (for pandas round-trips)
-and as top-level key/value entries (readable from DuckDB, Polars, R arrow,
-Spark). This is why provenance is not lost when a downstream tool reads the
-file without pandas.
+`AbstractProcessor.write_parquet` (see
+[processor-abstraction.md](processor-abstraction.md)) promotes every key in
+`df.attrs` into the parquet schema metadata **twice**: inside the pandas
+metadata blob (for pandas round-trips) and as top-level key/value entries
+(readable from DuckDB, Polars, R arrow, Spark). This is why provenance is not
+lost when a downstream tool reads the file without pandas.
+
+`SessionMetadataProcessor` overrides `write_parquet` wholesale: it computes
+`SessionMetadata`'s `Json[...]` field names by introspecting
+`SessionMetadata.model_fields` (currently `session`, `rig`, `task_logic`), then
+casts each of those columns to pyarrow's `pa.json_()` type before writing.
+Parquet writes that as `BYTE_ARRAY` with the *native* `JSON` logical type — not
+just Arrow-side extension metadata — so a JSON-aware reader (e.g. DuckDB) sees
+real JSON rather than an opaque string. It falls back to the default writer on
+a pyarrow build without `json_` (added in pyarrow 19).
 
 # Examples
 

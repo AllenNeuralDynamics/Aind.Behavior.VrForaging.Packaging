@@ -3,6 +3,44 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-08-30 (session.parquet carries raw session/rig/task_logic; `write_parquet()` joins `compute()`/`nwbize()`)
+
+* **Schema**: `SessionMetadata` (`models.py`) gained three `Json[Any]` fields —
+  `session`, `rig`, `task_logic` — carrying the contraqctor
+  `Behavior/InputSchemas/{Session,Rig,TaskLogic}` streams verbatim, so the full
+  raw config is discoverable straight from `session.parquet` without a second
+  pass over the dataset (issue #63). Legacy (`< 1.0`) schema versions read
+  these streams as plain dicts; current versions read `PydanticModel`s and
+  `model_dump(mode="json")` them first — either path lands as the same JSON
+  text.
+* **Architecture**: `AbstractProcessor` gained a third concrete, overridable
+  method — `write_parquet(self, output_dir, filename=None)` — alongside
+  `compute()` and `nwbize()`. Like `nwbize()`, its default implementation calls
+  `compute()` internally rather than taking a DataFrame, so all three methods
+  stay independent (no shared state). See
+  [processor-abstraction.md](architecture/processor-abstraction.md).
+* **Architecture**: `SessionMetadataProcessor` overrides `write_parquet`
+  wholesale: it introspects `SessionMetadata.model_fields` for `Json[...]`
+  fields and casts each to pyarrow's `pa.json_()` type before writing. Verified
+  by round-trip that Parquet writes this as `BYTE_ARRAY` with the *native*
+  `JSON` logical type (`pq.ParquetFile(...).schema`), not just an Arrow-side
+  extension — readable as real JSON by e.g. DuckDB. This tagging is
+  per-session only: Phase 2 aggregation writes the concatenated `session`
+  table through the plain module-level `write_parquet`, since there is no
+  live per-session processor instance to dispatch through — see
+  [batch.md](architecture/batch.md).
+* **Architecture**: because `write_parquet()`'s default now re-enters
+  `compute()` on every `write_parquet=True` run (not only under
+  `--write-nwb`, which is what `nwbize()` re-entering `compute()` used to
+  cost), `cached_frame` moved from opt-in-for-five to applied on all seven
+  processors — `SessionMetadataProcessor` and `SoftwareEventsProcessor` were
+  the two holdouts and now decorate `_compute` too.
+* Fixed a pre-existing contradiction between
+  [data-contract-and-versioning.md](architecture/data-contract-and-versioning.md)
+  and [batch.md](architecture/batch.md) over whether `session.parquet`'s model
+  carries version columns (it does — see batch.md's "Provenance does not
+  survive Phase 2").
+
 ## 2026-08-16 (scoped `clean`)
 
 * **Architecture**: `process_sessions(clean=True)` no longer does

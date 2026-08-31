@@ -56,6 +56,68 @@ def test_output_name_uses_class_override():
 
 
 # ---------------------------------------------------------------------------
+# write_parquet — default implementation, overridable per processor
+# ---------------------------------------------------------------------------
+
+
+def test_write_parquet_writes_a_readable_file(tmp_path):
+    import pyarrow.parquet as pq
+
+    proc = _Minimal.__new__(_Minimal)
+    proc._dataset = MagicMock()
+    proc._dataset.version = "0.6.0"
+
+    proc.write_parquet(tmp_path)
+
+    assert pq.read_table(tmp_path / "__minimal.parquet").to_pandas()["x"].tolist() == [1, 2, 3]
+
+
+def test_write_parquet_promotes_attrs_to_schema_metadata(tmp_path):
+    import pyarrow.parquet as pq
+
+    proc = _Minimal.__new__(_Minimal)
+    proc._dataset = MagicMock()
+    proc._dataset.version = "0.6.0"
+
+    proc.write_parquet(tmp_path)
+
+    assert pq.read_metadata(tmp_path / "__minimal.parquet").metadata[b"processor"] == b"_Minimal"
+
+
+def test_write_parquet_filename_overrides_the_processor_name(tmp_path):
+    import pyarrow.parquet as pq
+
+    proc = _Minimal.__new__(_Minimal)
+    proc._dataset = MagicMock()
+    proc._dataset.version = "0.6.0"
+
+    proc.write_parquet(tmp_path, filename="custom.parquet")
+
+    assert pq.read_table(tmp_path / "custom.parquet").to_pandas()["x"].tolist() == [1, 2, 3]
+
+
+def test_write_parquet_override_replaces_the_default(tmp_path):
+    """SessionMetadataProcessor is the real ``write_parquet`` override in the
+    codebase: it computes a genuine SessionMetadata and tags its ``Json[...]``
+    fields with Parquet's native JSON logical type instead of an opaque string."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from aind_behavior_vr_foraging_packaging.processing import SessionMetadataProcessor
+
+    ds = MagicMock()
+    stream = ds.at.return_value.at.return_value.at.return_value
+    stream.reader_params.path = "/data/behavior_815103_2025-11-05_22-52-21/behavior/Logs/session_input.json"
+    stream.load.return_value.data = {"subject": "815103", "date": "2025-11-05T22:52:21Z"}
+    ds.version = "1.0.0"
+
+    proc = SessionMetadataProcessor(ds)
+    proc.write_parquet(tmp_path)
+
+    assert pq.read_table(tmp_path / "session.parquet").schema.field("session").type == pa.json_(pa.utf8())
+
+
+# ---------------------------------------------------------------------------
 # session_root — shared by SessionMetadataProcessor and process_session
 # ---------------------------------------------------------------------------
 

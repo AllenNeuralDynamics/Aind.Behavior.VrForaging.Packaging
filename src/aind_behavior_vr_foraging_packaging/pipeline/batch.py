@@ -16,7 +16,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from .session import _write_parquet, process_session
+from .._base import write_parquet
+from .session import process_session
 
 logger = logging.getLogger(__name__)
 
@@ -212,6 +213,6 @@ def _aggregate_table(table: str, session_dirs: list[Path], output_dir: Path) -> 
 
     combined = pd.concat(frames, ignore_index=True)
     dest = output_dir / f"{table}.parquet"
-    _write_parquet(combined, dest)
+    write_parquet(combined, dest)
     logger.info("  %s → %d rows → %s", table, len(combined), dest.name)
     return True

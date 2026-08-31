@@ -1,10 +1,10 @@
 ---
 type: Component
 title: AbstractProcessor — the processor contract
-description: The abstract base class every processor implements; defines compute()/_compute(), nwbize(), output_name, provenance stamping, and the opt-in cached_frame decorator.
+description: The abstract base class every processor implements; defines compute()/_compute(), nwbize(), write_parquet(), output_name, provenance stamping, and the opt-in cached_frame decorator.
 resource: src/aind_behavior_vr_foraging_packaging/_base.py
-tags: [architecture, processor, base-class, contract, provenance, caching]
-timestamp: 2026-08-16T00:00:00Z
+tags: [architecture, processor, base-class, contract, provenance, caching, parquet]
+timestamp: 2026-08-30T00:00:00Z
 ---
 
 Every unit of parsing logic is a subclass of `AbstractProcessor`
@@ -21,6 +21,7 @@ The contract a subclass must satisfy and may extend:
 | `_compute(self) -> pd.DataFrame` | **abstract** | The real work. Return the output DataFrame. Never call directly from outside. |
 | `compute(self) -> pd.DataFrame` | concrete | Calls `_compute`, then stamps provenance into `df.attrs`. This is the public entry point. |
 | `nwbize(self, nwb_file) -> nwb_file` | concrete (no-op default) | Write this processor's data into an NWB file. Override where an NWB representation exists. |
+| `write_parquet(self, output_dir, filename=None)` | concrete | Calls `compute()` internally and writes `output_dir/(filename or f"{output_name}.parquet")`, promoting `df.attrs` into parquet schema metadata. Override wholesale to customize the arrow table before it's written — `SessionMetadataProcessor` is the one processor that does, tagging its `Json[...]` fields with Parquet's native `JSON` logical type (see [session.md](session.md)). |
 | `__output_name__: ClassVar[str \| None]` | class attr | Canonical parquet filename stem (e.g. `"sites"`). |
 | `output_name` | property | `__output_name__` if set, else snake_case of the class name. |
 | `dataset` | property | The loaded contraqctor Dataset. |
@@ -52,9 +53,13 @@ R arrow, Spark, etc. See [session.md](session.md).
 
 # `cached_frame` — opt-in memoization
 
-`compute()` and `nwbize()` share no state, and every `nwbize()` implementation
-re-enters `compute()`. Under `--write-nwb` that means each frame is built twice.
-`cached_frame` is a decorator applied to `_compute` to remove the second build:
+`compute()`, `nwbize()` and `write_parquet()` share no state, and both
+`nwbize()` and the default `write_parquet()` re-enter `compute()` independently
+of whatever the caller already computed. `pipeline.session.process_session`
+already calls `compute()` once for the frame it returns, so `write_parquet()`
+re-entering it means every processor risks a second (or third, under
+`--write-nwb`) full `_compute()` per session. `cached_frame` is a decorator
+applied to `_compute` to remove the rebuild:
 
 ```python
 from .._base import AbstractProcessor, cached_frame
@@ -65,11 +70,15 @@ class LicksProcessor(AbstractProcessor):
     def _compute(self) -> pd.DataFrame: ...
 ```
 
-It is **opt-in per processor**, not built into `AbstractProcessor`, because two
-of the seven gain nothing: `SoftwareEventsProcessor` builds its NWB tables
-straight from the raw streams, and `SessionMetadataProcessor` has no `nwbize` at
-all. The other five use it; the two legacy subclasses inherit `_compute`
-unchanged and so inherit the caching too.
+Still opt-in per processor rather than built into `AbstractProcessor` — but
+since `write_parquet()` re-entering `compute()` now applies to *every*
+processor's default parquet-writing path (not only `nwbize()` under
+`--write-nwb`), all seven currently decorate `_compute` with it, including
+`SessionMetadataProcessor` and `SoftwareEventsProcessor`, which used to be the
+two holdouts (`SoftwareEventsProcessor` builds its NWB tables straight from the
+raw streams, bypassing `compute()`, and `SessionMetadataProcessor` had no
+`nwbize` at all — neither gained anything until `write_parquet()` started
+re-entering `compute()` too).
 
 Two properties keep it from weakening the contract above:
 
@@ -109,9 +118,11 @@ from `processing/__init__.py`.
 
 # Design notes
 
-- `compute()` and `nwbize()` are intentionally independent — no shared state.
-  `nwbize()` may call `compute()` internally, but neither depends on the other
-  having run. `cached_frame` preserves this, since it hands back a copy.
+- `compute()`, `nwbize()` and `write_parquet()` are intentionally independent
+  of one another and of whatever the caller already computed. `nwbize()` and
+  the default `write_parquet()` may call `compute()` internally, but none of
+  the three depends on another having run. `cached_frame` preserves this,
+  since it hands back a copy on every call.
 - Keeping one output per processor is what makes the fan-out in
   [session.md](session.md) trivial and makes each output independently
   testable.

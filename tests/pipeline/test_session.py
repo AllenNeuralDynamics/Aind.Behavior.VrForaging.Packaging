@@ -2,6 +2,8 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
+from aind_behavior_vr_foraging_packaging._base import write_parquet
+
 
 def _make_mock_proc(name: str) -> MagicMock:
     df = pd.DataFrame({"x": [1]})
@@ -16,6 +18,9 @@ def _make_mock_proc(name: str) -> MagicMock:
     m = MagicMock()
     m.output_name = name
     m.compute.return_value = df
+    m.write_parquet.side_effect = lambda output_dir, filename=None: write_parquet(
+        m.compute(), output_dir / (filename or f"{name}.parquet")
+    )
     return m
 
 
