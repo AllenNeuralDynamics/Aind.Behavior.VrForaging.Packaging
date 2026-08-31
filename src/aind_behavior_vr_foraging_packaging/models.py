@@ -1,6 +1,7 @@
 import datetime
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, Json
 
 
 class Site(BaseModel):
@@ -106,4 +107,13 @@ class SessionMetadata(BaseModel):
     )
     packaging_version: str = Field(
         description="Version of the aind-behavior-vr-foraging-packaging library that produced this output.",
+    )
+    session: Json[Any] = Field(
+        description="The Session model instance used for the session.",
+    )
+    rig: Json[Any] = Field(
+        description="The Rig model instance used for the session.",
+    )
+    task_logic: Json[Any] = Field(
+        description="The Task Logic model instance used for the session.",
     )

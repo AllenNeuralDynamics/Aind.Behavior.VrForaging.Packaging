@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from aind_behavior_vr_foraging_packaging._base import session_root
+from aind_behavior_vr_foraging_packaging._base import session_root, write_parquet
 from aind_behavior_vr_foraging_packaging.pipeline.batch import (
     AGGREGATED_TABLES,
     SESSION_TABLE,
@@ -23,6 +23,9 @@ from aind_behavior_vr_foraging_packaging.processing import SessionMetadataProces
 def _mock_proc(name: str, *, raises: bool = False) -> MagicMock:
     proc = MagicMock()
     proc.output_name = name
+    proc.write_parquet.side_effect = lambda output_dir, filename=None: write_parquet(
+        proc.compute(), output_dir / (filename or f"{name}.parquet")
+    )
     if raises:
         proc.compute.side_effect = ValueError(f"{name} blew up")
     else:

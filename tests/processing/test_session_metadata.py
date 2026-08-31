@@ -51,6 +51,35 @@ def _make_dataset(
     return ds
 
 
+def _make_dataset_with_schemas(
+    *,
+    session: dict | Session | None = None,
+    rig: dict | Session | None = None,
+    task_logic: dict | Session | None = None,
+    stream_path: str | None = _STREAM_PATH,
+) -> MagicMock:
+    """Return a mock dataset with distinct payloads for Session, Rig and TaskLogic.
+
+    Unlike :func:`_make_dataset`, each ``InputSchemas`` node gets its own payload,
+    so ``session``/``rig``/``task_logic`` can be asserted independently.
+    """
+    payloads = {
+        "Session": _VALID if session is None else session,
+        "Rig": rig,
+        "TaskLogic": task_logic,
+    }
+
+    def _at(name: str) -> MagicMock:
+        node = MagicMock()
+        node.reader_params.path = stream_path
+        node.load.return_value.data = payloads[name]
+        return node
+
+    ds = MagicMock()
+    ds.at.return_value.at.return_value.at.side_effect = _at
+    return ds
+
+
 # ---------------------------------------------------------------------------
 # session_id is the directory name, always
 # ---------------------------------------------------------------------------
@@ -158,6 +187,62 @@ def test_unloadable_stream_propagates(error):
     proc = SessionMetadataProcessor(_make_dataset(error=error))
     with pytest.raises(type(error)):
         proc._compute()
+
+
+# ---------------------------------------------------------------------------
+# session / rig / task_logic are carried verbatim, as JSON strings
+# ---------------------------------------------------------------------------
+
+
+def test_dict_payloads_are_carried_verbatim():
+    """Legacy (plain-``Json``) streams are already JSON-safe dicts; just carry them."""
+    rig = {"rig_name": "vr-foraging-1", "calibration": {"gain": 1.5}}
+    task_logic = {"task_parameters": {"n_patches": 4}}
+    ds = _make_dataset_with_schemas(rig=rig, task_logic=task_logic)
+
+    df = SessionMetadataProcessor(ds)._compute()
+
+    assert df["session"].iloc[0] == _VALID
+    assert df["rig"].iloc[0] == rig
+    assert df["task_logic"].iloc[0] == task_logic
+
+
+def test_pydantic_payloads_are_model_dumped():
+    """A BaseModel payload is normalized with model_dump(mode='json') first."""
+    rig = Session(subject="rig-subject", session_name="n/a")
+    task_logic = Session(subject="task-logic-subject", session_name="n/a")
+    ds = _make_dataset_with_schemas(rig=rig, task_logic=task_logic)
+
+    df = SessionMetadataProcessor(ds)._compute()
+
+    assert df["rig"].iloc[0] == rig.model_dump(mode="json")
+    assert df["task_logic"].iloc[0] == task_logic.model_dump(mode="json")
+
+
+def test_session_column_matches_the_metadata_fields():
+    """The `session` column is the same Session stream subject/date were read from."""
+    ds = _make_dataset_with_schemas(rig={"a": 1}, task_logic={"b": 2})
+
+    df = SessionMetadataProcessor(ds)._compute()
+
+    assert df["session"].iloc[0] == _VALID
+
+
+def test_write_parquet_tags_json_fields_with_the_json_logical_type(tmp_path):
+    """SessionMetadataProcessor overrides write_parquet to tag session/rig/task_logic."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    ds = _make_dataset_with_schemas(rig={"a": 1}, task_logic={"b": 2})
+    proc = SessionMetadataProcessor(ds)
+
+    proc.write_parquet(tmp_path)
+
+    table = pq.read_table(tmp_path / "session.parquet")
+    assert table.schema.field("session").type == pa.json_(pa.utf8())
+    assert table.schema.field("rig").type == pa.json_(pa.utf8())
+    assert table.schema.field("task_logic").type == pa.json_(pa.utf8())
+    assert table.schema.field("session_id").type not in (pa.json_(pa.utf8()), pa.json_(pa.large_utf8()))
 
 
 # ---------------------------------------------------------------------------

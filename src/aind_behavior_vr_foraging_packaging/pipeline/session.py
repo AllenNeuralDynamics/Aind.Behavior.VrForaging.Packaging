@@ -237,7 +237,7 @@ def process_session(
             continue
         all_data[name] = df
         if write_parquet:
-            _write_parquet(df, output_dir / f"{name}.parquet")
+            proc.write_parquet(output_dir)
             logger.info("[%s]   saved %d rows → %s.parquet", root.name, len(df), name)
         else:
             logger.info("[%s]   %d rows (parquet skipped)", root.name, len(df))
@@ -275,19 +275,3 @@ def _write_nwb_zarr(
 
     logger.info("[%s] NWB → %s", root.name, dest.name)
     return dest
-
-
-def _write_parquet(df: pd.DataFrame, path: Path) -> None:
-    """Write *df* to *path*, promoting ``df.attrs`` to first-class parquet metadata.
-
-    All keys in ``df.attrs`` are written both in the pandas metadata blob
-    (for pandas round-trips) and as top-level key-value entries in the parquet
-    schema (readable from DuckDB, R arrow, Polars, Spark, etc.).
-    """
-    import pyarrow as pa
-    import pyarrow.parquet as pq
-
-    table = pa.Table.from_pandas(df)
-    kv = {str(k).encode(): str(v).encode() for k, v in df.attrs.items()}
-    table = table.replace_schema_metadata({**table.schema.metadata, **kv})
-    pq.write_table(table, path)

@@ -56,19 +56,16 @@ def cached_frame(fn: ty.Callable[[ty.Any], pd.DataFrame]) -> ty.Callable[[ty.Any
     Opt-in per processor — deliberately *not* applied by :class:`AbstractProcessor`
     to everything. Decorate ``_compute`` only where both hold:
 
-    1. ``nwbize()`` re-enters ``compute()``, so the frame is built twice per
-       session whenever ``--write-nwb`` is set, and
+    1. ``nwbize()`` and/or ``write_parquet()`` re-enter ``compute()`` independently
+       of whatever the caller already computed, so the frame can be built more
+       than once per session, and
     2. building it is expensive enough for that to matter.
 
-    Five of the seven processors qualify; ``SoftwareEventsProcessor`` builds its
-    NWB tables straight from the raw streams and ``SessionMetadataProcessor`` has
-    no ``nwbize`` at all, so neither gains anything.
-
-    Each call returns a **copy**, so the invariant documented on
-    :meth:`AbstractProcessor.nwbize` — that ``compute()`` and ``nwbize()`` share
-    no state — still holds exactly. Callers may mutate what they get back without
-    reaching into the cache or into each other. Copying a frame is far cheaper
-    than re-parsing the underlying streams, so the saving survives.
+    Each call returns a **copy**, so the invariant that ``compute()``,
+    ``nwbize()`` and ``write_parquet()`` share no state still holds exactly.
+    Callers may mutate what they get back without reaching into the cache or
+    into each other. Copying a frame is far cheaper than re-parsing the
+    underlying streams, so the saving survives.
 
     The cache lives on the instance (``self.__dict__``), and processors are
     constructed per session by
@@ -88,6 +85,28 @@ def cached_frame(fn: ty.Callable[[ty.Any], pd.DataFrame]) -> ty.Callable[[ty.Any
         return cache[key].copy()
 
     return wrapper
+
+
+def write_parquet(df: pd.DataFrame, path: Path) -> None:
+    """Write *df* to *path* as parquet, promoting ``df.attrs`` to schema metadata.
+
+    All keys in ``df.attrs`` are written both in the pandas metadata blob
+    (for pandas round-trips) and as top-level key-value entries in the parquet
+    schema (readable from DuckDB, R arrow, Polars, Spark, etc.).
+
+    The canonical implementation, usable directly by callers with no processor
+    instance at hand — e.g. :mod:`~aind_behavior_vr_foraging_packaging.pipeline.batch`'s
+    multi-session aggregation, which reads parquets back from disk and
+    re-combines them — and it's also :meth:`AbstractProcessor.write_parquet`'s
+    default implementation, overridable per processor.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    table = pa.Table.from_pandas(df)
+    kv = {str(k).encode(): str(v).encode() for k, v in df.attrs.items()}
+    table = table.replace_schema_metadata({**table.schema.metadata, **kv})
+    pq.write_table(table, path)
 
 
 class AbstractProcessor(abc.ABC):
@@ -152,17 +171,33 @@ class AbstractProcessor(abc.ABC):
         """Write this processor's output to *nwb_file* and return it.
 
         Default implementation is a no-op. Override in subclasses that have
-        an NWB representation. May call ``compute()`` internally; the two
-        methods are intentionally independent (no shared state).
+        an NWB representation. May call ``compute()`` internally; ``compute()``,
+        ``nwbize()`` and :meth:`write_parquet` are intentionally independent of
+        one another (no shared state).
 
-        That independence costs a second full ``_compute()`` per session when
-        both outputs are written (``--write-nwb``). Processors for which that
+        That independence costs a second (or third) full ``_compute()`` per
+        session whenever more than one of them runs. Processors for which that
         is expensive decorate ``_compute`` with
         :func:`~aind_behavior_vr_foraging_packaging._base.cached_frame`, which
         removes the recomputation while preserving the no-shared-state
         guarantee — every call still hands back its own copy.
         """
         return nwb_file
+
+    def write_parquet(self, output_dir: Path, filename: str | None = None) -> None:
+        """Compute this processor's output and write it under *output_dir* as parquet.
+
+        Calls :meth:`compute` internally rather than taking a DataFrame — see
+        :meth:`nwbize` for why the output-writing methods are independent of
+        one another and of whatever the caller already computed.
+
+        *filename* defaults to ``f"{self.output_name}.parquet"`` when not given,
+        matching the pipeline's own naming convention. Default implementation
+        delegates to the module-level :func:`write_parquet`. Override wholesale
+        in a subclass to customize the arrow table before it's written — e.g.
+        tagging a column with a non-default logical type.
+        """
+        write_parquet(self.compute(), output_dir / (filename or f"{self.output_name}.parquet"))
 
     def with_strict_parsing(self, strict_parsing: bool = True) -> ty.Self:
         self._strict_parsing = strict_parsing
