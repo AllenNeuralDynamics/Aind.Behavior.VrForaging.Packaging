@@ -92,7 +92,8 @@ class SessionMetadataProcessor(AbstractProcessor):
         json_fields = (
             name
             for name, field in SessionMetadata.model_fields.items()
-            if any(isinstance(m, Json) for m in field.metadata)
+            # pydantic.Json is Annotated[AnyType, ...] under TYPE_CHECKING but a real class at runtime.
+            if any(isinstance(m, Json) for m in field.metadata)  # ty: ignore[invalid-argument-type]
         )
         for column in json_fields:
             index = table.schema.get_field_index(column)
