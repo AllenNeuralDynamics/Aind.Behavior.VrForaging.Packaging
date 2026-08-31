@@ -4,7 +4,7 @@ title: Batch pipeline — many sessions to a queryable export
 description: pipeline/batch.py runs the session pipeline over many session directories, writes per-session parquets, optionally writes one NWB-Zarr store per session, and concatenates chosen tables into flat per-experiment parquet files; driven by the vr-foraging-packaging CLI.
 resource: src/aind_behavior_vr_foraging_packaging/pipeline/batch.py
 tags: [architecture, pipeline, parquet, nwb, export, cli, aggregation]
-timestamp: 2026-08-16T00:00:00Z
+timestamp: 2026-08-30T00:00:00Z
 ---
 
 `pipeline/batch.py` is the multi-session layer above [session.md](session.md).
@@ -158,12 +158,16 @@ show DuckDB queries over a local and an S3-hosted export respectively.
 ## Provenance does not survive Phase 2
 
 The per-session files carry the packaging/parser/dataset versions in their
-parquet schema metadata, because Phase 1 writes them with `_write_parquet`
-(see [session.md](session.md)). Phase 2 uses the same writer,
-but the **aggregated** files still carry nothing: `pd.concat` keeps `df.attrs`
-only when every input frame agrees, and `dataset_version` differs across
-sessions by design, so the concatenated frame's attrs are empty before the write
-even happens.
+parquet schema metadata, because Phase 1 writes them via each processor's
+`write_parquet()` (see [session.md](session.md) and
+[processor-abstraction.md](processor-abstraction.md)). Phase 2 writes the
+concatenated frame with the plain module-level `_base.write_parquet`, not
+through any processor instance — there is no live per-session dataset left to
+construct one from, only rows already read back off disk — so the
+**aggregated** files still carry no schema-metadata provenance: `pd.concat`
+keeps `df.attrs` only when every input frame agrees, and `dataset_version`
+differs across sessions by design, so the concatenated frame's attrs are empty
+before the write even happens.
 
 `session.parquet` is the exception, and deliberately so: `SessionMetadata`
 carries `dataset_version`, `data_contract_version` and `packaging_version` as
@@ -171,6 +175,14 @@ ordinary **columns**, not attrs, so they survive `pd.concat` and the write like
 any other data. That is the whole point — it is the one aggregate where
 per-session provenance is recoverable, and it is joinable to every other table
 on `session_id`.
+
+One more thing this same gap costs: `SessionMetadataProcessor.write_parquet`'s
+tagging of `session`/`rig`/`task_logic` with Parquet's native `JSON` logical
+type (see [session.md](session.md)) is a *processor* behavior, so it applies
+only to the per-session `session.parquet` files, never to the aggregated one —
+Phase 2 writes those three columns as plain string columns. The JSON *text*
+itself is unaffected and still parses; only the logical-type tag is
+per-session-only.
 
 Everywhere else, provenance lives in the per-session files, which Phase 2 never
 deletes. An export therefore stays auditable at the row level without anyone
