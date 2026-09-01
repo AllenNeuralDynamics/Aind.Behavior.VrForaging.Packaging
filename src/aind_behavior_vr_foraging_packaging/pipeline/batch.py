@@ -13,10 +13,11 @@ import shutil
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pyarrow as pa
 
-from .._base import write_parquet
 from .session import process_session
 
 logger = logging.getLogger(__name__)
@@ -193,26 +194,50 @@ def aggregate(sessions_dir: Path, output_dir: Path) -> None:
             return
 
 
+def _assume_utc(table: "pa.Table") -> "pa.Table":
+    """Tag naive timestamp columns as UTC, without shifting the clock.
+
+    Legacy sessions record ``date`` with no offset and current ones record UTC. A column
+    holds one type or neither, so the two only merge once the naive half is given a zone.
+    """
+    import pyarrow as pa
+
+    for index, field in enumerate(table.schema):
+        if pa.types.is_timestamp(field.type) and field.type.tz is None:
+            zoned = pa.timestamp(field.type.unit, tz="UTC")
+            table = table.set_column(index, field.with_type(zoned), table.column(index).cast(zoned))
+    return table
+
+
 def _aggregate_table(table: str, session_dirs: list[Path], output_dir: Path) -> bool:
-    """Concatenate one table across *session_dirs*; return whether anything was written."""
-    frames: list[pd.DataFrame] = []
+    """Concatenate one table across *session_dirs*; return whether anything was written.
+
+    Stays in Arrow: a pandas round-trip drops the logical types the per-session
+    writers set, turning session.parquet's JSON columns back into plain strings.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    tables: list[pa.Table] = []
 
     for sd in session_dirs:
         p = sd / f"{table}.parquet"
         if not p.exists():
             logger.debug("  %s: no %s.parquet in %s — skipping", table, table, sd.name)
             continue
-        df = pd.read_parquet(p)
-        if "session_id" not in df.columns:
-            df.insert(0, "session_id", sd.name)
-        frames.append(df)
+        t = pq.read_table(p)
+        if "session_id" not in t.column_names:
+            session_ids = pa.array([sd.name] * t.num_rows, type=pa.large_string())
+            t = t.add_column(0, pa.field("session_id", pa.large_string()), session_ids)
+        # Metadata is per-session provenance; keeping the first would misattribute the rest.
+        tables.append(_assume_utc(t).replace_schema_metadata(None))
 
-    if not frames:
+    if not tables:
         logger.warning("  %s: no parquet files found across any session — skipped.", table)
         return False
 
-    combined = pd.concat(frames, ignore_index=True)
+    combined = pa.concat_tables(tables, promote_options="permissive")
     dest = output_dir / f"{table}.parquet"
-    write_parquet(combined, dest)
-    logger.info("  %s → %d rows → %s", table, len(combined), dest.name)
+    pq.write_table(combined, dest)
+    logger.info("  %s → %d rows → %s", table, combined.num_rows, dest.name)
     return True

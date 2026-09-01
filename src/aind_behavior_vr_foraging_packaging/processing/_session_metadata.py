@@ -11,7 +11,7 @@ import pandas as pd
 from aind_behavior_curriculum.trainer import TrainerState
 from pydantic import BaseModel, Json, ValidationError
 
-from .._base import AbstractProcessor, DatasetProcessorError, cached_frame, session_root
+from .._base import AbstractProcessor, DatasetProcessorError, cached_frame, session_root, write_parquet
 from ..models import SessionMetadata
 
 logger = logging.getLogger(__name__)
@@ -105,21 +105,28 @@ class SessionMetadataProcessor(AbstractProcessor):
         import pyarrow as pa
         import pyarrow.parquet as pq
 
+        path = output_dir / (filename or f"{self.output_name}.parquet")
+        df = self.compute()
+        encoded = self._json_encoded_columns(df)
+        frame = df.assign(**encoded)
+        frame.attrs = dict(df.attrs)
+
         json_type_factory = getattr(pa, "json_", None)
         if json_type_factory is None:
-            return super().write_parquet(output_dir, filename)
+            return write_parquet(frame, path)
 
-        df = self.compute()
-        table = pa.Table.from_pandas(df)
-        kv = {str(k).encode(): str(v).encode() for k, v in df.attrs.items()}
+        table = pa.Table.from_pandas(frame)
+        kv = {str(k).encode(): str(v).encode() for k, v in frame.attrs.items()}
         table = table.replace_schema_metadata({**table.schema.metadata, **kv})
 
         scalar_arrow_type = {bool: pa.bool_(), str: pa.large_string()}
 
         for name, field in SessionMetadata.model_fields.items():
             index = table.schema.get_field_index(name)
-            if _is_json_marked(field):
-                json_array = pa.array([json.dumps(v) for v in df[name]], type=json_type_factory())
+            if name in encoded:
+                # From the list, not frame[name]: pa.array ignores the extension type on
+                # pandas' Arrow-backed string dtype, and renders None as NaN.
+                json_array = pa.array(encoded[name], type=json_type_factory())
                 table = table.set_column(index, table.field(index).with_type(json_array.type), json_array)
                 continue
             base_type = next((t for t in ty.get_args(field.annotation) if t is not type(None)), field.annotation)
@@ -128,5 +135,18 @@ class SessionMetadataProcessor(AbstractProcessor):
                 casted = table.column(index).cast(arrow_type)
                 table = table.set_column(index, table.field(index).with_type(arrow_type), casted)
 
-        path = output_dir / (filename or f"{self.output_name}.parquet")
         pq.write_table(table, path)
+
+    @staticmethod
+    def _json_encoded_columns(df: pd.DataFrame) -> dict[str, list[str | None]]:
+        """Every ``Json``-marked column of *df*, re-encoded as JSON strings.
+
+        Pydantic parses these fields into live objects, and pyarrow types every column it is
+        handed — including arbitrary JSON it has no type for, such as a curriculum graph's
+        heterogeneous ``[stage_name, weight]`` edges. ``None`` stays null rather than ``"null"``.
+        """
+        return {
+            name: [None if value is None else json.dumps(value) for value in df[name]]
+            for name, field in SessionMetadata.model_fields.items()
+            if _is_json_marked(field)
+        }

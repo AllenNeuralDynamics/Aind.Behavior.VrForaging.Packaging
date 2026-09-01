@@ -1,5 +1,6 @@
 """Unit tests for pipeline/batch.py — no real dataset I/O required."""
 
+import datetime
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -418,3 +419,68 @@ def test_no_clean_keeps_the_previous_runs_outputs(tmp_path):
 
     assert (out / "sessions" / "sess_old").exists()
     assert (out / "sessions" / "sess_new").exists()
+
+
+def test_aggregate_preserves_the_json_logical_type(tmp_path):
+    """Per-session logical types survive into the experiment file; a pandas hop downgrades them."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    sessions_dir = tmp_path / "sessions"
+    for session_id in ("sess_A", "sess_B"):
+        out = sessions_dir / session_id
+        out.mkdir(parents=True)
+        ds = MagicMock()
+        node = ds.at.return_value.at.return_value.at.return_value
+        node.reader_params.path = str(tmp_path / session_id / "behavior" / "Logs" / "session_input.json")
+        node.load.return_value.data = {"subject": "sub1", "date": "2025-01-01T00:00:00Z"}
+        SessionMetadataProcessor(ds).write_parquet(out)
+        pd.DataFrame({"site": [1, 2, 3]}).to_parquet(out / "sites.parquet", index=False)
+
+    aggregate(sessions_dir, tmp_path)
+
+    schema = pq.read_table(tmp_path / "session.parquet").schema
+    for column in ("session", "rig", "task_logic", "trainer_state"):
+        assert schema.field(column).type == pa.json_(pa.utf8()), f"{column} lost its JSON logical type"
+
+
+def test_aggregate_does_not_stamp_one_session_provenance_onto_the_experiment_file(tmp_path):
+    """Inheriting the first session's kv metadata would misattribute the rest."""
+    import pyarrow.parquet as pq
+
+    sessions_dir = tmp_path / "sessions"
+    _write_fake_session(sessions_dir, "sess_A", "sub1")
+    _write_fake_session(sessions_dir, "sess_B", "sub2")
+
+    aggregate(sessions_dir, tmp_path)
+
+    metadata = pq.read_table(tmp_path / "session.parquet").schema.metadata or {}
+    assert b"packaging_version" not in metadata
+
+
+def test_aggregate_assumes_utc_for_naive_session_dates(tmp_path):
+    """Legacy sessions record no offset; the aggregate tags them UTC rather than refusing to merge."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    sessions_dir = tmp_path / "sessions"
+    for session_id, date in (("legacy", "2024-05-13T09:03:55"), ("current", "2025-11-05T22:52:21Z")):
+        out = sessions_dir / session_id
+        out.mkdir(parents=True)
+        ds = MagicMock()
+        node = ds.at.return_value.at.return_value.at.return_value
+        node.reader_params.path = str(tmp_path / session_id / "behavior" / "Logs" / "session_input.json")
+        node.load.return_value.data = {"subject": "sub1", "date": date}
+        SessionMetadataProcessor(ds).write_parquet(out)
+
+    # Each session keeps what it recorded; only the aggregate has to choose.
+    assert pq.read_table(sessions_dir / "legacy" / "session.parquet").schema.field("date").type == pa.timestamp("us")
+
+    aggregate(sessions_dir, tmp_path)
+
+    combined = pq.read_table(tmp_path / "session.parquet")
+    assert combined.schema.field("date").type == pa.timestamp("us", tz="UTC")
+    assert [d.replace(tzinfo=None) for d in combined.column("date").to_pylist()] == [
+        datetime.datetime(2025, 11, 5, 22, 52, 21),
+        datetime.datetime(2024, 5, 13, 9, 3, 55),
+    ]
