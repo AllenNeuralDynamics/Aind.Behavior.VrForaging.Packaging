@@ -416,3 +416,57 @@ def test_constructor_matches_every_other_processor():
     proc = SessionMetadataProcessor(_make_dataset(), strict_parsing=True)
     assert proc.output_name == "session"
     assert proc.strict_parsing is True
+
+
+def test_write_parquet_handles_a_trainer_state_arrow_cannot_infer(tmp_path):
+    """A curriculum graph's ``[stage_name, weight]`` edges are legal JSON with no Arrow type."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    session_dir = _session_dir(tmp_path)
+    payload = _valid_trainer_state()
+    payload["curriculum"]["graph"] = {"graph": {"0": [["curricula.stage_a_to_stage_b", 1]], "1": []}}
+    (session_dir / "behavior" / "trainer_state.json").write_text(json.dumps(payload))
+    ds = _make_dataset_with_schemas(rig={"a": 1}, task_logic={"b": 2}, stream_path=_stream_path_under(session_dir))
+    out = tmp_path / "out"
+    out.mkdir()
+
+    SessionMetadataProcessor(ds).write_parquet(out)
+
+    table = pq.read_table(out / "session.parquet")
+    assert table.schema.field("trainer_state").type == pa.json_(pa.utf8())
+    written = json.loads(table.column("trainer_state")[0].as_py())
+    assert written["curriculum"]["graph"]["graph"]["0"] == [["curricula.stage_a_to_stage_b", 1]]
+
+
+def test_write_parquet_leaves_an_absent_trainer_state_null(tmp_path):
+    """Null, not the JSON string ``"null"`` — the column's documented contract."""
+    import pyarrow.parquet as pq
+
+    session_dir = _session_dir(tmp_path)
+    ds = _make_dataset_with_schemas(rig={"a": 1}, task_logic={"b": 2}, stream_path=_stream_path_under(session_dir))
+    out = tmp_path / "out"
+    out.mkdir()
+
+    SessionMetadataProcessor(ds).write_parquet(out)
+
+    assert pq.read_table(out / "session.parquet").column("trainer_state")[0].as_py() is None
+
+
+# ---------------------------------------------------------------------------
+# date
+# ---------------------------------------------------------------------------
+
+
+def test_date_keeps_the_offset_when_the_source_has_one():
+    df = SessionMetadataProcessor(_make_dataset({"subject": "815103", "date": "2025-11-05T22:52:21Z"}))._compute()
+
+    assert df["date"].iloc[0] == datetime.datetime(2025, 11, 5, 22, 52, 21, tzinfo=datetime.timezone.utc)
+
+
+def test_date_stays_naive_when_the_source_has_no_offset():
+    """Legacy sessions carry no offset; none is invented for them."""
+    df = SessionMetadataProcessor(_make_dataset({"subject": "716458", "date": "2024-05-13T09:03:55.480294"}))._compute()
+
+    assert df["date"].iloc[0] == datetime.datetime(2024, 5, 13, 9, 3, 55, 480294)
+    assert df["date"].iloc[0].tzinfo is None

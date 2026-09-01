@@ -97,7 +97,10 @@ class SessionMetadata(BaseModel):
         description="Subject identifier, from the contraqctor Behavior/InputSchemas/Session stream.",
     )
     date: datetime.datetime = Field(
-        description="Session start datetime, from the contraqctor Behavior/InputSchemas/Session stream.",
+        description=(
+            "Session start, as recorded. Timezone-aware for current sessions; legacy sessions "
+            "carry no offset and stay naive."
+        ),
     )
     dataset_version: str = Field(
         description="Dataset schema version recorded in the session (from tasklogic_input.json).",
