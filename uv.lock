@@ -65,6 +65,7 @@ data = [
 name = "aind-behavior-vr-foraging-packaging"
 source = { editable = "." }
 dependencies = [
+    { name = "aind-behavior-curriculum" },
     { name = "aind-behavior-vr-foraging", extra = ["data"] },
     { name = "aind-nwb-utils" },
     { name = "hdmf-zarr" },
@@ -95,6 +96,7 @@ docs = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aind-behavior-curriculum", specifier = ">=0.0.42" },
     { name = "aind-behavior-vr-foraging", extras = ["data"], specifier = ">=1.2.1" },
     { name = "aind-nwb-utils", specifier = ">=0.2.9" },
     { name = "hdmf-zarr" },

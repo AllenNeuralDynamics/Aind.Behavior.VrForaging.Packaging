@@ -1,5 +1,6 @@
 """Unit tests for pipeline/batch.py — no real dataset I/O required."""
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -289,6 +290,63 @@ def test_aggregate_empty_sessions_dir(tmp_path):
     sessions_dir.mkdir()
     aggregate(sessions_dir, tmp_path)  # must not raise
     assert not (tmp_path / "session.parquet").exists()
+
+
+# --- Real SessionMetadataProcessor: curriculum columns survive aggregation --
+
+
+def _dataset_for_session_processor(root: Path, *, trainer_state: dict | None = None) -> MagicMock:
+    """A dataset mock rich enough to drive the *real* SessionMetadataProcessor,
+    optionally with a real behavior/trainer_state.json on disk under *root*."""
+    (root / "behavior").mkdir(parents=True, exist_ok=True)
+    if trainer_state is not None:
+        (root / "behavior" / "trainer_state.json").write_text(json.dumps(trainer_state))
+
+    payloads = {
+        "Session": {"subject": "815103", "date": "2025-01-01T00:00:00Z"},
+        "Rig": {},
+        "TaskLogic": {},
+    }
+
+    def _at(name: str) -> MagicMock:
+        node = MagicMock()
+        node.reader_params.path = str(root / "behavior" / "Logs" / "session_input.json")
+        node.load.return_value.data = payloads[name]
+        return node
+
+    ds = MagicMock()
+    ds.at.return_value.at.return_value.at.side_effect = _at
+    return ds
+
+
+def test_aggregate_keeps_curriculum_columns_across_sessions(tmp_path):
+    """Regression for the null-vs-bool/large_string Parquet type drift: a session
+    with no trainer_state.json next to one that has curriculum data must not
+    break aggregation, and both sessions' values must survive it."""
+    sessions_dir = tmp_path / "sessions"
+    out_a, out_b = sessions_dir / "sess_A", sessions_dir / "sess_B"
+    out_a.mkdir(parents=True)
+    out_b.mkdir(parents=True)
+
+    ds_a = _dataset_for_session_processor(tmp_path / "raw" / "sess_A", trainer_state=None)
+    ds_b = _dataset_for_session_processor(
+        tmp_path / "raw" / "sess_B",
+        trainer_state={
+            "curriculum": {"name": "vr-foraging-curriculum", "version": "0.1.0"},
+            "stage": {"name": "stage_2", "task": {"name": "dummy_task", "task_parameters": {}}},
+            "is_on_curriculum": True,
+            "active_policies": [],
+        },
+    )
+    SessionMetadataProcessor(ds_a).write_parquet(out_a)
+    SessionMetadataProcessor(ds_b).write_parquet(out_b)
+
+    aggregate(sessions_dir, tmp_path)  # must not raise on the mixed null/bool columns
+
+    sessions = pd.read_parquet(tmp_path / "session.parquet").set_index("session_id")
+    assert pd.isna(sessions.loc["sess_A", "curriculum_enabled"])
+    assert bool(sessions.loc["sess_B", "curriculum_enabled"]) is True
+    assert sessions.loc["sess_B", "curriculum_name"] == "vr-foraging-curriculum"
 
 
 # ---------------------------------------------------------------------------

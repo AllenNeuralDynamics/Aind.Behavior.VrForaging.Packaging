@@ -1,10 +1,10 @@
 ---
 type: Component
 title: Session pipeline — version dispatch, fan-out, and parquet output
-description: pipeline/session.py selects the correct processor set for a dataset version, runs them over one session via process_session, and calls each processor's write_parquet() to produce provenance-stamped parquet files.
+description: pipeline/session.py selects the correct processor set for a dataset version, runs them over one session via process_session, and calls each processor's write_parquet() to produce provenance-stamped parquet files. SessionMetadataProcessor also surfaces optional curriculum state (trainer_state.json) and forces stable Parquet types across sessions.
 resource: src/aind_behavior_vr_foraging_packaging/pipeline/session.py
-tags: [architecture, pipeline, parquet, version-dispatch, json]
-timestamp: 2026-08-30T00:00:00Z
+tags: [architecture, pipeline, parquet, version-dispatch, json, curriculum]
+timestamp: 2026-08-31T00:00:00Z
 ---
 
 `pipeline/session.py` is the thin orchestration layer for **one** session. It
@@ -51,6 +51,63 @@ column ends up holding the same JSON text. See
 [processor-abstraction.md](processor-abstraction.md) for `write_parquet()`,
 which is how these three columns end up tagged with Parquet's native `JSON`
 logical type rather than an opaque string (below).
+
+# Curriculum state (`trainer_state.json`)
+
+Per the [aind-file-standards `behavior_curriculum`
+spec](https://github.com/AllenNeuralDynamics/aind-file-standards/blob/main/docs/file_formats/behavior_curriculum.md),
+a session *may* carry `behavior/trainer_state.json` (or a
+`trainer_state_<datetime>.json` variant — the most recently modified wins if
+more than one exists). It is not a contraqctor stream, so
+`SessionMetadataProcessor._load_trainer_state` reads it directly off disk,
+relative to `_base.session_root`, rather than through the dataset.
+
+It is validated against `aind_behavior_curriculum.trainer.TrainerState` (the
+bare, unparametrized class — deserializes to base `Stage`/`Curriculum`/`Task`
+objects regardless of the project-specific subclasses that produced the file,
+per that library's own docstring). An unresolvable policy callable (a
+project-specific policy module this environment can't import) is *not* treated
+as an error: the library already tolerates that internally
+(`_NonDeserializableCallable`) and still validates, round-tripping the original
+`"module.function"` reference string. A genuine schema mismatch (e.g. the file
+was produced by an older/newer `aind_behavior_curriculum` than this package
+pins, or by an entirely different schema) raises under `strict_parsing` and
+otherwise degrades to the raw, unvalidated dict with a logged warning — the
+same convention documented in
+[error-policy.md](../conventions/error-policy.md).
+
+Three fields are broken out onto `SessionMetadata` for querying without
+touching the raw payload: `curriculum_enabled` (`is_on_curriculum`),
+`curriculum_name` (`curriculum.name`), `curriculum_stage_name` (`stage.name`).
+The full payload — including `active_policies` — is kept verbatim in the
+`trainer_state` `Json[Any]` column. Absent file → all four are `null`.
+
+`SessionMetadata.trainer_state` is typed as a bare `Json[Any] | None` rather
+than the non-Optional-with-`"null"`-default form used elsewhere: wrapping a
+`Json[...]` field in a `Union` drops the `Json` marker from pydantic's
+`field.metadata` (it survives instead in `field.annotation`, as
+`Optional[Annotated[Any, Json]]`). `_session_metadata._is_json_marked` checks
+both locations, so `write_parquet`'s JSON-column detection still catches it.
+
+# Parquet type stability across sessions
+
+Each session gets its own single-row `session.parquet`. For a nullable scalar
+column with no value this session (e.g. `curriculum_enabled` when there's no
+`trainer_state.json`), `pa.Table.from_pandas` has nothing to infer a type from
+and produces a bare arrow `null` column — while a session that *does* have a
+value gets `bool`/`large_string`. Left alone, the same column would carry a
+different arrow type from one session's file to the next, which breaks any
+tool that scans many sessions' `session.parquet` as one schema-unified dataset
+(a DuckDB glob read, `pyarrow.dataset`) — as opposed to `pipeline.batch`'s own
+aggregation, which reads each file separately with `pd.read_parquet` and
+`pd.concat`s the frames, and so tolerates the drift.
+
+`SessionMetadataProcessor.write_parquet` forces every nullable `bool`/`str`
+field to a fixed arrow type (`pa.bool_()` / `pa.large_string()`) regardless of
+what a given session's values happen to be, in the same pass that tags `Json`
+fields with the native JSON logical type (below). Extend the
+`scalar_arrow_type` mapping there if `SessionMetadata` grows another nullable
+scalar field.
 
 Two convenience getters return a single version-correct processor without
 building the whole list:

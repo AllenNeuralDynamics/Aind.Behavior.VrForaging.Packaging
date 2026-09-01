@@ -1,4 +1,7 @@
 import datetime
+import json
+import logging
+import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -229,7 +232,7 @@ def test_session_column_matches_the_metadata_fields():
 
 
 def test_write_parquet_tags_json_fields_with_the_json_logical_type(tmp_path):
-    """SessionMetadataProcessor overrides write_parquet to tag session/rig/task_logic."""
+    """SessionMetadataProcessor overrides write_parquet to tag session/rig/task_logic/trainer_state."""
     import pyarrow as pa
     import pyarrow.parquet as pq
 
@@ -242,7 +245,165 @@ def test_write_parquet_tags_json_fields_with_the_json_logical_type(tmp_path):
     assert table.schema.field("session").type == pa.json_(pa.utf8())
     assert table.schema.field("rig").type == pa.json_(pa.utf8())
     assert table.schema.field("task_logic").type == pa.json_(pa.utf8())
+    assert table.schema.field("trainer_state").type == pa.json_(pa.utf8())
     assert table.schema.field("session_id").type not in (pa.json_(pa.utf8()), pa.json_(pa.large_utf8()))
+
+
+# ---------------------------------------------------------------------------
+# Curriculum state: behavior/trainer_state.json (optional, not a contraqctor stream)
+# ---------------------------------------------------------------------------
+
+
+def _session_dir(tmp_path, root_name: str = _ROOT_NAME):
+    """Create <tmp_path>/<root_name>/behavior/ on disk and return the session dir."""
+    d = tmp_path / root_name
+    (d / "behavior").mkdir(parents=True)
+    return d
+
+
+def _stream_path_under(session_dir) -> str:
+    """Mirror the real on-disk layout for a session dir created by :func:`_session_dir`."""
+    return str(session_dir / "behavior" / "Logs" / "session_input.json")
+
+
+def test_no_trainer_state_file_leaves_curriculum_fields_null(tmp_path):
+    """The file is optional; its absence is not an error."""
+    session_dir = _session_dir(tmp_path)
+    ds = _make_dataset(stream_path=_stream_path_under(session_dir))
+
+    df = SessionMetadataProcessor(ds)._compute()
+
+    assert df["curriculum_enabled"].iloc[0] is None
+    assert df["curriculum_name"].iloc[0] is None
+    assert df["curriculum_stage_name"].iloc[0] is None
+    assert df["trainer_state"].iloc[0] is None
+
+
+def _valid_trainer_state(*, curriculum_name: str = "vr-foraging-curriculum", stage_name: str = "stage_2") -> dict:
+    """A minimal payload that actually validates against the real, bare
+    ``aind_behavior_curriculum.trainer.TrainerState`` — as opposed to the shorthand
+    dicts used elsewhere in this module, which are deliberately missing required
+    fields (``curriculum.version``, ``stage.task``) to exercise the fallback path.
+    """
+    return {
+        "curriculum": {"name": curriculum_name, "version": "0.1.0"},
+        "stage": {"name": stage_name, "task": {"name": "dummy_task", "task_parameters": {}}},
+        "is_on_curriculum": True,
+        "active_policies": ["my_project.policies.policy_a", "my_project.policies.policy_b"],
+    }
+
+
+def test_trainer_state_fields_are_surfaced(tmp_path, caplog):
+    """A well-formed payload validates cleanly against TrainerState — no fallback warning."""
+    session_dir = _session_dir(tmp_path)
+    payload = _valid_trainer_state()
+    (session_dir / "behavior" / "trainer_state.json").write_text(json.dumps(payload))
+    ds = _make_dataset(stream_path=_stream_path_under(session_dir))
+
+    with caplog.at_level(logging.WARNING):
+        df = SessionMetadataProcessor(ds)._compute()
+
+    assert bool(df["curriculum_enabled"].iloc[0]) is True
+    assert df["curriculum_name"].iloc[0] == "vr-foraging-curriculum"
+    assert df["curriculum_stage_name"].iloc[0] == "stage_2"
+    # active_policies isn't broken out as its own column; it's still queryable from the raw payload.
+    assert df["trainer_state"].iloc[0]["active_policies"] == payload["active_policies"]
+    assert "does not validate" not in caplog.text
+
+
+def test_trainer_state_off_curriculum_has_null_curriculum_and_stage(tmp_path):
+    """A subject ejected from curriculum: curriculum/stage are null but the file still exists.
+
+    This is the exact shape ``TrainerState.default()`` produces, and it validates
+    cleanly (``curriculum``/``stage`` are ``Optional``).
+    """
+    payload = {"curriculum": None, "stage": None, "is_on_curriculum": False, "active_policies": None}
+    session_dir = _session_dir(tmp_path)
+    (session_dir / "behavior" / "trainer_state.json").write_text(json.dumps(payload))
+    ds = _make_dataset(stream_path=_stream_path_under(session_dir))
+
+    df = SessionMetadataProcessor(ds)._compute()
+
+    assert bool(df["curriculum_enabled"].iloc[0]) is False
+    assert df["curriculum_name"].iloc[0] is None
+    assert df["curriculum_stage_name"].iloc[0] is None
+
+
+def test_multiple_trainer_state_files_uses_the_most_recently_modified(tmp_path, caplog):
+    """A datetime-suffixed trainer_state may be duplicated; the newest on disk wins."""
+    session_dir = _session_dir(tmp_path)
+    behavior_dir = session_dir / "behavior"
+    older = behavior_dir / "trainer_state_2025-01-01T000000Z.json"
+    newer = behavior_dir / "trainer_state_2025-06-01T000000Z.json"
+    older.write_text(json.dumps(_valid_trainer_state(curriculum_name="old")))
+    newer.write_text(json.dumps(_valid_trainer_state(curriculum_name="new")))
+    os.utime(older, (1_000_000, 1_000_000))
+    os.utime(newer, (2_000_000, 2_000_000))
+    ds = _make_dataset(stream_path=_stream_path_under(session_dir))
+
+    with caplog.at_level(logging.WARNING):
+        df = SessionMetadataProcessor(ds)._compute()
+
+    assert df["curriculum_name"].iloc[0] == "new"
+    assert "Multiple trainer_state files" in caplog.text
+
+
+def test_trainer_state_schema_mismatch_falls_back_with_a_warning(tmp_path, caplog):
+    """A trainer_state.json that doesn't validate (e.g. a version-drifted curriculum
+    library) degrades to the raw, unvalidated dict rather than crashing the session.
+    """
+    session_dir = _session_dir(tmp_path)
+    payload = {"unexpected": "shape", "from": "some other schema version"}
+    (session_dir / "behavior" / "trainer_state.json").write_text(json.dumps(payload))
+    ds = _make_dataset(stream_path=_stream_path_under(session_dir))
+
+    with caplog.at_level(logging.WARNING):
+        df = SessionMetadataProcessor(ds)._compute()
+
+    assert df["curriculum_enabled"].iloc[0] is None
+    assert df["curriculum_name"].iloc[0] is None
+    assert df["curriculum_stage_name"].iloc[0] is None
+    assert df["trainer_state"].iloc[0] == payload
+    assert "does not validate" in caplog.text
+
+
+def test_trainer_state_schema_mismatch_raises_under_strict_parsing(tmp_path):
+    session_dir = _session_dir(tmp_path)
+    (session_dir / "behavior" / "trainer_state.json").write_text(json.dumps({"unexpected": "shape"}))
+    ds = _make_dataset(stream_path=_stream_path_under(session_dir))
+
+    proc = SessionMetadataProcessor(ds, strict_parsing=True)
+    with pytest.raises(DatasetProcessorError, match="does not validate"):
+        proc._compute()
+
+
+def test_write_parquet_forces_a_stable_type_regardless_of_curriculum_nullness(tmp_path):
+    """A session with no trainer_state.json (all-null columns) must still get the same
+    arrow type as a session with real curriculum data — otherwise pyarrow infers a bare
+    ``null`` type for the former, and scanning many sessions' session.parquet files as
+    one schema-unified dataset (DuckDB glob reads, pyarrow.dataset) breaks on the drift.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    without = _session_dir(tmp_path, "without_curriculum")
+    with_curriculum = _session_dir(tmp_path, "with_curriculum")
+    (with_curriculum / "behavior" / "trainer_state.json").write_text(json.dumps(_valid_trainer_state()))
+
+    without_out, with_out = tmp_path / "without_out", tmp_path / "with_out"
+    without_out.mkdir()
+    with_out.mkdir()
+    SessionMetadataProcessor(_make_dataset(stream_path=_stream_path_under(without))).write_parquet(without_out)
+    SessionMetadataProcessor(_make_dataset(stream_path=_stream_path_under(with_curriculum))).write_parquet(with_out)
+
+    without_schema = pq.read_table(without_out / "session.parquet").schema
+    with_schema = pq.read_table(with_out / "session.parquet").schema
+
+    for name, expected in (("curriculum_enabled", pa.bool_()), ("curriculum_name", pa.large_string())):
+        assert without_schema.field(name).type == expected, f"{name}: all-null column should still be {expected}"
+        assert with_schema.field(name).type == expected
+    assert without_schema.field("curriculum_enabled").type == with_schema.field("curriculum_enabled").type
+    assert without_schema.field("curriculum_name").type == with_schema.field("curriculum_name").type
 
 
 # ---------------------------------------------------------------------------
