@@ -117,3 +117,26 @@ class SessionMetadata(BaseModel):
     task_logic: Json[Any] = Field(
         description="The Task Logic model instance used for the session.",
     )
+    curriculum_enabled: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the session's TrainerState reports the subject as being on-curriculum. "
+            "Null when the session has no trainer_state.json (curriculum tracking is optional)."
+        ),
+    )
+    curriculum_name: str | None = Field(
+        default=None,
+        description="Name of the curriculum recorded in the session's TrainerState, if any.",
+    )
+    curriculum_stage_name: str | None = Field(
+        default=None,
+        description="Name of the curriculum stage recorded in the session's TrainerState, if any.",
+    )
+    trainer_state: Json[Any] | None = Field(
+        default=None,
+        description=(
+            "Raw TrainerState payload from the session's behavior/trainer_state.json, verbatim "
+            "(includes active_policies), for discoverability without a second pass over the "
+            "dataset. Null when the session has no trainer_state.json."
+        ),
+    )
