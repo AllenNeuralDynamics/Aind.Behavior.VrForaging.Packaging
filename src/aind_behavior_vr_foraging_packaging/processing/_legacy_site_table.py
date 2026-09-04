@@ -217,10 +217,27 @@ class LegacySiteTableProcessor(SiteTableProcessor):
         )
         return chosen
 
+    def _slice_patch_state_for_site(
+        self,
+        patch_state_at_reward: pd.DataFrame,
+        *,
+        site_start: float,
+        site_stop: float,
+        choice_time: float,
+        patch_index: int,
+    ) -> pd.DataFrame:
+        # Patch state events may fire before site_start, so look backward from
+        # choice_time with no lower bound to find the state that was used to draw the reward.
+        anchor = choice_time if not np.isnan(choice_time) else site_stop
+        candidates = patch_state_at_reward[patch_state_at_reward.index <= anchor]
+        return candidates[candidates["PatchId"] == patch_index]
+
     def _select_patch_state_at_reward(  # type: ignore[override]
         self, candidates: pd.DataFrame, *, choice_time: float, site_start: float, site_stop: float
     ) -> pd.DataFrame:
-        return self._first_after_choice(candidates, choice_time=choice_time, what="patch-reward-state")
+        if candidates.empty:
+            return candidates
+        return candidates.iloc[-1:]
 
     def _select_reward_onset_time(  # type: ignore[override]
         self,

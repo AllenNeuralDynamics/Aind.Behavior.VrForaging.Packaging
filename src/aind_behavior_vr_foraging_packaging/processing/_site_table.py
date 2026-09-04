@@ -149,6 +149,18 @@ class SiteTableProcessor(AbstractProcessor):
         )
         return candidates
 
+    def _slice_patch_state_for_site(
+        self,
+        patch_state_at_reward: pd.DataFrame,
+        *,
+        site_start: float,
+        site_stop: float,
+        choice_time: float,
+        patch_index: int,
+    ) -> pd.DataFrame:
+        sliced = slice_by_index(patch_state_at_reward, site_start, site_stop)
+        return sliced[sliced["PatchId"] == patch_index]
+
     def _select_reward_onset_time(
         self,
         site_water_delivery: pd.Series,
@@ -299,10 +311,13 @@ class SiteTableProcessor(AbstractProcessor):
             if not this_friction.empty:
                 current_friction = this_friction.values[-1]
 
-            site_patch_state_at_reward = slice_by_index(patch_state_at_reward, this_timestamp, next_timestamp)
-            site_patch_state_at_reward = site_patch_state_at_reward[
-                site_patch_state_at_reward["PatchId"] == merged.iloc[i]["patch_index"]
-            ]
+            site_patch_state_at_reward = self._slice_patch_state_for_site(
+                patch_state_at_reward,
+                site_start=this_timestamp,
+                site_stop=next_timestamp,
+                choice_time=choice_time,
+                patch_index=merged.iloc[i]["patch_index"],
+            )
             site_patch_state_at_reward = self._select_patch_state_at_reward(
                 site_patch_state_at_reward,
                 choice_time=choice_time,
