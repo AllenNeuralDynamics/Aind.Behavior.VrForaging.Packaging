@@ -217,7 +217,7 @@ class LegacySiteTableProcessor(SiteTableProcessor):
         )
         return chosen
 
-    def _slice_patch_state_for_site(  # type: ignore[override]
+    def _slice_patch_state_for_site(
         self,
         patch_state_at_reward: pd.DataFrame,
         *,
