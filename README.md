@@ -86,17 +86,17 @@ based on the dataset's schema version. To produce every table at once, use
 
 ## Exporting a dataset collection
 
-Install the CLI with [uvx](https://docs.astral.sh/uv/guides/tools/):
+Install the CLI with [uv](https://docs.astral.sh/uv/guides/tools/):
 
 ```bash
-uvx install "git+https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging.git"
+uv tool install aind-behavior-vr-foraging-packaging
 ```
 
 Then run the export pipeline across a folder of raw session directories
 (`--input-dir` must contain one subdirectory per session):
 
 ```bash
-uvx run vr-foraging-packaging batch --input-dir /data/raw --output-dir /data/export
+vr-foraging-packaging batch --input-dir /data/raw --output-dir /data/export
 ```
 
 `--output-dir` receives the results:
@@ -120,51 +120,18 @@ uvx run vr-foraging-packaging batch --input-dir /data/raw --output-dir /data/exp
 | `batch` | a folder of raw session directories | Export every session, then aggregate |
 | `aggregate` | a `sessions/` tree from an earlier run | Rebuild the experiment-level tables only |
 
-### Common flags
+Swap `batch` for `session` or `aggregate` in the command above to run those.
+Run `vr-foraging-packaging <command> --help` for that command's full flag
+reference, or see the [Getting Started guide](https://allenneuraldynamics.github.io/Aind.Behavior.VrForaging.Packaging/getting-started/) for common flag combinations.
 
-`session` and `batch` share the processor and output-format flags, since both
-run the per-session pipeline:
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--include-processors a b` | *(all)* | Run only the listed processors |
-| `--exclude-processors a b` | *(none)* | Skip named processors, e.g. `sniffing software_events` |
-| `--strict-parsing` | `false` | Treat a known data anomaly as fatal instead of degrading past it |
-| `--write-nwb` | `false` | Also write an NWB-Zarr store per session |
-| `--no-write-parquet` | *(parquet on)* | Skip the parquet tables (on `batch`, requires `--skip-aggregation`) |
-| `--log-file path` | *(none)* | Append a structured log to this path |
-
-`batch` adds:
-
-| Flag | Default | Description |
-| --- | --- | --- |
-| `--workers N` | `1` | Parallel threads for the per-session phase |
-| `--no-clean` | *(clean on)* | Keep `--output-dir` instead of wiping it first |
-| `--skip-aggregation` | `false` | Write only per-session outputs; aggregate later |
-
-### Example: fast parallel run, skip sniffing
+Want to try the latest `main` without installing? [uvx](https://docs.astral.sh/uv/guides/tools/)
+runs it straight from GitHub — since the command name differs from the package
+name, pass the source via `--from`:
 
 ```bash
-uvx run vr-foraging-packaging \
-    --input-dir /data/raw \
-    --output-dir /data/export \
-    --workers 8 \
-    --exclude-processors sniffing software_events \
-    --log-file /data/export/run.log
+uvx --from "git+https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging.Packaging.git" \
+    vr-foraging-packaging batch --input-dir /data/raw --output-dir /data/export
 ```
-
-### Example: re-aggregate only
-
-Per-session parquets already written in `sessions/`:
-
-```bash
-uvx run vr-foraging-packaging \
-    --input-dir /data/raw \
-    --output-dir /data/export \
-    --skip-processing
-```
-
-See `uvx run vr-foraging-packaging --help` for the full flag reference.
 
 ## Documentation
 
@@ -194,6 +161,10 @@ Contributions to this repository are welcome! However, please ensure that your c
 ### Linting
 
 We use [ruff](https://docs.astral.sh/ruff/) as our primary linting tool.
+
+### Type checking
+
+We use [ty](https://docs.astral.sh/ty/) for static type checking. Run `uv run ty check` from the root of the repository.
 
 ### Testing
 
