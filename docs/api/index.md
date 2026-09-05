@@ -20,7 +20,7 @@ Auto-generated reference for every public function and class in the package.
 - [`resolve_position_velocity_processor`](session.md#aind_behavior_vr_foraging_packaging.pipeline.session.resolve_position_velocity_processor) — return the correct position/velocity processor
 - [`process_session`](session.md#aind_behavior_vr_foraging_packaging.pipeline.session.process_session) — run all processors and write parquets
 
-### pipeline.export
+### pipeline.batch
 
 - [`process_sessions`](batch.md#aind_behavior_vr_foraging_packaging.pipeline.batch.process_sessions) — Phase 1: per-session parquets
 - [`aggregate`](batch.md#aind_behavior_vr_foraging_packaging.pipeline.batch.aggregate) — Phase 2: flat cross-session parquets

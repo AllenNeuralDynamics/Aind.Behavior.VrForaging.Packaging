@@ -14,7 +14,7 @@ raw = "path/to/behavior_<subject>_<date>"
 ds = dataset(raw)
 processors = create_processors(ds)
 
-session = NwbSession(raw)      # reads AIND metadata JSONs from raw/
+session = NwbSession(raw, dataset=ds)   # reads AIND metadata JSONs from raw/
 session.run(*processors)       # calls nwbize() on each processor
 session.write_nwb_zarr(        # writes the NWBFile as NWB-Zarr
     "output/my_session.nwb.zarr"

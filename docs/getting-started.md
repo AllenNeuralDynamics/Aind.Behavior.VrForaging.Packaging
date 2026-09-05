@@ -66,10 +66,10 @@ print(results.keys())
 
 ## Quick start — CLI export
 
-Install the CLI tool with [uvx](https://docs.astral.sh/uv/guides/tools/):
+Install the CLI tool with [uv](https://docs.astral.sh/uv/guides/tools/):
 
 ```bash
-uvx install aind-behavior-vr-foraging-packaging
+uv tool install aind-behavior-vr-foraging-packaging
 ```
 
 Then export a folder of raw session directories
@@ -100,6 +100,8 @@ The export directory receives:
 | `batch` | a folder of raw session directories | Export every session, then aggregate |
 | `aggregate` | a `sessions/` tree from an earlier run | Rebuild the experiment-level tables only |
 
+Swap `batch` for `session` or `aggregate` to run those:
+
 ```bash
 # One session
 vr-foraging-packaging session --input-dir /data/raw/behavior_123_2025-01-01 --write-nwb
@@ -108,22 +110,17 @@ vr-foraging-packaging session --input-dir /data/raw/behavior_123_2025-01-01 --wr
 vr-foraging-packaging aggregate --input-dir /data/export/sessions --output-dir /data/export
 ```
 
-### Common CLI flags
+Run `vr-foraging-packaging <command> --help` for that command's full flag
+reference, or see the [CLI API reference](api/cli.md).
 
-| Flag | Default | Description | Commands |
-|------|---------|-------------|----------|
-| `--include-processors a b` | *(all)* | Run only the listed processors | `session`, `batch` |
-| `--exclude-processors a b` | *(none)* | Skip named processors | `session`, `batch` |
-| `--strict-parsing` | `false` | Treat a known data anomaly as fatal | `session`, `batch` |
-| `--write-nwb` | `false` | Also write an NWB-Zarr store per session | `session`, `batch` |
-| `--no-write-parquet` | *(parquet on)* | Skip the parquet tables | `session`, `batch` |
-| `--workers N` | `1` | Parallel threads for the per-session phase | `batch` |
-| `--skip-aggregation` | `false` | Write only per-session outputs | `batch` |
-| `--no-clean` | *(clean on)* | Keep `--output-dir` instead of wiping it | `batch` |
-| `--log-file path` | *(none)* | Append a structured log to this path | all |
+Prefer to try it without installing? [uvx](https://docs.astral.sh/uv/guides/tools/)
+runs it directly — since the command name differs from the package name, pass
+it via `--from`:
 
-Run `vr-foraging-packaging --help`, or `vr-foraging-packaging <command> --help`,
-for the full flag reference.
+```bash
+uvx --from aind-behavior-vr-foraging-packaging \
+    vr-foraging-packaging batch --input-dir /data/raw --output-dir /data/export
+```
 
 ## Next steps
 
