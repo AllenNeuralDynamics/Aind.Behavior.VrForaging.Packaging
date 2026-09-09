@@ -1,9 +1,11 @@
 import logging
 import typing as ty
+from pathlib import Path
 
 import contraqctor.contract
 import numpy as np
 import pandas as pd
+from pydantic import ValidationError
 from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
 
@@ -26,13 +28,46 @@ class SniffingProcessor(AbstractProcessor):
         """Returns DataFrame with 'voltage' (V) indexed by harp time.
         Sampling rate stored in df.attrs['sampling_rate_hz'].
         """
-        sniff, fs = self.compute_sniff_signal(self.dataset)
+        if self._rig_declares_no_sniff_detector():
+            logger.debug(
+                "Rig declares no sniff detector for this session; skipping HarpSniffDetector "
+                "without attempting to load it."
+            )
+            return self._empty_frame()
+        try:
+            sniff, fs = self.compute_sniff_signal(self.dataset)
+        except (KeyError, FileNotFoundError):
+            logger.warning(
+                "No HarpSniffDetector data for this session (stream not declared, or its "
+                "data file is missing); no sniffing table or NWB TimeSeries will be produced."
+            )
+            return self._empty_frame()
         df = sniff.rename("voltage").to_frame()
         df.attrs["sampling_rate_hz"] = fs
         return df
 
+    def _rig_declares_no_sniff_detector(self) -> bool:
+        """Returns True if the rig explicitly declares no sniff detector for this session."""
+        if self.provenance.dataset_semver.major != 1:
+            return False
+        try:
+            rig = self._dataset.at("Behavior").at("InputSchemas").at("Rig").load().data
+        except (KeyError, FileNotFoundError, ValidationError):
+            return False
+        return hasattr(rig, "harp_sniff_detector") and rig.harp_sniff_detector is None
+
+    @staticmethod
+    def _empty_frame() -> pd.DataFrame:
+        empty = pd.DataFrame(columns=["voltage"])
+        empty.index.name = "timestamp"
+        return empty
+
     def nwbize(self, nwb_file: ty.Any) -> ty.Any:
-        """Add sniffing TimeSeries to *nwb_file*."""
+        """Add sniffing TimeSeries to *nwb_file*; a no-op if this session has no sniff-detector data."""
+        df = self.compute()
+        if df.empty:
+            return nwb_file
+
         from pynwb import TimeSeries
         from pynwb.base import ProcessingModule
 
@@ -41,7 +76,6 @@ class SniffingProcessor(AbstractProcessor):
             module = ProcessingModule(name="behavior", description="Processing module for behavior data")
             nwb_file.add_processing_module(module)
 
-        df = self.compute()
         fs = float(df.attrs.get("sampling_rate_hz", 0.0))
         module.add(
             TimeSeries(
@@ -56,6 +90,19 @@ class SniffingProcessor(AbstractProcessor):
             )
         )
         return nwb_file
+
+    def write_parquet(self, output_dir: Path, filename: str | None = None) -> None:
+        """Skip the write entirely when this session has no sniff-detector data.
+
+        An absent device should leave no ``sniffing.parquet`` at all, not an empty one --
+        matches how ``pipeline.batch``'s aggregation already treats a missing per-session
+        file as "this table doesn't apply here" rather than reading an empty one to find
+        that out.
+        """
+        if self.compute().empty:
+            logger.info("No sniff-detector data for this session -- skipping sniffing.parquet.")
+            return
+        super().write_parquet(output_dir, filename)
 
     def compute_sniff_signal(self, dataset: contraqctor.contract.Dataset) -> tuple[pd.Series, float]:
         """Computes the filtered breathing/sniff signal from the sniff detector raw voltage.
@@ -73,6 +120,12 @@ class SniffingProcessor(AbstractProcessor):
         Returns:
             A tuple of the filtered sniff signal (indexed by harp timestamp in
             seconds) and the sampling frequency (Hz) used for resampling.
+
+        Raises:
+            KeyError: The dataset's schema version does not declare a
+                ``HarpSniffDetector`` node.
+            FileNotFoundError: The node is declared but its data file is not
+                present on disk. Both are caught by :meth:`_compute`.
         """
         raw = ty.cast(
             pd.DataFrame,
