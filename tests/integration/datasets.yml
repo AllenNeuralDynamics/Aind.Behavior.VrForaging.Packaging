@@ -81,6 +81,12 @@ datasets:
     rationale: |
       Legacy dataset (schema version 0.4.0) for subject 754559.
       Also tests creation of nwb with v1 metadata using jsons in bucket
+    expected:
+      n_sites: 128
+      n_choices: 63
+      n_rewards: 55
+      n_patches: 1
+      n_blocks: 1
 
   - id: 716458_2024-05-13_09-03-55
     uri: s3://aind-open-data/716458_2024-05-13_09-03-55/
@@ -90,3 +96,21 @@ datasets:
       Tests LegacyTrialTableProcessor: block-stream fallback to ActivePatch,
       legacy OdorSpecification format {"index": int, "concentration": float},
       optional PatchStateAtReward, and absent IsStopped/velocity streams.
+    expected:
+      n_sites: 1183
+      n_choices: 357
+      n_rewards: 180
+      n_patches: 118
+      n_blocks: 1
+
+  - id: 707349_2024-04-09_10-02-40
+    uri: s3://aind-open-data/707349_2024-04-09_10-02-40/
+    strict_parsing: false
+    rationale: |
+      Legacy dataset (schema version 0.2.0) for subject 707349.
+    expected:
+      n_sites: 53
+      n_choices: 26
+      n_rewards: 26
+      n_patches: 1
+      n_blocks: 1
