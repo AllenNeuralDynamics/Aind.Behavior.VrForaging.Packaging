@@ -140,15 +140,11 @@ first_animal = sessions["subject_id"][0]
 ```python
 sites = pl.scan_parquet(f"{S3_ROOT}/sites.parquet", storage_options=STORAGE_OPTIONS)
 
-result = (
-    sites
-    .join(
-        session.filter(pl.col("subject_id") == first_animal).select("session_id"),
-        on="session_id",
-        how="inner",
-    )
-    .collect()
-)
+result = sites.join(
+    session.filter(pl.col("subject_id") == first_animal).select("session_id"),
+    on="session_id",
+    how="inner",
+).collect()
 print(f"{len(result)} rows, {result['session_id'].n_unique()} session(s)")
 ```
 
@@ -162,9 +158,7 @@ POS_VEL_GLOB = f"{S3_ROOT}/sessions/*/position_velocity.parquet"
 
 result = (
     pl.scan_parquet(POS_VEL_GLOB, storage_options=STORAGE_OPTIONS, include_file_paths="source_path")
-    .with_columns(
-        pl.col("source_path").str.extract(r"/sessions/([^/]+)/", 1).alias("session_id")
-    )
+    .with_columns(pl.col("source_path").str.extract(r"/sessions/([^/]+)/", 1).alias("session_id"))
     .drop("source_path")
     .join(
         session.filter(pl.col("subject_id") == first_animal).select("session_id"),

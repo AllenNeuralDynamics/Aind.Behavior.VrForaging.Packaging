@@ -443,7 +443,7 @@ class SiteTableProcessor(AbstractProcessor):
                 choice_cue_time=choice_time,
                 has_choice=not site_choice_feedback.empty,
                 reward_delay_duration=reward_onset_time - choice_time
-                if reward_onset_time is not np.nan and choice_time is not None
+                if not np.isnan(reward_onset_time) and choice_time is not None
                 else np.nan,
                 has_waited_reward_delay=has_waited_reward_delay,
                 last_stop_time=None if np.isnan(site_stop_time) else site_stop_time,

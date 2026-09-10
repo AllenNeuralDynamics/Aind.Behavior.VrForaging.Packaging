@@ -79,7 +79,7 @@ the table.
 Reading them back from nwb:
 
 ```python
-dict(nwb.was_generated_by[:])   # includes aind-nwb-utils' own entry alongside ours
+dict(nwb.was_generated_by[:])  # includes aind-nwb-utils' own entry alongside ours
 ```
 
 Why they live in `was_generated_by`, and the write-once constraint that comes

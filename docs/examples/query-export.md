@@ -11,5 +11,5 @@ uv run docs/examples/query_export.py
 ---
 
 ```python
---8<-- "docs/examples/query_export.py"
+--8 < --"docs/examples/query_export.py"
 ```

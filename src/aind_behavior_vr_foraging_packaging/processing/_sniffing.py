@@ -69,7 +69,8 @@ class SniffingProcessor(AbstractProcessor):
             return nwb_file
 
         from pynwb import TimeSeries
-        from pynwb.base import ProcessingModule
+
+        from .._pynwb_typing import ProcessingModule
 
         module = nwb_file.processing.get("behavior")
         if module is None:

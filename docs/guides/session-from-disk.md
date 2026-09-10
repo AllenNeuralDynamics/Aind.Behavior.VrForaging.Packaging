@@ -20,7 +20,7 @@ fan out over. You never have to parse individual files by hand.
 from aind_behavior_vr_foraging.data_contract import dataset
 
 ds = dataset("path/to/behavior_<subject>_<date>")
-print(ds.version)   # e.g. "0.7.0"
+print(ds.version)  # e.g. "0.7.0"
 ```
 
 `dataset()` validates the directory layout and returns a `Dataset`. The
@@ -89,7 +89,7 @@ results = process_session(ds, output_dir="output/my_session/")
 # → output/my_session/position_velocity.parquet
 # → …
 
-sites_df = results["sites"]   # already in memory; no disk read needed
+sites_df = results["sites"]  # already in memory; no disk read needed
 ```
 
 ## Inspect provenance
