@@ -481,6 +481,6 @@ def test_aggregate_assumes_utc_for_naive_session_dates(tmp_path):
     combined = pq.read_table(tmp_path / "session.parquet")
     assert combined.schema.field("date").type == pa.timestamp("us", tz="UTC")
     assert [d.replace(tzinfo=None) for d in combined.column("date").to_pylist()] == [
-        datetime.datetime(2025, 11, 5, 22, 52, 21),
-        datetime.datetime(2024, 5, 13, 9, 3, 55),
+        datetime.datetime(2025, 11, 5, 22, 52, 21),  # noqa: DTZ001 -- compared against tzinfo=None above
+        datetime.datetime(2024, 5, 13, 9, 3, 55),  # noqa: DTZ001
     ]

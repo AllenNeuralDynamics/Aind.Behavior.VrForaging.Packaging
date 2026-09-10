@@ -7,7 +7,7 @@ here could only drift from the schema, so the real ones are exercised against re
 sessions in ``tests/integration/test_datasets.py``.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from contraqctor.contract import Dataset
@@ -19,7 +19,7 @@ from aind_behavior_vr_foraging_packaging.nwb_file import NwbSession
 
 SESSION_NAME = "vrforaging_123456_2026-01-15T103000"
 SUBJECT_ID = "123456"
-CREATION_TIME = datetime(2026, 1, 15, 10, 30, tzinfo=timezone.utc)
+CREATION_TIME = datetime(2026, 1, 15, 10, 30, tzinfo=UTC)
 
 
 def _base_nwb_file() -> NWBFile:
