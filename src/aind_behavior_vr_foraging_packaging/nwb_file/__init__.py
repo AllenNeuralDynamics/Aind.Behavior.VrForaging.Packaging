@@ -5,10 +5,10 @@ import aind_behavior_vr_foraging.data_contract
 import contraqctor.contract as data_contract
 from aind_nwb_utils.utils import create_base_nwb_file
 from hdmf_zarr import NWBZarrIO
-from pynwb import NWBFile
 
 from .._base import AbstractProcessor
 from .._provenance import PackagingProvenance
+from .._pynwb_typing import NWBFile
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,9 @@ class NwbSession:
         return PackagingProvenance.build(self._dataset).model_dump()
 
     def _create_nwb_file(self) -> NWBFile:
-        nwb_file = self._base_nwb_file if self._base_nwb_file is not None else create_base_nwb_file(self.root_path)
+        nwb_file: NWBFile = (
+            self._base_nwb_file if self._base_nwb_file is not None else create_base_nwb_file(self.root_path)
+        )
         # Provenance otherwise only reaches the parquet outputs (df.attrs). The same
         # versions land here, so the two outputs of a session can be checked against
         # each other. was_generated_by is write-once, and create_base_nwb_file has

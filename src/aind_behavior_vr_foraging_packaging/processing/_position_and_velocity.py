@@ -29,8 +29,9 @@ class PositionAndVelocityProcessor(AbstractProcessor):
         The table has three columns: ``timestamp`` (harp time, seconds), ``position`` (cm) and
         ``velocity`` (cm/s).
         """
-        from pynwb.base import ProcessingModule
         from pynwb.core import DynamicTable
+
+        from .._pynwb_typing import ProcessingModule
 
         module = nwb_file.processing.get("behavior")
         if module is None:
