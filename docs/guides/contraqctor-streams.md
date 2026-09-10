@@ -23,8 +23,8 @@ definitions to Python objects.
 from aind_behavior_vr_foraging.data_contract import dataset
 
 ds = dataset("path/to/behavior_<subject>_<date>")
-print(type(ds))   # contraqctor.contract.Dataset
-print(ds.version) # e.g. '0.7.0'
+print(type(ds))  # contraqctor.contract.Dataset
+print(ds.version)  # e.g. '0.7.0'
 ```
 
 ## Explore available streams
@@ -49,7 +49,7 @@ Each stream attribute is a contraqctor *Reader*. Call `.load()` to read it:
 ```python
 # Hardware events stream
 events = ds.hardware_events.load()
-print(type(events))   # typically a pandas DataFrame or a pydantic model
+print(type(events))  # typically a pandas DataFrame or a pydantic model
 
 # Software events
 sw_events = ds.software_events.load()

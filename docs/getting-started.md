@@ -36,11 +36,11 @@ Load a raw session directory and compute the sites table (one row per *site*):
 from aind_behavior_vr_foraging.data_contract import dataset
 from aind_behavior_vr_foraging_packaging.pipeline.session import resolve_site_table_processor
 
-ds = dataset("path/to/session")                        # load the raw session
+ds = dataset("path/to/session")  # load the raw session
 sites_df = resolve_site_table_processor(ds).compute()  # version-dispatch automatic
 
 print(f"{len(sites_df)} sites, {sites_df['has_reward'].sum()} rewarded")
-sites_df.to_parquet("sites.parquet")                   # optional: persist to disk
+sites_df.to_parquet("sites.parquet")  # optional: persist to disk
 ```
 
 `resolve_site_table_processor` automatically picks the current or legacy

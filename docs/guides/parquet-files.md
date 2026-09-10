@@ -23,9 +23,7 @@ pandas, DuckDB, and Polars.
 
     ```python
     from pathlib import Path
-    from aind_behavior_vr_foraging_packaging.pipeline.batch import (
-        process_sessions, aggregate
-    )
+    from aind_behavior_vr_foraging_packaging.pipeline.batch import process_sessions, aggregate
 
     raw_sessions = sorted(Path("/data/raw").iterdir())  # one dir per session
     written = process_sessions(raw_sessions, "/data/export", max_workers=4)

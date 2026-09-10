@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Optional
 
 import aind_behavior_vr_foraging.data_contract
 import contraqctor.contract as data_contract
@@ -19,13 +18,13 @@ class NwbSession:
         self,
         root_path: Path,
         *,
-        dataset: Optional[data_contract.Dataset] = None,
-        base_nwb_file: Optional[NWBFile] = None,
+        dataset: data_contract.Dataset | None = None,
+        base_nwb_file: NWBFile | None = None,
     ) -> None:
         self._root_path = root_path
         self._dataset = dataset if dataset else aind_behavior_vr_foraging.data_contract.dataset(root_path)
         self._base_nwb_file = base_nwb_file
-        self._nwb_file: Optional[NWBFile] = None
+        self._nwb_file: NWBFile | None = None
 
     @property
     def dataset(self) -> data_contract.Dataset:

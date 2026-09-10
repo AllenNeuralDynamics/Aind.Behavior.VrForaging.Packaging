@@ -94,7 +94,7 @@ def test_session_id_is_the_directory_name():
     assert set(df.columns) >= {"session_id", "subject_id", "date"}
     assert df["session_id"].iloc[0] == _ROOT_NAME
     assert df["subject_id"].iloc[0] == "815103"
-    assert df["date"].iloc[0] == datetime.datetime(2025, 11, 5, 22, 52, 21, tzinfo=datetime.timezone.utc)
+    assert df["date"].iloc[0] == datetime.datetime(2025, 11, 5, 22, 52, 21, tzinfo=datetime.UTC)
 
 
 @pytest.mark.parametrize(
@@ -461,12 +461,12 @@ def test_write_parquet_leaves_an_absent_trainer_state_null(tmp_path):
 def test_date_keeps_the_offset_when_the_source_has_one():
     df = SessionMetadataProcessor(_make_dataset({"subject": "815103", "date": "2025-11-05T22:52:21Z"}))._compute()
 
-    assert df["date"].iloc[0] == datetime.datetime(2025, 11, 5, 22, 52, 21, tzinfo=datetime.timezone.utc)
+    assert df["date"].iloc[0] == datetime.datetime(2025, 11, 5, 22, 52, 21, tzinfo=datetime.UTC)
 
 
 def test_date_stays_naive_when_the_source_has_no_offset():
     """Legacy sessions carry no offset; none is invented for them."""
     df = SessionMetadataProcessor(_make_dataset({"subject": "716458", "date": "2024-05-13T09:03:55.480294"}))._compute()
 
-    assert df["date"].iloc[0] == datetime.datetime(2024, 5, 13, 9, 3, 55, 480294)
+    assert df["date"].iloc[0] == datetime.datetime(2024, 5, 13, 9, 3, 55, 480294)  # noqa: DTZ001 -- asserting naive
     assert df["date"].iloc[0].tzinfo is None
