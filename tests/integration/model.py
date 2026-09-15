@@ -26,6 +26,10 @@ class ExpectedInvariants(BaseModel):
         default=None,
         description="Expected number of sites where has_reward is true.",
     )
+    average_p_reward_per_site: float | None = Field(
+        default=None,
+        description="Expected average reward_probability across sites with a valid probability.",
+    )
     n_blocks: int | None = Field(
         default=None,
         description="Expected number of blocks in the session.",
