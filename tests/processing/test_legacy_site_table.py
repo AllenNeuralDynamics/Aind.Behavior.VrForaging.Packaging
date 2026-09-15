@@ -125,6 +125,103 @@ class TestLegacyLoadBlocksFallback:
         assert list(result["block_count"]) == [0, 0]
 
 
+class TestLegacyPatchStateAtRewardTransitionRace:
+    """_parse_patch_state_at_reward must tag a reward reading with the *new* patch's
+    PatchId even when the reward event was logged a few milliseconds before the
+    ActivePatch event announcing that patch — a real ordering seen in raw sessions
+    (up to ~5ms), which a plain backward asof-merge misses, mislabeling the new
+    patch's first reading with the outgoing patch's PatchId.
+    """
+
+    def _make_fake_dataset(self, *, amount, available, probability, active_patch):
+        import pandas as pd
+
+        class _FakeLoad:
+            def __init__(self, df):
+                self.data = df
+
+        class _FakeStream:
+            def __init__(self, df):
+                self._df = df
+
+            def load(self):
+                return _FakeLoad(self._df)
+
+        class _RaisingStream:
+            def load(self):
+                raise KeyError("PatchStateAtReward")
+
+        class _FakeSoftwareEvents:
+            def at(self, name):
+                streams = {
+                    "PatchRewardAmount": amount,
+                    "PatchRewardAvailable": available,
+                    "PatchRewardProbability": probability,
+                    "ActivePatch": active_patch,
+                }
+                if name == "PatchStateAtReward":
+                    return _RaisingStream()
+                if name in streams:
+                    return _FakeStream(streams[name])
+                raise KeyError(name)
+
+        class _FakeBehavior:
+            def at(self, name):
+                if name == "SoftwareEvents":
+                    return _FakeSoftwareEvents()
+                raise KeyError(name)
+
+        class _FakeDataset:
+            def at(self, name):
+                if name == "Behavior":
+                    return _FakeBehavior()
+                raise KeyError(name)
+
+        return _FakeDataset(), pd
+
+    def test_reward_slightly_before_active_patch_gets_new_patch_id(self):
+        """Reward at t=10.000 (patch 0's own reading) logged 3ms before the ActivePatch
+        event announcing patch 1 at t=10.003 — a bare backward merge would tag it PatchId=0.
+        """
+        pd = __import__("pandas")
+
+        amount = pd.DataFrame({"data": [5.0, 5.0]}, index=[1.0, 10.000])
+        available = pd.DataFrame({"data": [1000.0, 1000.0]}, index=[1.0, 10.000])
+        probability = pd.DataFrame({"data": [0.6, 0.9]}, index=[1.0, 10.000])
+        active_patch = pd.DataFrame(
+            {"data": [{"state_index": 0}, {"state_index": 1}]}, index=[0.5, 10.003]
+        )
+
+        ds, _ = self._make_fake_dataset(
+            amount=amount, available=available, probability=probability, active_patch=active_patch
+        )
+        result = _uninit_processor()._parse_patch_state_at_reward(ds)  # type: ignore[arg-type]
+
+        assert result.loc[10.000, "PatchId"] == 1
+        assert result.loc[10.000, "Probability"] == 0.9
+
+    def test_genuinely_separate_later_patch_is_not_pulled_in(self):
+        """A reward far (minutes) before the next patch transition must still resolve
+        to the earlier (currently active) patch — the grace period must not bleed into
+        an unrelated, later patch transition.
+        """
+        pd = __import__("pandas")
+
+        amount = pd.DataFrame({"data": [5.0]}, index=[10.0])
+        available = pd.DataFrame({"data": [1000.0]}, index=[10.0])
+        probability = pd.DataFrame({"data": [0.6]}, index=[10.0])
+        active_patch = pd.DataFrame(
+            {"data": [{"state_index": 0}, {"state_index": 1}]}, index=[0.5, 300.0]
+        )
+
+        ds, _ = self._make_fake_dataset(
+            amount=amount, available=available, probability=probability, active_patch=active_patch
+        )
+        result = _uninit_processor()._parse_patch_state_at_reward(ds)  # type: ignore[arg-type]
+
+        assert result.loc[10.0, "PatchId"] == 0
+
+
 class TestLegacyVersionCheck:
     """Verify __init__ rejects datasets at version >= 0.6.0."""
 

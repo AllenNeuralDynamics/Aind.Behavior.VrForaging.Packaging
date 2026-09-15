@@ -39,6 +39,12 @@ class LegacySiteTableProcessor(SiteTableProcessor):
     not the legacy stripped names (e.g., "HarpBehavior.PwmStart").
     """
 
+    # Grace period used when matching a reconstructed reward event to the ActivePatch event
+    # active at that time (see `_parse_patch_state_at_reward`). Chosen to comfortably exceed
+    # the largest observed reward/ActivePatch logging-order skew (~5ms) while staying many
+    # orders of magnitude below any real patch duration, so it cannot bleed into a later patch.
+    _PATCH_TRANSITION_GRACE_PERIOD_S = 0.05
+
     def __init__(self, dataset: contraqctor.contract.Dataset, *, strict_parsing: bool = False) -> None:
 
         # Bypass SiteTableProcessor.__init__ — InputSchemas/Rig is not present in legacy datasets.
@@ -172,13 +178,28 @@ class LegacySiteTableProcessor(SiteTableProcessor):
         )
 
         # Assign PatchId from the most recent ActivePatch event before each reward.
+        #
+        # At a patch transition, the reward-probability evaluation for the new patch is
+        # occasionally logged a few milliseconds *before* the ActivePatch event announcing
+        # that patch (observed up to ~5ms across a full session). A strict backward asof
+        # match would then miss the new ActivePatch row and fall back to the outgoing
+        # patch's state_index, mislabeling the new patch's first reward reading with the
+        # previous patch's PatchId. Nudging the reward timestamps forward by a grace period
+        # — far shorter than any real patch duration (seconds to minutes) — lets the match
+        # see an ActivePatch event that fires immediately after, without risking a match to
+        # a genuinely later, unrelated patch.
         patch_state_index = active_patch_df["data"].apply(
             lambda d: d.get("state_index", np.nan) if isinstance(d, dict) else np.nan
         )
         patch_lookup = patch_state_index.rename_axis("patch_time").reset_index(name="state_index")
         reward_times = result.rename_axis("reward_time").reset_index()[["reward_time"]]
+        reward_times["reward_time_matching"] = reward_times["reward_time"] + self._PATCH_TRANSITION_GRACE_PERIOD_S
         merged = pd.merge_asof(
-            reward_times, patch_lookup, left_on="reward_time", right_on="patch_time", direction="backward"
+            reward_times,
+            patch_lookup,
+            left_on="reward_time_matching",
+            right_on="patch_time",
+            direction="backward",
         )
         result["PatchId"] = merged["state_index"].values
 
