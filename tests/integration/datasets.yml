@@ -17,6 +17,7 @@
 #       n_sites: 412
 #       n_choices: 180
 #       n_rewards: 92
+#       average_p_reward_per_site: 0.42
 #       n_blocks: 4
 #       n_patches: 16
 #       nwb_validates: true
@@ -31,6 +32,7 @@ datasets:
       n_sites: 1144
       n_choices: 390
       n_rewards: 193
+      average_p_reward_per_site: 0.478621
       n_patches: 91
       n_blocks: 1
   - id: behavior_815103_2025-11-24_22-54-13
@@ -41,6 +43,7 @@ datasets:
       n_sites: 1296
       n_choices: 394
       n_rewards: 209
+      average_p_reward_per_site: 0.568401
       n_patches: 127
       n_blocks: 1
   - id: behavior_815103_2025-12-06_19-55-41
@@ -51,6 +54,7 @@ datasets:
       n_sites: 1208
       n_choices: 432
       n_rewards: 199
+      average_p_reward_per_site: 0.426408
       n_patches: 86
       n_blocks: 1
   - id: 815103_2026-02-09_22-01-14
@@ -61,6 +65,7 @@ datasets:
       n_sites: 1240
       n_choices: 557
       n_rewards: 213
+      average_p_reward_per_site: 0.373546
       n_patches: 32
       n_blocks: 1
   - id: behavior_808728_2025-12-10_20-40-41
@@ -72,6 +77,7 @@ datasets:
       n_sites: 1164
       n_choices: 143
       n_rewards: 103
+      average_p_reward_per_site: 0.706294
       n_patches: 291
       n_blocks: 6
 
@@ -85,6 +91,7 @@ datasets:
       n_sites: 128
       n_choices: 63
       n_rewards: 55
+      average_p_reward_per_site: 0.9
       n_patches: 1
       n_blocks: 1
 
@@ -100,6 +107,7 @@ datasets:
       n_sites: 1183
       n_choices: 357
       n_rewards: 180
+      average_p_reward_per_site: 0.559998
       n_patches: 118
       n_blocks: 1
 
@@ -112,5 +120,6 @@ datasets:
       n_sites: 53
       n_choices: 26
       n_rewards: 26
+      average_p_reward_per_site: 0.99
       n_patches: 1
       n_blocks: 1

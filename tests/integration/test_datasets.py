@@ -79,6 +79,13 @@ def _assert_sites_table_invariants(sites_df: pd.DataFrame, entry: DatasetEntry) 
             f"{entry.id}: expected n_rewards={inv.n_rewards}, got {actual}\nRationale: {entry.rationale}"
         )
 
+    if inv.average_p_reward_per_site is not None:
+        actual = sites_df["reward_probability"].mean()
+        assert actual == pytest.approx(inv.average_p_reward_per_site, abs=1e-6), (
+            f"{entry.id}: expected average_p_reward_per_site={inv.average_p_reward_per_site}, got {actual}\n"
+            f"Rationale: {entry.rationale}"
+        )
+
     if inv.n_blocks is not None:
         actual = int(sites_df["block_index"].nunique(dropna=True))
         assert actual == inv.n_blocks, (

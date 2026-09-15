@@ -39,6 +39,13 @@ class LegacySiteTableProcessor(SiteTableProcessor):
     not the legacy stripped names (e.g., "HarpBehavior.PwmStart").
     """
 
+    # Grace period used when matching a reconstructed reward event to the ActivePatch event
+    # active at that time (see `_parse_patch_state_at_reward`). Chosen to comfortably exceed
+    # the largest observed reward/ActivePatch logging-order skew (~10ms) while staying many
+    # orders of magnitude below any real patch duration, so it cannot bleed into a later patch.
+    # In >= v1 this is done at acquisition time and thus we do not need this hack
+    _PATCH_TRANSITION_GRACE_PERIOD_S = 0.01
+
     def __init__(self, dataset: contraqctor.contract.Dataset, *, strict_parsing: bool = False) -> None:
 
         # Bypass SiteTableProcessor.__init__ — InputSchemas/Rig is not present in legacy datasets.
@@ -177,8 +184,13 @@ class LegacySiteTableProcessor(SiteTableProcessor):
         )
         patch_lookup = patch_state_index.rename_axis("patch_time").reset_index(name="state_index")
         reward_times = result.rename_axis("reward_time").reset_index()[["reward_time"]]
+        reward_times["reward_time_matching"] = reward_times["reward_time"] + self._PATCH_TRANSITION_GRACE_PERIOD_S
         merged = pd.merge_asof(
-            reward_times, patch_lookup, left_on="reward_time", right_on="patch_time", direction="backward"
+            reward_times,
+            patch_lookup,
+            left_on="reward_time_matching",
+            right_on="patch_time",
+            direction="backward",
         )
         result["PatchId"] = merged["state_index"].values
 
