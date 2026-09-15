@@ -188,9 +188,7 @@ class TestLegacyPatchStateAtRewardTransitionRace:
         amount = pd.DataFrame({"data": [5.0, 5.0]}, index=[1.0, 10.000])
         available = pd.DataFrame({"data": [1000.0, 1000.0]}, index=[1.0, 10.000])
         probability = pd.DataFrame({"data": [0.6, 0.9]}, index=[1.0, 10.000])
-        active_patch = pd.DataFrame(
-            {"data": [{"state_index": 0}, {"state_index": 1}]}, index=[0.5, 10.003]
-        )
+        active_patch = pd.DataFrame({"data": [{"state_index": 0}, {"state_index": 1}]}, index=[0.5, 10.003])
 
         ds, _ = self._make_fake_dataset(
             amount=amount, available=available, probability=probability, active_patch=active_patch
@@ -210,9 +208,7 @@ class TestLegacyPatchStateAtRewardTransitionRace:
         amount = pd.DataFrame({"data": [5.0]}, index=[10.0])
         available = pd.DataFrame({"data": [1000.0]}, index=[10.0])
         probability = pd.DataFrame({"data": [0.6]}, index=[10.0])
-        active_patch = pd.DataFrame(
-            {"data": [{"state_index": 0}, {"state_index": 1}]}, index=[0.5, 300.0]
-        )
+        active_patch = pd.DataFrame({"data": [{"state_index": 0}, {"state_index": 1}]}, index=[0.5, 300.0])
 
         ds, _ = self._make_fake_dataset(
             amount=amount, available=available, probability=probability, active_patch=active_patch
