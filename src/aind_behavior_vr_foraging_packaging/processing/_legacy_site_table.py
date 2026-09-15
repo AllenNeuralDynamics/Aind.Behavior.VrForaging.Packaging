@@ -41,9 +41,9 @@ class LegacySiteTableProcessor(SiteTableProcessor):
 
     # Grace period used when matching a reconstructed reward event to the ActivePatch event
     # active at that time (see `_parse_patch_state_at_reward`). Chosen to comfortably exceed
-    # the largest observed reward/ActivePatch logging-order skew (~5ms) while staying many
+    # the largest observed reward/ActivePatch logging-order skew (~10ms) while staying many
     # orders of magnitude below any real patch duration, so it cannot bleed into a later patch.
-    _PATCH_TRANSITION_GRACE_PERIOD_S = 0.05
+    _PATCH_TRANSITION_GRACE_PERIOD_S = 0.01
 
     def __init__(self, dataset: contraqctor.contract.Dataset, *, strict_parsing: bool = False) -> None:
 
