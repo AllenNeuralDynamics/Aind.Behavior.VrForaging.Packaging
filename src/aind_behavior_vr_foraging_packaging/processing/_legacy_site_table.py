@@ -43,6 +43,7 @@ class LegacySiteTableProcessor(SiteTableProcessor):
     # active at that time (see `_parse_patch_state_at_reward`). Chosen to comfortably exceed
     # the largest observed reward/ActivePatch logging-order skew (~10ms) while staying many
     # orders of magnitude below any real patch duration, so it cannot bleed into a later patch.
+    # In >= v1 this is done at acquisition time and thus we do not need this hack
     _PATCH_TRANSITION_GRACE_PERIOD_S = 0.01
 
     def __init__(self, dataset: contraqctor.contract.Dataset, *, strict_parsing: bool = False) -> None:
@@ -178,16 +179,6 @@ class LegacySiteTableProcessor(SiteTableProcessor):
         )
 
         # Assign PatchId from the most recent ActivePatch event before each reward.
-        #
-        # At a patch transition, the reward-probability evaluation for the new patch is
-        # occasionally logged a few milliseconds *before* the ActivePatch event announcing
-        # that patch (observed up to ~5ms across a full session). A strict backward asof
-        # match would then miss the new ActivePatch row and fall back to the outgoing
-        # patch's state_index, mislabeling the new patch's first reward reading with the
-        # previous patch's PatchId. Nudging the reward timestamps forward by a grace period
-        # — far shorter than any real patch duration (seconds to minutes) — lets the match
-        # see an ActivePatch event that fires immediately after, without risking a match to
-        # a genuinely later, unrelated patch.
         patch_state_index = active_patch_df["data"].apply(
             lambda d: d.get("state_index", np.nan) if isinstance(d, dict) else np.nan
         )
