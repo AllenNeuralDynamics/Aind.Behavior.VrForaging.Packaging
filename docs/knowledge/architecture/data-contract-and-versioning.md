@@ -4,7 +4,7 @@ title: Data contract, Harp streams, and the three versions
 description: How the library reads sessions via contraqctor/aind-behavior-vr-foraging, the three semver versions it tracks and dispatches on, and where each lands in the parquet and NWB outputs.
 resource: src/aind_behavior_vr_foraging_packaging/_provenance.py
 tags: [architecture, data-contract, contraqctor, harp, semver, versioning, provenance]
-timestamp: 2026-08-30T00:00:00Z
+timestamp: 2026-09-17T00:00:00Z
 ---
 
 Processors never touch raw files directly. They read through a **data
@@ -34,7 +34,10 @@ Dataset
 
 Harp streams carry a `MessageType` column (`WRITE` / `EVENT`); processors
 filter on it. Software-event payloads live in a `data` column (dicts, often
-`pd.json_normalize`d). All streams are indexed by **harp time in seconds**.
+`pd.json_normalize`d). All streams are indexed by **harp time in seconds**,
+and every processor's output frame carries that index under the name
+`"timestamp"` — see [continuous-and-event-streams.md](continuous-and-event-streams.md#the-shared-index-convention)
+for why that name and not the raw column names some streams arrive with.
 
 # The three versions
 

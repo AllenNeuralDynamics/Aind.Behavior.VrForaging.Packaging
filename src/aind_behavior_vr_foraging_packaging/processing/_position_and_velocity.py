@@ -79,6 +79,7 @@ class PositionAndVelocityProcessor(AbstractProcessor):
         df = df.resample(dt, label="right", closed="right").mean()
         df.dropna(inplace=True)
         df.index = df.index.total_seconds()  # Convert back to harp time!
+        df.index.name = "timestamp"
 
         return df
 
@@ -115,4 +116,6 @@ class PositionAndVelocityProcessor(AbstractProcessor):
         position = (encoder - encoder.iloc[0]) * converting_factor
         displacement = position.diff().fillna(0)
         velocity = displacement / position.index.to_series().diff().fillna(1)
-        return pd.DataFrame({"position": position, "velocity": velocity})
+        df = pd.DataFrame({"position": position, "velocity": velocity})
+        df.index.name = "timestamp"
+        return df

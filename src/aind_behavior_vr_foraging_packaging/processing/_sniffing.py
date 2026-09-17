@@ -43,6 +43,7 @@ class SniffingProcessor(AbstractProcessor):
             )
             return self._empty_frame()
         df = sniff.rename("voltage").to_frame()
+        df.index.name = "timestamp"
         df.attrs["sampling_rate_hz"] = fs
         return df
 

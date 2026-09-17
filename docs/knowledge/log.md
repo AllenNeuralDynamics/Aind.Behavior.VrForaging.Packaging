@@ -3,6 +3,26 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-09-17 (standardized the time-index name on `"timestamp"`)
+
+* **Architecture**: `position_velocity`, `licks`, and `sniffing` now
+  explicitly set `df.index.name = "timestamp"` on every code path
+  (`_position_and_velocity.py`, `_legacy_position_and_velocity.py`,
+  `_licks.py`, `_sniffing.py`), matching what `events` and
+  `software_events` already did deliberately. Previously the index name
+  was inconsistent across the five continuous/event processors: `"Time"`
+  by accident (leaked from the raw Harp column, never renamed) for
+  `position_velocity`/`licks`, unnamed (`None`) on `sniffing`'s populated
+  path (only its empty-frame fallback set `"timestamp"`), and `"timestamp"`
+  deliberately for `events`/`software_events`. `"timestamp"` won over
+  `"Time"` because it matches NWB's own vocabulary
+  (`pynwb.event.EventsTable`'s required `timestamp` column,
+  `pynwb.TimeSeries`' `timestamps` field) — `"Time"` appears nowhere in
+  NWB's schema. Documented as an explicit, enforced convention in
+  [continuous-and-event-streams.md](architecture/continuous-and-event-streams.md#the-shared-index-convention),
+  cross-referenced from
+  [data-contract-and-versioning.md](architecture/data-contract-and-versioning.md).
+
 ## 2026-08-30 (session.parquet carries raw session/rig/task_logic; `write_parquet()` joins `compute()`/`nwbize()`)
 
 * **Schema**: `SessionMetadata` (`models.py`) gained three `Json[Any]` fields —

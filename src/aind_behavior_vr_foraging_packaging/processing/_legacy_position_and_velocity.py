@@ -51,6 +51,7 @@ class LegacyPositionAndVelocityProcessor(PositionAndVelocityProcessor):
         df = df.resample(dt, label="right", closed="right").mean()
         df.dropna(inplace=True)
         df.index = df.index.total_seconds()
+        df.index.name = "timestamp"
         return df
 
     @staticmethod
@@ -89,7 +90,9 @@ class LegacyPositionAndVelocityProcessor(PositionAndVelocityProcessor):
         position -= position.iloc[0]
         velocity = displacement / encoder.index.to_series().diff().fillna(1)
 
-        return pd.DataFrame({"position": position.values, "velocity": velocity.values}, index=encoder.index)
+        df = pd.DataFrame({"position": position.values, "velocity": velocity.values}, index=encoder.index)
+        df.index.name = "timestamp"
+        return df
 
 
 def _extract_legacy_treadmill_calibration(rig_config: dict) -> tuple[float, float, bool]:
