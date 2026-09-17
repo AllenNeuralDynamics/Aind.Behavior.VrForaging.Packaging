@@ -21,7 +21,9 @@ class LicksProcessor(AbstractProcessor):
     def _compute(self) -> pd.DataFrame:
         """Returns DataFrame with 'is_lick_onset' (bool) indexed by harp time."""
         licks = self._compute_lick_state(self.dataset)
-        return licks.rename("is_lick_onset").to_frame()
+        df = licks.rename("is_lick_onset").to_frame()
+        df.index.name = "timestamp"
+        return df
 
     def nwbize(self, nwb_file: ty.Any) -> ty.Any:
         """Add lick TimeSeries to *nwb_file*."""

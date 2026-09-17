@@ -3,18 +3,40 @@ type: Component
 title: Continuous and event stream processors
 description: Position/velocity, licks, sniffing, software-events, and events processors — the non-site outputs and their NWB representations.
 resource: src/aind_behavior_vr_foraging_packaging/processing/
-tags: [architecture, processor, position, velocity, licks, sniffing, software-events, events]
-timestamp: 2026-07-08T00:00:00Z
+tags: [architecture, processor, position, velocity, licks, sniffing, software-events, events, timestamp, index]
+timestamp: 2026-09-17T00:00:00Z
 ---
 
 Beyond the [site table](site-table.md), five processors produce continuous
 or event-level outputs. All subclass [`AbstractProcessor`](processor-abstraction.md)
 and follow the same `_compute`/`nwbize` contract.
 
+# The shared index convention
+
+Every one of these five `_compute()` frames is indexed by [harp
+time](data-contract-and-versioning.md), in seconds, with the pandas index
+explicitly named **`"timestamp"`**. This is an enforced convention, not an
+accident of whatever the upstream raw column happened to be called:
+`position_velocity` and `licks` used to leak the raw Harp column's index name
+(`"Time"`) unchanged, and `sniffing`'s resampled grid used to carry no name at
+all (`None`) on its populated path — only its empty-frame fallback set
+`"timestamp"`. All three now set `df.index.name = "timestamp"` explicitly
+before returning, matching what `events` and `software_events` already did
+deliberately.
+
+`"timestamp"` was chosen over `"Time"` because it is NWB's own vocabulary, not
+because it looks nicer: `pynwb.event.EventsTable` requires a column literally
+named `timestamp`, and `pynwb.TimeSeries` calls its time array `timestamps`.
+`"Time"` appears nowhere in NWB's schema — it only survived here because two
+processors forgot to rename an inherited raw column. `position_velocity`'s
+own `nwbize()` already renamed its index to `timestamp` when building its
+`DynamicTable`, so standardizing the parquet-facing index on the same name
+just makes the two outputs agree.
+
 # PositionAndVelocityProcessor
 
 `output_name = "position_velocity"`. Computes `position` (cm) and `velocity`
-(cm/s) from the treadmill encoder, indexed by harp time.
+(cm/s) from the treadmill encoder, indexed by `timestamp` (harp time).
 
 - Reads `Behavior/HarpTreadmill/SensorData` (`Encoder`) and the rig calibration
   (`harp_treadmill.calibration`: `wheel_diameter`, `pulses_per_revolution`,
@@ -30,7 +52,7 @@ and follow the same `_compute`/`nwbize` contract.
 # LicksProcessor
 
 `output_name = "licks"`. Produces a boolean `is_lick_onset` series indexed by
-harp time.
+`timestamp` (harp time).
 
 - Reads `Behavior/HarpLickometer/LickState` (`Channel0`), keeps distinct
   state transitions (alternating onset/offset starting on the first onset),
@@ -43,7 +65,7 @@ harp time.
 # SniffingProcessor
 
 `output_name = "sniffing"`. Produces a filtered breathing signal (`voltage`,
-V) indexed by harp time; the sampling rate is stored in
+V) indexed by `timestamp` (harp time); the sampling rate is stored in
 `df.attrs["sampling_rate_hz"]`.
 
 - Reads `Behavior/HarpSniffDetector/RawVoltage`, resamples onto a uniform grid
