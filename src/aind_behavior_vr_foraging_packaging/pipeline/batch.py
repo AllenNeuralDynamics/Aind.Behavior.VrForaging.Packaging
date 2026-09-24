@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import pyarrow as pa
 
+from ..schema_migrations import SchemaMigrationMode, append_migrated_schema_columns
 from .session import process_session
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,7 @@ def process_sessions(
     include_processors: Sequence[str] = (),
     exclude_processors: Sequence[str] = (),
     strict_parsing: bool = False,
+    schema_migration_mode: SchemaMigrationMode = SchemaMigrationMode.DISABLED,
     max_workers: int = 1,
     clean: bool = True,
     write_parquet: bool = True,
@@ -63,7 +65,7 @@ def process_sessions(
     output_dir:
         Root of the experiment export. Per-session files go to
         ``output_dir/sessions/{session_id}/``.
-    include_processors, exclude_processors, strict_parsing, write_parquet, write_nwb:
+    include_processors, exclude_processors, strict_parsing, schema_migration_mode, write_parquet, write_nwb:
         Per-session options, forwarded unchanged to
         :func:`~.pipeline.session.process_session` (as *include* / *exclude* /
         *strict_parsing* / *write_parquet* / *write_nwb*). This layer adds no
@@ -111,6 +113,7 @@ def process_sessions(
             raw_path,
             session_out,
             strict_parsing=strict_parsing,
+            schema_migration_mode=schema_migration_mode,
             include=include_processors,
             exclude=exclude_processors,
             write_parquet=write_parquet,
@@ -152,7 +155,12 @@ def _clear_previous_outputs(output_dir: Path, sessions_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def aggregate(sessions_dir: Path, output_dir: Path) -> None:
+def aggregate(
+    sessions_dir: Path,
+    output_dir: Path,
+    *,
+    schema_migration_mode: SchemaMigrationMode = SchemaMigrationMode.DISABLED,
+) -> None:
     """Concatenate per-session parquets into experiment-level files.
 
     Writes one flat ``output_dir/{table}.parquet`` for each name in
@@ -174,6 +182,10 @@ def aggregate(sessions_dir: Path, output_dir: Path) -> None:
         (i.e. ``output_dir/sessions/``).
     output_dir:
         Root output directory where aggregated files are written.
+    schema_migration_mode:
+        ``DISABLED`` leaves the table unchanged, ``FILL_MISSING`` appends or
+        fills migrated values while preserving existing ones, and ``FORCE``
+        recomputes every migrated value. Raw columns are never replaced.
     """
     sessions_dir = Path(sessions_dir)
     output_dir = Path(output_dir)
@@ -184,7 +196,12 @@ def aggregate(sessions_dir: Path, output_dir: Path) -> None:
         return
 
     for table in AGGREGATED_TABLES:
-        wrote = _aggregate_table(table, session_dirs, output_dir)
+        wrote = _aggregate_table(
+            table,
+            session_dirs,
+            output_dir,
+            schema_migration_mode=schema_migration_mode,
+        )
         if table == SESSION_TABLE and not wrote:
             logger.error(
                 "No %s.parquet found in any session — the export has no identity table "
@@ -209,7 +226,13 @@ def _assume_utc(table: "pa.Table") -> "pa.Table":
     return table
 
 
-def _aggregate_table(table: str, session_dirs: list[Path], output_dir: Path) -> bool:
+def _aggregate_table(
+    table: str,
+    session_dirs: list[Path],
+    output_dir: Path,
+    *,
+    schema_migration_mode: SchemaMigrationMode = SchemaMigrationMode.DISABLED,
+) -> bool:
     """Concatenate one table across *session_dirs*; return whether anything was written.
 
     Stays in Arrow: a pandas round-trip drops the logical types the per-session
@@ -226,6 +249,8 @@ def _aggregate_table(table: str, session_dirs: list[Path], output_dir: Path) -> 
             logger.debug("  %s: no %s.parquet in %s — skipping", table, table, sd.name)
             continue
         t = pq.read_table(p)
+        if table == SESSION_TABLE:
+            t = append_migrated_schema_columns(t, mode=schema_migration_mode)
         if "session_id" not in t.column_names:
             session_ids = pa.array([sd.name] * t.num_rows, type=pa.large_string())
             t = t.add_column(0, pa.field("session_id", pa.large_string()), session_ids)

@@ -59,6 +59,58 @@ A successful result therefore means all three outputs satisfy the current
 formal schemas; it does not merely mean that migration code ran without an
 exception.
 
+## Pipeline integration
+
+Session processing and aggregation can append migrated schemas without
+replacing the source metadata:
+
+```python
+from aind_behavior_vr_foraging_packaging.schema_migrations import SchemaMigrationMode
+
+process_session(path, output, schema_migration_mode=SchemaMigrationMode.FILL_MISSING)
+process_sessions(paths, output, schema_migration_mode=SchemaMigrationMode.FILL_MISSING)
+aggregate(sessions_dir, output, schema_migration_mode=SchemaMigrationMode.FILL_MISSING)
+```
+
+Arrow-based aggregators can apply the same operation directly to an existing
+session table:
+
+```python
+from aind_behavior_vr_foraging_packaging.schema_migrations import (
+    SchemaMigrationMode,
+    append_migrated_schema_columns,
+)
+import pyarrow.parquet as pq
+
+session_table = pq.read_table("session.parquet")
+session_table = append_migrated_schema_columns(session_table)
+```
+
+The `session`, `batch`, and `aggregate` CLI commands expose the same enum as
+`--schema-migration-mode`. Migrated output adds `session_migrated`,
+`rig_migrated`, and `task_logic_migrated` to the session table. The original
+`session`, `rig`, and `task_logic` columns remain unchanged, and
+`dataset_version` continues to identify the source dataset release. In
+`fill-missing` mode, existing non-null migrated cells are preserved and only
+missing cells are generated. The resulting columns use Arrow's JSON logical
+type so tables from different packaging runs can be concatenated.
+
+To deliberately replace migrated values after the migration rules change, use
+forced mode:
+
+```python
+session_table = append_migrated_schema_columns(
+    session_table,
+    mode=SchemaMigrationMode.FORCE,
+)
+aggregate(sessions_dir, output, schema_migration_mode=SchemaMigrationMode.FORCE)
+```
+
+Forced mode recomputes all three migrated documents from each row's raw
+columns. It still leaves the raw columns unchanged. The `batch` and `aggregate`
+CLI commands expose the three choices through `--schema-migration-mode`:
+`DISABLED`, `FILL_MISSING`, and `FORCE`.
+
 ## Semantic compatibility decisions
 
 Most migrations are lossless moves or discriminator renames. These cases need

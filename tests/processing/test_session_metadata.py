@@ -2,12 +2,16 @@ import datetime
 import json
 import logging
 import os
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 from aind_behavior_services.session import Session
+from aind_behavior_vr_foraging.rig import AindVrForagingRig
+from aind_behavior_vr_foraging.task_logic import AindVrForagingTaskLogic
 
 from aind_behavior_vr_foraging_packaging._base import DatasetProcessorError
+from aind_behavior_vr_foraging_packaging.models import SessionMetadata
 from aind_behavior_vr_foraging_packaging.processing._session_metadata import (
     SessionMetadataProcessor,
 )
@@ -208,6 +212,51 @@ def test_dict_payloads_are_carried_verbatim():
     assert df["session"].iloc[0] == _VALID
     assert df["rig"].iloc[0] == rig
     assert df["task_logic"].iloc[0] == task_logic
+    assert not {"session_migrated", "rig_migrated", "task_logic_migrated"}.intersection(df.columns)
+
+
+def test_migrated_schema_columns_are_appended_without_changing_raw_values(tmp_path):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
+    from aind_behavior_vr_foraging_packaging.schema_migrations import (
+        MIGRATED_SCHEMA_COLUMNS,
+        SchemaMigrationMode,
+    )
+
+    asset = Path(__file__).parents[1] / "schema_migrations" / "assets" / "session_schema_transitions.parquet"
+    source = pq.read_table(asset).slice(0, 1).to_pylist()[0]
+    raw = {name: json.loads(source[name]) for name in ("session", "rig", "task_logic")}
+    ds = _make_dataset_with_schemas(
+        session=raw["session"],
+        rig=raw["rig"],
+        task_logic=raw["task_logic"],
+    )
+    ds.version = source["dataset_version"]
+
+    processor = SessionMetadataProcessor(ds)
+    raw_df = processor._compute()
+    result = process_session(
+        ds,
+        tmp_path,
+        processors=[processor],
+        schema_migration_mode=SchemaMigrationMode.FILL_MISSING,
+    )
+    df = result["session"]
+
+    assert not set(MIGRATED_SCHEMA_COLUMNS).intersection(SessionMetadata.model_fields)
+    assert not set(MIGRATED_SCHEMA_COLUMNS).intersection(raw_df.columns)
+    assert df.loc[0, "session"] == raw["session"]
+    assert df.loc[0, "rig"] == raw["rig"]
+    assert df.loc[0, "task_logic"] == raw["task_logic"]
+    Session.model_validate_json(df.loc[0, "session_migrated"])
+    AindVrForagingRig.model_validate_json(df.loc[0, "rig_migrated"])
+    AindVrForagingTaskLogic.model_validate_json(df.loc[0, "task_logic_migrated"])
+
+    schema = pq.read_schema(tmp_path / "session.parquet")
+    for name in MIGRATED_SCHEMA_COLUMNS:
+        assert schema.field(name).type == pa.json_(pa.utf8())
 
 
 def test_pydantic_payloads_are_model_dumped():
