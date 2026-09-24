@@ -37,6 +37,10 @@ nav = [
     { "Query from S3 (DuckDB)" = "examples/query-export-s3-duckdb.md" },
     { "Query from S3 (Polars)" = "examples/query-export-s3-polars.md" },
   ] },
+  { "Schema migrations" = [
+    { "Overview" = "schema-migrations.md" },
+    { "Caveats and review notes" = "schema-migration-notes.md" },
+  ] },
   { "API Reference" = [
     { "Overview" = "api/index.md" },
     { "Session pipeline" = "api/session.md" },
