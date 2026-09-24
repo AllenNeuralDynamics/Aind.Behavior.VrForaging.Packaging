@@ -361,10 +361,12 @@ def test_process_session_forwards_session_id(tmp_path):
 
 def test_create_processors_passes_session_id_to_session_metadata():
     from aind_behavior_vr_foraging_packaging.pipeline.session import create_processors
+    from aind_behavior_vr_foraging_packaging.processing import SessionMetadataProcessor
 
     ds = MagicMock()
     ds.version = "0.6.1"
     session_proc = create_processors(ds, session_id="my_session")[0]
+    assert isinstance(session_proc, SessionMetadataProcessor)
     assert session_proc._session_id == "my_session"
 
 
