@@ -121,12 +121,12 @@ def test_session_root_anchors_on_behavior_dir_not_depth():
 
 
 def test_explicit_session_id_overrides_directory_name():
-    """A generic mount point (e.g. Code Ocean's ``vr_foraging_raw``) is not the session's identity."""
+    """An explicit session_id takes precedence over the session root's directory name."""
     df = SessionMetadataProcessor(
         _make_dataset(stream_path="/data/vr_foraging_raw/behavior/session_input.json"),
-        session_id=_ROOT_NAME,
+        session_id="name_override",
     )._compute()
-    assert df["session_id"].iloc[0] == _ROOT_NAME
+    assert df["session_id"].iloc[0] == "name_override"
 
 
 def test_pydantic_model_normalised_to_dict():
