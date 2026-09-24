@@ -345,6 +345,29 @@ def test_process_session_forwards_include_exclude(tmp_path):
     assert "schema_migration_mode" not in create.call_args.kwargs
 
 
+def test_process_session_forwards_session_id(tmp_path):
+    from aind_behavior_vr_foraging_packaging.pipeline.session import process_session
+
+    ds = _dataset_rooted_at(tmp_path / "raw" / "vr_foraging_raw")
+
+    with patch(
+        "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
+        return_value=_named_procs("session"),
+    ) as create:
+        process_session(ds, tmp_path / "out", session_id="behavior_815103_2025-11-05_22-52-21")
+
+    assert create.call_args.kwargs["session_id"] == "behavior_815103_2025-11-05_22-52-21"
+
+
+def test_create_processors_passes_session_id_to_session_metadata():
+    from aind_behavior_vr_foraging_packaging.pipeline.session import create_processors
+
+    ds = MagicMock()
+    ds.version = "0.6.1"
+    session_proc = create_processors(ds, session_id="my_session")[0]
+    assert session_proc._session_id == "my_session"
+
+
 def test_processors_argument_bypasses_the_filter(tmp_path):
     """An explicit list is already final — include/exclude do not re-filter it."""
     from aind_behavior_vr_foraging_packaging.pipeline.session import process_session

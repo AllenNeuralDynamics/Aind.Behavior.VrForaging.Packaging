@@ -88,7 +88,7 @@ def _make_dataset_with_schemas(
 
 
 # ---------------------------------------------------------------------------
-# session_id is the directory name, always
+# session_id is the directory name unless explicitly overridden
 # ---------------------------------------------------------------------------
 
 
@@ -118,6 +118,15 @@ def test_session_root_anchors_on_behavior_dir_not_depth():
         _make_dataset(stream_path="/data/my_session/behavior/Logs/nested/session_input.json")
     )._compute()
     assert df["session_id"].iloc[0] == "my_session"
+
+
+def test_explicit_session_id_overrides_directory_name():
+    """A generic mount point (e.g. Code Ocean's ``vr_foraging_raw``) is not the session's identity."""
+    df = SessionMetadataProcessor(
+        _make_dataset(stream_path="/data/vr_foraging_raw/behavior/session_input.json"),
+        session_id=_ROOT_NAME,
+    )._compute()
+    assert df["session_id"].iloc[0] == _ROOT_NAME
 
 
 def test_pydantic_model_normalised_to_dict():

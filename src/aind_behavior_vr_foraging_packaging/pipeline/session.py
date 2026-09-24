@@ -44,6 +44,7 @@ def create_processors(
     strict_parsing: bool = False,
     include: Sequence[str] = (),
     exclude: Sequence[str] = (),
+    session_id: str | None = None,
 ) -> list[AbstractProcessor]:
     """Return the ordered processor list for *dataset*, dispatching on version.
 
@@ -60,6 +61,10 @@ def create_processors(
     exclude:
         Drop processors whose ``output_name`` is listed. Applied after
         *include*, so an name in both is dropped.
+    session_id:
+        Overrides the ``session_id`` written by
+        :class:`~.processing.SessionMetadataProcessor`. ``None`` (default)
+        uses the session root's directory name.
 
     Returns
     -------
@@ -76,6 +81,7 @@ def create_processors(
         SessionMetadataProcessor(
             dataset,
             strict_parsing=strict_parsing,
+            session_id=session_id,
         ),
         resolve_position_velocity_processor(dataset, strict_parsing=strict_parsing),
         resolve_site_table_processor(dataset, strict_parsing=strict_parsing),
@@ -151,6 +157,7 @@ def process_session(
     on_error: Callable[[AbstractProcessor, Exception], None] | None = None,
     write_parquet: bool = True,
     write_nwb: bool = False,
+    session_id: str | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Run every processor and write the outputs chosen by *write_parquet* / *write_nwb*.
 
@@ -211,6 +218,11 @@ def process_session(
         formats. Requires the AIND metadata JSON files in the session root; a
         session missing them fails the NWB step, and that failure propagates
         like any other. Defaults to ``False``.
+    session_id:
+        Overrides the ``session_id`` written to ``session.parquet`` and used in
+        log prefixes. ``None`` (default) uses the session root's directory
+        name. Forwarded to :func:`create_processors`; ignored for the table
+        when *processors* is given.
 
     Returns
     -------
@@ -230,6 +242,7 @@ def process_session(
         output_dir.mkdir(parents=True, exist_ok=True)
 
     root = session_root(dataset)
+    label = session_id or root.name
     selected = (
         processors
         if processors is not None
@@ -238,13 +251,14 @@ def process_session(
             strict_parsing=strict_parsing,
             include=include,
             exclude=exclude,
+            session_id=session_id,
         )
     )
 
     all_data: dict[str, pd.DataFrame] = {}
     for proc in selected:
         name = proc.output_name
-        logger.info("[%s] compute: %s → %s", root.name, proc.__class__.__name__, name)
+        logger.info("[%s] compute: %s → %s", label, proc.__class__.__name__, name)
         try:
             # compute() stamps provenance attrs automatically (see AbstractProcessor.compute)
             df = proc.compute()
@@ -274,9 +288,9 @@ def process_session(
                 import pyarrow.parquet as pq
 
                 pq.write_table(enriched_table, output_dir / f"{name}.parquet")
-            logger.info("[%s]   saved %d rows → %s.parquet", root.name, len(df), name)
+            logger.info("[%s]   saved %d rows → %s.parquet", label, len(df), name)
         else:
-            logger.info("[%s]   %d rows (parquet skipped)", root.name, len(df))
+            logger.info("[%s]   %d rows (parquet skipped)", label, len(df))
 
     if write_nwb:
         _write_nwb_zarr(dataset, root, output_dir, selected)
