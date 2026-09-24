@@ -27,6 +27,11 @@ from ..processing import (
     SniffingProcessor,
     SoftwareEventsProcessor,
 )
+from ..schema_migrations import (
+    MIGRATED_SCHEMA_COLUMNS,
+    SchemaMigrationMode,
+    append_migrated_schema_columns,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +73,10 @@ def create_processors(
     """
 
     processors: list[AbstractProcessor] = [
-        SessionMetadataProcessor(dataset, strict_parsing=strict_parsing),
+        SessionMetadataProcessor(
+            dataset,
+            strict_parsing=strict_parsing,
+        ),
         resolve_position_velocity_processor(dataset, strict_parsing=strict_parsing),
         resolve_site_table_processor(dataset, strict_parsing=strict_parsing),
         LicksProcessor(dataset, strict_parsing=strict_parsing),
@@ -136,6 +144,7 @@ def process_session(
     output_dir: Path | str = ".",
     *,
     strict_parsing: bool = False,
+    schema_migration_mode: SchemaMigrationMode = SchemaMigrationMode.DISABLED,
     include: Sequence[str] = (),
     exclude: Sequence[str] = (),
     processors: Sequence[AbstractProcessor] | None = None,
@@ -168,6 +177,10 @@ def process_session(
         directory is made.
     strict_parsing:
         Passed to all processors.
+    schema_migration_mode:
+        Control the derived current-model session, rig, and task-logic columns.
+        Applied to the completed raw session table, independently of processor
+        construction.
     include, exclude:
         Processor ``output_name`` filters, forwarded to
         :func:`create_processors`. ``session`` is never filtered out. Ignored
@@ -220,7 +233,12 @@ def process_session(
     selected = (
         processors
         if processors is not None
-        else create_processors(dataset, strict_parsing=strict_parsing, include=include, exclude=exclude)
+        else create_processors(
+            dataset,
+            strict_parsing=strict_parsing,
+            include=include,
+            exclude=exclude,
+        )
     )
 
     all_data: dict[str, pd.DataFrame] = {}
@@ -235,9 +253,27 @@ def process_session(
                 raise
             on_error(proc, exc)
             continue
+        enriched_table = None
+        if (
+            name == SessionMetadataProcessor.__output_name__
+            and schema_migration_mode is not SchemaMigrationMode.DISABLED
+        ):
+            import pyarrow as pa
+
+            raw_table = (
+                proc.to_arrow_table(df) if isinstance(proc, SessionMetadataProcessor) else pa.Table.from_pandas(df)
+            )
+            enriched_table = append_migrated_schema_columns(raw_table, mode=schema_migration_mode)
+            df = df.assign(**{column: enriched_table[column].to_pylist() for column in MIGRATED_SCHEMA_COLUMNS})
+
         all_data[name] = df
         if write_parquet:
-            proc.write_parquet(output_dir)
+            if enriched_table is None:
+                proc.write_parquet(output_dir)
+            else:
+                import pyarrow.parquet as pq
+
+                pq.write_table(enriched_table, output_dir / f"{name}.parquet")
             logger.info("[%s]   saved %d rows → %s.parquet", root.name, len(df), name)
         else:
             logger.info("[%s]   %d rows (parquet skipped)", root.name, len(df))

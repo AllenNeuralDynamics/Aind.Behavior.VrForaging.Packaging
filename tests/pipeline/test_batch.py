@@ -147,6 +147,18 @@ class TestParallelSessions:
             process_sessions([good, bad], tmp_path / "out", max_workers=2)
 
 
+def test_process_sessions_forwards_migrated_schema_option(tmp_path):
+    from aind_behavior_vr_foraging_packaging.schema_migrations import SchemaMigrationMode
+
+    raw = tmp_path / "raw" / "sess_A"
+    raw.mkdir(parents=True)
+
+    with patch("aind_behavior_vr_foraging_packaging.pipeline.batch.process_session") as process:
+        process_sessions([raw], tmp_path / "out", schema_migration_mode=SchemaMigrationMode.FILL_MISSING)
+
+    assert process.call_args.kwargs["schema_migration_mode"] is SchemaMigrationMode.FILL_MISSING
+
+
 # ---------------------------------------------------------------------------
 # aggregate()
 # ---------------------------------------------------------------------------
@@ -442,6 +454,78 @@ def test_aggregate_preserves_the_json_logical_type(tmp_path):
     schema = pq.read_table(tmp_path / "session.parquet").schema
     for column in ("session", "rig", "task_logic", "trainer_state"):
         assert schema.field(column).type == pa.json_(pa.utf8()), f"{column} lost its JSON logical type"
+
+
+def test_aggregate_appends_migrated_schemas_without_replacing_raw_columns(tmp_path):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    from aind_behavior_services.session import Session
+    from aind_behavior_vr_foraging.rig import AindVrForagingRig
+    from aind_behavior_vr_foraging.task_logic import AindVrForagingTaskLogic
+
+    from aind_behavior_vr_foraging_packaging.schema_migrations import SchemaMigrationMode
+
+    asset = Path(__file__).parents[1] / "schema_migrations" / "assets" / "session_schema_transitions.parquet"
+    source = pq.read_table(asset).slice(0, 1)
+    session_dir = tmp_path / "sessions" / "legacy"
+    session_dir.mkdir(parents=True)
+    pq.write_table(source, session_dir / "session.parquet")
+
+    aggregate(tmp_path / "sessions", tmp_path, schema_migration_mode=SchemaMigrationMode.FILL_MISSING)
+
+    combined = pq.read_table(tmp_path / "session.parquet")
+    for name in ("session", "rig", "task_logic"):
+        assert combined[name].to_pylist() == source[name].to_pylist()
+    for name in ("session_migrated", "rig_migrated", "task_logic_migrated"):
+        assert combined.schema.field(name).type == pa.json_(pa.utf8())
+    Session.model_validate_json(combined["session_migrated"][0].as_py())
+    AindVrForagingRig.model_validate_json(combined["rig_migrated"][0].as_py())
+    AindVrForagingTaskLogic.model_validate_json(combined["task_logic_migrated"][0].as_py())
+
+
+def test_aggregate_preserves_existing_migrated_schema_values(tmp_path):
+    import pyarrow.parquet as pq
+
+    from aind_behavior_vr_foraging_packaging.schema_migrations import SchemaMigrationMode
+
+    asset = Path(__file__).parents[1] / "schema_migrations" / "assets" / "session_schema_transitions.parquet"
+    source = pq.read_table(asset).slice(0, 1)
+    first_dir = tmp_path / "first" / "legacy"
+    first_dir.mkdir(parents=True)
+    pq.write_table(source, first_dir / "session.parquet")
+    aggregate(first_dir.parent, tmp_path / "first", schema_migration_mode=SchemaMigrationMode.FILL_MISSING)
+    migrated = pq.read_table(tmp_path / "first" / "session.parquet")
+
+    second_dir = tmp_path / "second" / "legacy"
+    second_dir.mkdir(parents=True)
+    pq.write_table(migrated, second_dir / "session.parquet")
+    aggregate(second_dir.parent, tmp_path / "second", schema_migration_mode=SchemaMigrationMode.FILL_MISSING)
+
+    repeated = pq.read_table(tmp_path / "second" / "session.parquet")
+    for name in ("session_migrated", "rig_migrated", "task_logic_migrated"):
+        assert repeated[name].to_pylist() == migrated[name].to_pylist()
+
+
+def test_aggregate_force_recomputes_existing_migrated_schema_values(tmp_path):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from aind_behavior_vr_foraging_packaging.schema_migrations import SchemaMigrationMode
+
+    asset = Path(__file__).parents[1] / "schema_migrations" / "assets" / "session_schema_transitions.parquet"
+    source = pq.read_table(asset).slice(0, 1)
+    sentinel = '{"stale":"value"}'
+    for name in ("session_migrated", "rig_migrated", "task_logic_migrated"):
+        source = source.append_column(name, pa.array([sentinel], type=pa.string()))
+    session_dir = tmp_path / "sessions" / "legacy"
+    session_dir.mkdir(parents=True)
+    pq.write_table(source, session_dir / "session.parquet")
+
+    aggregate(tmp_path / "sessions", tmp_path, schema_migration_mode=SchemaMigrationMode.FORCE)
+
+    combined = pq.read_table(tmp_path / "session.parquet")
+    for name in ("session_migrated", "rig_migrated", "task_logic_migrated"):
+        assert combined[name][0].as_py() != sentinel
 
 
 def test_aggregate_does_not_stamp_one_session_provenance_onto_the_experiment_file(tmp_path):

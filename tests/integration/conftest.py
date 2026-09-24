@@ -18,7 +18,7 @@ from botocore import UNSIGNED
 from botocore.client import BaseClient
 from botocore.config import Config
 
-from .model import DatasetEntry, DatasetManifest, load_manifest
+from .model import DatasetEntry, DatasetManifest, SchemaCorpusEntry, load_manifest
 
 _log = logging.getLogger(__name__)
 
@@ -201,6 +201,35 @@ def download_dataset(s3: BaseClient, entry: DatasetEntry, cache_root: Path) -> P
     _save_etag_index(ETAG_INDEX_PATH, etag_index)
 
     return local_root
+
+
+def download_schema_corpus(s3: BaseClient, entry: SchemaCorpusEntry, cache_root: Path) -> Path:
+    """Download one public S3 Parquet object without ETag validation."""
+    parsed = urlparse(entry.uri)
+    if parsed.scheme != "s3" or not parsed.netloc or not parsed.path.lstrip("/"):
+        raise ValueError(f"Schema corpus {entry.id!r} must have an s3:// object URI")
+
+    bucket = parsed.netloc
+    key = parsed.path.lstrip("/")
+    if key.endswith("/"):
+        raise ValueError(f"Schema corpus {entry.id!r} must identify one Parquet object, not a prefix")
+
+    cached_path = cache_root / bucket / key
+    cached_path.parent.mkdir(parents=True, exist_ok=True)
+    s3.download_file(bucket, key, str(cached_path))
+    return cached_path
+
+
+@pytest.fixture(scope="session")
+def cached_schema_corpora(s3_client: BaseClient) -> dict[str, Path]:
+    """Return every reachable schema corpus declared in the YAML manifest."""
+    cached: dict[str, Path] = {}
+    for entry in _manifest.schema_corpora:
+        try:
+            cached[entry.id] = download_schema_corpus(s3_client, entry, CACHE_ROOT)
+        except Exception as exc:
+            _log.warning("Could not prepare schema corpus %s: %s", entry.id, exc)
+    return cached
 
 
 @pytest.fixture(scope="session")

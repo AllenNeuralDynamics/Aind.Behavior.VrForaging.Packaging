@@ -23,6 +23,20 @@
 #       nwb_validates: true
 #     xfail: false                   # optional; default false
 #     xfail_reason: ""               # optional; only when xfail: true
+#
+# Optional schema-migration corpora:
+# schema_corpora:
+#   - id: historical-schema-corpus
+#     uri: s3://public-bucket/path/session.parquet
+#     rationale: |
+#       Full historical session/rig/task-logic regression corpus.
+schema_corpora:
+  - id: vr-foraging-historical-schemas
+    uri: s3://aind-scratch-data/vr-foraging/vr-foraging-dataset/session.parquet
+    rationale: |
+      Full historical session, rig, and task-logic corpus produced by the
+      VR Foraging primary-data aggregator.
+
 datasets:
   - id: behavior_815103_2025-11-05_22-52-21
     uri: s3://aind-open-data/behavior_815103_2025-11-05_22-52-21/

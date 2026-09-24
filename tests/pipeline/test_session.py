@@ -333,10 +333,16 @@ def test_process_session_forwards_include_exclude(tmp_path):
         "aind_behavior_vr_foraging_packaging.pipeline.session.create_processors",
         return_value=_named_procs("session", "sites"),
     ) as create:
-        process_session(ds, tmp_path / "out", include=["sites"], exclude=["licks"])
+        process_session(
+            ds,
+            tmp_path / "out",
+            include=["sites"],
+            exclude=["licks"],
+        )
 
     assert create.call_args.kwargs["include"] == ["sites"]
     assert create.call_args.kwargs["exclude"] == ["licks"]
+    assert "schema_migration_mode" not in create.call_args.kwargs
 
 
 def test_processors_argument_bypasses_the_filter(tmp_path):

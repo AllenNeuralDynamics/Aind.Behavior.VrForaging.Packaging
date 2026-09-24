@@ -80,6 +80,16 @@ class DatasetEntry(BaseModel):
     )
 
 
+class SchemaCorpusEntry(BaseModel):
+    """A public Parquet corpus used to validate historical schema migrations."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(description="Stable short handle used as the pytest test ID.")
+    uri: str = Field(description="Full s3:// URI of one public Parquet object.")
+    rationale: str = Field(description="Why this corpus belongs in the integration suite.")
+
+
 class DatasetManifest(BaseModel):
     """Top-level manifest describing every integration-test dataset."""
 
@@ -87,6 +97,10 @@ class DatasetManifest(BaseModel):
 
     datasets: list[DatasetEntry] = Field(
         description="Ordered list of dataset entries. Order has no semantic meaning beyond display.",
+    )
+    schema_corpora: list[SchemaCorpusEntry] = Field(
+        default_factory=list,
+        description="Optional public Parquet corpora for schema-migration regression tests.",
     )
 
 

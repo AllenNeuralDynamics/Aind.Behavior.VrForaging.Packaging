@@ -5,13 +5,17 @@ import json
 import logging
 import typing as ty
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import pyarrow as pa
 
 import pandas as pd
 from aind_behavior_curriculum.trainer import TrainerState
+from contraqctor.contract import Dataset
 from pydantic import BaseModel, Json, ValidationError
 
-from .._base import AbstractProcessor, DatasetProcessorError, cached_frame, session_root, write_parquet
+from .._base import AbstractProcessor, DatasetProcessorError, cached_frame, session_root
 from ..models import SessionMetadata
 
 logger = logging.getLogger(__name__)
@@ -33,6 +37,14 @@ class SessionMetadataProcessor(AbstractProcessor):
 
     __output_name__ = "session"
 
+    def __init__(
+        self,
+        dataset: Dataset,
+        *,
+        strict_parsing: bool = False,
+    ) -> None:
+        super().__init__(dataset, strict_parsing=strict_parsing)
+
     @cached_frame
     def _compute(self) -> pd.DataFrame:
         session_raw = self._normalize(self._load_input_schema("Session"))
@@ -40,6 +52,8 @@ class SessionMetadataProcessor(AbstractProcessor):
         trainer_state = self._load_trainer_state()
         curriculum = (trainer_state or {}).get("curriculum", None)
         stage = (trainer_state or {}).get("stage", None)
+        rig_raw = self._normalize(self._load_input_schema("Rig"))
+        task_logic_raw = self._normalize(self._load_input_schema("TaskLogic"))
         row = SessionMetadata(
             session_id=session_root(self._dataset).name,
             subject_id=str(session_raw["subject"]),
@@ -48,8 +62,8 @@ class SessionMetadataProcessor(AbstractProcessor):
             data_contract_version=self.provenance.data_contract_version,
             packaging_version=self.provenance.packaging_version,
             session=json.dumps(session_raw),
-            rig=json.dumps(self._normalize(self._load_input_schema("Rig"))),
-            task_logic=json.dumps(self._normalize(self._load_input_schema("TaskLogic"))),
+            rig=json.dumps(rig_raw),
+            task_logic=json.dumps(task_logic_raw),
             curriculum_enabled=trainer_state.get("is_on_curriculum") if trainer_state else None,
             curriculum_name=curriculum.get("name") if curriculum else None,
             curriculum_stage_name=stage.get("name") if stage else None,
@@ -97,56 +111,63 @@ class SessionMetadataProcessor(AbstractProcessor):
             if not raw.get(field):
                 raise KeyError(f"Required field {field!r} missing from the contraqctor Session stream")
 
-    def write_parquet(self, output_dir: Path, filename: str | None = None) -> None:
-        """Compute, then write with an explicit Parquet type per field rather than pyarrow's inferred one.
+    def to_arrow_table(self, df: pd.DataFrame | None = None) -> "pa.Table":
+        """Convert raw session metadata to Arrow with explicit field types.
 
-        Falls back to the default writer on a pyarrow build without ``json_`` (added in pyarrow 19).
+        ``df`` defaults to this processor's cached computation.
         """
         import pyarrow as pa
-        import pyarrow.parquet as pq
 
-        path = output_dir / (filename or f"{self.output_name}.parquet")
-        df = self.compute()
+        df = self.compute() if df is None else df
         encoded = self._json_encoded_columns(df)
         frame = df.assign(**encoded)
         frame.attrs = dict(df.attrs)
-
-        json_type_factory = getattr(pa, "json_", None)
-        if json_type_factory is None:
-            return write_parquet(frame, path)
 
         table = pa.Table.from_pandas(frame)
         kv = {str(k).encode(): str(v).encode() for k, v in frame.attrs.items()}
         table = table.replace_schema_metadata({**table.schema.metadata, **kv})
 
+        json_type_factory = getattr(pa, "json_", None)
+        if json_type_factory is None:
+            return table
+
         scalar_arrow_type = {bool: pa.bool_(), str: pa.large_string()}
 
-        for name, field in SessionMetadata.model_fields.items():
+        for name, values in encoded.items():
             index = table.schema.get_field_index(name)
-            if name in encoded:
-                # From the list, not frame[name]: pa.array ignores the extension type on
-                # pandas' Arrow-backed string dtype, and renders None as NaN.
-                json_array = pa.array(encoded[name], type=json_type_factory())
-                table = table.set_column(index, table.field(index).with_type(json_array.type), json_array)
+            # From the list, not frame[name]: pa.array ignores the extension type on
+            # pandas' Arrow-backed string dtype, and renders None as NaN.
+            json_array = pa.array(values, type=json_type_factory())
+            table = table.set_column(index, table.field(index).with_type(json_array.type), json_array)
+
+        for name, field in SessionMetadata.model_fields.items():
+            if name not in table.column_names or name in encoded:
                 continue
+            index = table.schema.get_field_index(name)
             base_type = next((t for t in ty.get_args(field.annotation) if t is not type(None)), field.annotation)
             arrow_type = scalar_arrow_type.get(base_type)
             if arrow_type is not None:
                 casted = table.column(index).cast(arrow_type)
                 table = table.set_column(index, table.field(index).with_type(arrow_type), casted)
 
-        pq.write_table(table, path)
+        return table
+
+    def write_parquet(self, output_dir: Path, filename: str | None = None) -> None:
+        """Write raw session metadata with its explicit Arrow schema."""
+        import pyarrow.parquet as pq
+
+        path = output_dir / (filename or f"{self.output_name}.parquet")
+        pq.write_table(self.to_arrow_table(), path)
 
     @staticmethod
     def _json_encoded_columns(df: pd.DataFrame) -> dict[str, list[str | None]]:
-        """Every ``Json``-marked column of *df*, re-encoded as JSON strings.
+        """Return model columns that must carry Arrow's JSON logical type.
 
-        Pydantic parses these fields into live objects, and pyarrow types every column it is
-        handed — including arbitrary JSON it has no type for, such as a curriculum graph's
-        heterogeneous ``[stage_name, weight]`` edges. ``None`` stays null rather than ``"null"``.
+        Pydantic parses model fields into live objects, so those are re-encoded.
+        ``None`` stays null rather than ``"null"``.
         """
         return {
             name: [None if value is None else json.dumps(value) for value in df[name]]
             for name, field in SessionMetadata.model_fields.items()
-            if _is_json_marked(field)
+            if name in df.columns and _is_json_marked(field)
         }

@@ -15,6 +15,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, CliApp, CliSubCommand, SettingsConfigDict
 
+from ..schema_migrations import SchemaMigrationMode
 from .batch import aggregate, process_sessions
 from .session import process_session
 
@@ -65,6 +66,9 @@ class _Command(BaseModel):
 
     log_file: Path | None = None
     """Path to a log file. Created if absent; appended to if it already exists."""
+
+    schema_migration_mode: SchemaMigrationMode = SchemaMigrationMode.DISABLED
+    """Disable, fill missing, or force replacement of migrated schema columns."""
 
     def cli_cmd(self) -> None:
         _setup_logging(self.log_file)
@@ -121,6 +125,7 @@ class SessionCommand(_ProcessingCommand):
             include=self.include_processors,
             exclude=self.exclude_processors,
             strict_parsing=self.strict_parsing,
+            schema_migration_mode=self.schema_migration_mode,
             write_parquet=self.write_parquet,
             write_nwb=self.write_nwb,
         )
@@ -161,6 +166,7 @@ class BatchCommand(_ProcessingCommand):
             include_processors=self.include_processors,
             exclude_processors=self.exclude_processors,
             strict_parsing=self.strict_parsing,
+            schema_migration_mode=self.schema_migration_mode,
             max_workers=self.workers,
             clean=self.clean,
             write_parquet=self.write_parquet,
@@ -168,7 +174,11 @@ class BatchCommand(_ProcessingCommand):
         )
 
         if not self.skip_aggregation:
-            aggregate(self.output_dir / "sessions", self.output_dir)
+            aggregate(
+                self.output_dir / "sessions",
+                self.output_dir,
+                schema_migration_mode=self.schema_migration_mode,
+            )
 
 
 class AggregateCommand(_Command):
@@ -180,7 +190,11 @@ class AggregateCommand(_Command):
     """
 
     def run(self) -> None:
-        aggregate(self.input_dir, self.output_dir)
+        aggregate(
+            self.input_dir,
+            self.output_dir,
+            schema_migration_mode=self.schema_migration_mode,
+        )
 
 
 # ---------------------------------------------------------------------------
