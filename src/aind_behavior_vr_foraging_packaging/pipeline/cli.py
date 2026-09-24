@@ -118,10 +118,15 @@ class SessionCommand(_ProcessingCommand):
     there is only one session to keep apart.
     """
 
+    session_id: str | None = None
+    """Session id to record in ``session.parquet``. Defaults to the name of
+    --input-dir; set it when that folder is a generic mount point."""
+
     def run(self) -> None:
         process_session(
             self.input_dir,
             self.output_dir,
+            session_id=self.session_id,
             include=self.include_processors,
             exclude=self.exclude_processors,
             strict_parsing=self.strict_parsing,

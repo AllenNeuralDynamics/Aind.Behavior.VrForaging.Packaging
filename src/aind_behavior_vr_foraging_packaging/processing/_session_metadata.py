@@ -33,7 +33,12 @@ def _is_json_marked(field: Any) -> bool:
 
 
 class SessionMetadataProcessor(AbstractProcessor):
-    """Single-row session identity: session_id/subject/date, raw session/rig/task_logic, curriculum state."""
+    """Single-row session identity: session_id/subject/date, raw session/rig/task_logic, curriculum state.
+
+    ``session_id`` defaults to the session root's directory name. Pass it
+    explicitly when that name is not the session's identity, e.g. when the raw
+    data is mounted under a generic folder such as ``vr_foraging_raw``.
+    """
 
     __output_name__ = "session"
 
@@ -42,8 +47,10 @@ class SessionMetadataProcessor(AbstractProcessor):
         dataset: Dataset,
         *,
         strict_parsing: bool = False,
+        session_id: str | None = None,
     ) -> None:
         super().__init__(dataset, strict_parsing=strict_parsing)
+        self._session_id = session_id
 
     @cached_frame
     def _compute(self) -> pd.DataFrame:
@@ -55,7 +62,7 @@ class SessionMetadataProcessor(AbstractProcessor):
         rig_raw = self._normalize(self._load_input_schema("Rig"))
         task_logic_raw = self._normalize(self._load_input_schema("TaskLogic"))
         row = SessionMetadata(
-            session_id=session_root(self._dataset).name,
+            session_id=self._session_id or session_root(self._dataset).name,
             subject_id=str(session_raw["subject"]),
             date=datetime.datetime.fromisoformat(str(session_raw["date"])),
             dataset_version=self.provenance.dataset_version,
