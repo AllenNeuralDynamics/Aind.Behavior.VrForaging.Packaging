@@ -76,8 +76,8 @@ def _walk_task_value(value: Any) -> None:
     if not isinstance(value, dict):
         return
 
-    if "mininum" in value and "minimum" not in value:
-        value["minimum"] = value.pop("mininum")
+    if "mininum" in value and "minimum" not in value:  # codespell:ignore mininum
+        value["minimum"] = value.pop("mininum")  # codespell:ignore mininum
     transition_matrix = value.get("transition_matrix")
     if isinstance(transition_matrix, dict) and isinstance(transition_matrix.get("data"), list):
         value["transition_matrix"] = transition_matrix["data"]

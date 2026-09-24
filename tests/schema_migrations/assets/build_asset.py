@@ -83,7 +83,10 @@ RULES: dict[str, Predicate] = {
             and isinstance(value["transition_matrix"].get("data"), list)
         ),
     ),
-    "legacy_mininum_spelling": lambda _version, _session, _rig, task: _contains(task, lambda value: "mininum" in value),
+    "legacy_mininum_spelling": lambda _version, _session, _rig, task: _contains(
+        task,
+        lambda value: "mininum" in value,  # codespell:ignore mininum
+    ),
     "audio_frequency_upper_bound": lambda _version, _session, _rig, task: _contains(
         task, lambda value: value.get("frequency") == 10_000
     ),
