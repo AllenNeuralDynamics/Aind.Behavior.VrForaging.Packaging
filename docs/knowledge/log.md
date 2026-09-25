@@ -3,6 +3,15 @@
 Chronological history of changes to this knowledge bundle, newest first.
 Add an entry here whenever you add, remove, or materially revise a concept.
 
+## 2026-09-25 (aggregated tables sorted by `session_id`, bounded row groups)
+
+* **Architecture**: [batch.md](architecture/batch.md) gains a *File layout*
+  section. `_aggregate_table` now stably sorts each aggregated table by
+  `session_id`. It writes row groups bounded by the new
+  `AGGREGATED_ROW_GROUP_SIZES` (`session` 256, `sites` 65,536), with explicit
+  statistics, a page index and `sorting_columns`, so `session_id` filters can
+  skip row groups. Schema and row contents are unchanged.
+
 ## 2026-09-17 (standardized the time-index name on `"timestamp"`)
 
 * **Architecture**: `position_velocity`, `licks`, and `sniffing` now

@@ -1,6 +1,7 @@
 """Unit tests for pipeline/batch.py — no real dataset I/O required."""
 
 import datetime
+import itertools
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -10,6 +11,7 @@ import pytest
 
 from aind_behavior_vr_foraging_packaging._base import session_root, write_parquet
 from aind_behavior_vr_foraging_packaging.pipeline.batch import (
+    AGGREGATED_ROW_GROUP_SIZES,
     AGGREGATED_TABLES,
     SESSION_TABLE,
     aggregate,
@@ -540,6 +542,145 @@ def test_aggregate_does_not_stamp_one_session_provenance_onto_the_experiment_fil
 
     metadata = pq.read_table(tmp_path / "session.parquet").schema.metadata or {}
     assert b"packaging_version" not in metadata
+
+
+# ---------------------------------------------------------------------------
+# Layout — sorted by session_id, bounded row groups, so readers can filter
+# ---------------------------------------------------------------------------
+
+# Directory names deliberately sort differently from the session_ids they hold:
+# processed-asset names do not order like session_id, so the sort cannot lean on
+# `sorted(session_dirs)`. Within-session order (`order`) is deliberately not
+# monotone, so a sort that reordered rows inside a session would show.
+_UNSORTED_SESSIONS = {
+    "dir_0": ("sess_C", [4, 0, 3, 1, 2]),
+    "dir_1": ("sess_A", [2, 0, 1]),
+    "dir_2": ("sess_B", [1, 3, 0, 2]),
+}
+
+
+def _write_unsorted_sessions(sessions_dir: Path) -> None:
+    for dir_name, (session_id, order) in _UNSORTED_SESSIONS.items():
+        d = sessions_dir / dir_name
+        d.mkdir(parents=True)
+        pd.DataFrame([{"session_id": session_id, "subject_id": "sub1"}]).to_parquet(d / "session.parquet", index=False)
+        pd.DataFrame({"session_id": session_id, "order": order}).to_parquet(d / "sites.parquet", index=False)
+
+
+@pytest.fixture
+def small_row_groups(monkeypatch):
+    """Row groups small enough that a handful of synthetic rows spans several."""
+    from aind_behavior_vr_foraging_packaging.pipeline import batch
+
+    sizes = {SESSION_TABLE: 1, "sites": 4}
+    monkeypatch.setattr(batch, "AGGREGATED_ROW_GROUP_SIZES", sizes)
+    return sizes
+
+
+def test_every_aggregated_table_has_a_row_group_size():
+    assert set(AGGREGATED_ROW_GROUP_SIZES) == set(AGGREGATED_TABLES)
+    assert AGGREGATED_ROW_GROUP_SIZES == {SESSION_TABLE: 256, "sites": 65_536}
+
+
+@pytest.mark.parametrize("table", AGGREGATED_TABLES)
+def test_aggregate_sorts_by_session_id_keeping_within_session_order(tmp_path, table):
+    sessions_dir = tmp_path / "sessions"
+    _write_unsorted_sessions(sessions_dir)
+
+    aggregate(sessions_dir, tmp_path)
+
+    df = pd.read_parquet(tmp_path / f"{table}.parquet")
+    assert df["session_id"].is_monotonic_increasing
+    if table == "sites":
+        for session_id, order in _UNSORTED_SESSIONS.values():
+            assert df.loc[df["session_id"] == session_id, "order"].tolist() == order, session_id
+
+
+@pytest.mark.parametrize("table", AGGREGATED_TABLES)
+def test_aggregate_writes_bounded_row_groups(tmp_path, table, small_row_groups):
+    import math
+
+    import pyarrow.parquet as pq
+
+    sessions_dir = tmp_path / "sessions"
+    _write_unsorted_sessions(sessions_dir)
+
+    aggregate(sessions_dir, tmp_path)
+
+    metadata = pq.ParquetFile(tmp_path / f"{table}.parquet").metadata
+    assert metadata.num_row_groups == math.ceil(metadata.num_rows / small_row_groups[table])
+    assert metadata.num_row_groups > 1
+
+
+@pytest.mark.parametrize("table", AGGREGATED_TABLES)
+def test_row_group_session_id_ranges_do_not_overlap(tmp_path, table, small_row_groups):
+    """What makes a `session_id` filter skip data: every row group has min/max
+    statistics, and consecutive groups cover consecutive ranges. A session may
+    straddle a boundary (max of one group == min of the next), never more."""
+    import pyarrow.parquet as pq
+
+    sessions_dir = tmp_path / "sessions"
+    _write_unsorted_sessions(sessions_dir)
+
+    aggregate(sessions_dir, tmp_path)
+
+    metadata = pq.ParquetFile(tmp_path / f"{table}.parquet").metadata
+    column = metadata.schema.to_arrow_schema().get_field_index("session_id")
+    ranges = []
+    for i in range(metadata.num_row_groups):
+        stats = metadata.row_group(i).column(column).statistics
+        assert stats is not None and stats.has_min_max, f"row group {i} has no session_id min/max"
+        ranges.append((stats.min, stats.max))
+    for (_, prev_max), (next_min, _) in itertools.pairwise(ranges):
+        assert prev_max <= next_min
+    assert metadata.row_group(0).sorting_columns[0].column_index == column
+
+
+@pytest.mark.parametrize("table", AGGREGATED_TABLES)
+def test_sorting_keeps_every_row_of_every_session(tmp_path, table, small_row_groups):
+    """Only row order and file layout change: each session's rows are exactly
+    what its per-session file holds."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    sessions_dir = tmp_path / "sessions"
+    _write_unsorted_sessions(sessions_dir)
+
+    aggregate(sessions_dir, tmp_path)
+
+    combined = pq.read_table(tmp_path / f"{table}.parquet")
+    sources = [pq.read_table(sessions_dir / d / f"{table}.parquet") for d in sorted(_UNSORTED_SESSIONS)]
+    assert combined.num_rows == sum(s.num_rows for s in sources)
+    assert combined.schema.remove_metadata() == pa.unify_schemas([s.schema for s in sources]).remove_metadata()
+    for source in sources:
+        session_id = source["session_id"][0].as_py()
+        rows = combined.filter(pa.compute.equal(combined["session_id"], session_id))
+        assert rows.to_pylist() == source.to_pylist(), session_id
+
+
+def test_sorted_small_row_groups_keep_the_json_logical_type(tmp_path, small_row_groups):
+    """The sort is a `take` over extension-typed columns and the write splits them
+    across row groups; neither may downgrade JSON to plain strings."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    sessions_dir = tmp_path / "sessions"
+    for dir_name, session_id in (("dir_0", "sess_B"), ("dir_1", "sess_A")):
+        out = sessions_dir / dir_name
+        out.mkdir(parents=True)
+        ds = MagicMock()
+        node = ds.at.return_value.at.return_value.at.return_value
+        node.reader_params.path = str(tmp_path / session_id / "behavior" / "Logs" / "session_input.json")
+        node.load.return_value.data = {"subject": "sub1", "date": "2025-01-01T00:00:00Z"}
+        SessionMetadataProcessor(ds).write_parquet(out)
+
+    aggregate(sessions_dir, tmp_path)
+
+    combined = pq.read_table(tmp_path / "session.parquet")
+    assert combined["session_id"].to_pylist() == ["sess_A", "sess_B"]
+    assert pq.ParquetFile(tmp_path / "session.parquet").metadata.num_row_groups == 2
+    for column in ("session", "rig", "task_logic", "trainer_state"):
+        assert combined.schema.field(column).type == pa.json_(pa.utf8()), f"{column} lost its JSON logical type"
 
 
 def test_aggregate_assumes_utc_for_naive_session_dates(tmp_path):

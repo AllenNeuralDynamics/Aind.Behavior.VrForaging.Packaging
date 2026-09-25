@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 SESSION_TABLE = "session"
 AGGREGATED_TABLES: tuple[str, ...] = (SESSION_TABLE, "sites")
+AGGREGATED_ROW_GROUP_SIZES: dict[str, int] = {SESSION_TABLE: 256, "sites": 65_536}
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +167,12 @@ def aggregate(
     Writes one flat ``output_dir/{table}.parquet`` for each name in
     :data:`AGGREGATED_TABLES`, with a ``session_id`` column for joins.
 
+    Each file is sorted by ``session_id`` (stably, so rows keep their order
+    within a session) and written in row groups of
+    :data:`AGGREGATED_ROW_GROUP_SIZES` rows, with statistics and a page index.
+    Readers filtering on ``session_id`` therefore fetch only the row groups that
+    hold the sessions they asked for.
+
     What gets aggregated is fixed, not configurable: the set is a property of
     the schema — which tables are small enough to scan experiment-wide — rather
     than something a caller should decide per run.
@@ -261,8 +268,18 @@ def _aggregate_table(
         logger.warning("  %s: no parquet files found across any session — skipped.", table)
         return False
 
-    combined = pa.concat_tables(tables, promote_options="permissive")
+    # Sorted so each row group spans a narrow session_id range a filter can skip on.
+    # Directory order is no substitute: asset names do not sort like session_id.
+    # sort_by is stable, so rows keep their order within a session.
+    combined = pa.concat_tables(tables, promote_options="permissive").sort_by("session_id")
     dest = output_dir / f"{table}.parquet"
-    pq.write_table(combined, dest)
+    pq.write_table(
+        combined,
+        dest,
+        row_group_size=AGGREGATED_ROW_GROUP_SIZES[table],
+        write_statistics=True,
+        write_page_index=True,
+        sorting_columns=[pq.SortingColumn(combined.schema.get_field_index("session_id"))],
+    )
     logger.info("  %s → %d rows → %s", table, combined.num_rows, dest.name)
     return True
