@@ -3,8 +3,8 @@ type: Component
 title: Batch pipeline — many sessions to a queryable export
 description: pipeline/batch.py runs the session pipeline over many session directories, writes per-session parquets, optionally writes one NWB-Zarr store per session, and concatenates chosen tables into flat per-experiment parquet files; driven by the vr-foraging-packaging CLI.
 resource: src/aind_behavior_vr_foraging_packaging/pipeline/batch.py
-tags: [architecture, pipeline, parquet, nwb, export, cli, aggregation]
-timestamp: 2026-08-30T00:00:00Z
+tags: [architecture, pipeline, parquet, nwb, export, cli, aggregation, row-groups]
+timestamp: 2026-09-25T00:00:00Z
 ---
 
 `pipeline/batch.py` is the multi-session layer above [session.md](session.md).
@@ -138,6 +138,48 @@ varied.
   a reason to destroy the source. They are what `--skip-processing`
   re-aggregation reads back, and the only copies carrying provenance in their
   parquet schema.
+
+## File layout: sorted by `session_id`, bounded row groups
+
+Downstream analyses mostly read a subset of sessions
+(`pl.scan_parquet(...).filter(pl.col("session_id").is_in(ids))`), and a reader
+can only skip data a row group at a time, using each group's `session_id`
+min/max. So the aggregated files are laid out for that filter:
+
+- Each table is **stably sorted by `session_id`** in Arrow
+  (`Table.sort_by`) before writing, so rows keep their order *within* a session.
+  The order of `session_dirs` is no substitute: processed-asset directory names
+  do not sort like `session_id` values.
+- Row groups are bounded by the module constant
+  `AGGREGATED_ROW_GROUP_SIZES = {"session": 256, "sites": 65_536}`. `session`
+  rows are few but wide (JSON config columns are ~98% of its bytes), so its
+  groups are small enough that readers loading those columns skip rows too.
+- `write_statistics=True` is explicit, a page index is written, and the footer
+  declares `sorting_columns=[session_id]`.
+
+Consecutive row groups then cover consecutive `session_id` ranges (a session
+may straddle one boundary). A filter only saves bytes when the wanted ids are
+*clustered* in that order, for example all sessions of a few subjects. A
+uniformly random sample hits most groups anyway.
+
+Measured on the shared 7,694-session build (pyarrow 25, Snappy). The filter
+column is for the sessions of randomly chosen subjects, about 5% of `sites`
+rows:
+
+| table | layout | row groups | file | subject filter reads |
+| --- | --- | --- | --- | --- |
+| `sites` | unsorted, default | 9 | 365 MB | 307 MB |
+| `sites` | sorted, 65,536 rows | 133 | 431 MB | 53 MB |
+| `session` | unsorted, default | 1 | 47.5 MB | 47.5 MB |
+| `session` | sorted, 256 rows | 31 | 15.7 MB | 6.6 MB |
+
+`sites` grows about 18% because each small row group restarts its dictionaries
+and encodings. Sorting by itself does not change its size. That growth is the
+cost of the filter reading about 6× less. `session` shrinks, because sorting
+puts similar JSON configs next to each other.
+
+Only row order and file layout change. Schema, columns, row contents and the
+per-session files do not.
 
 Tables *not* in `AGGREGATED_TABLES` simply stay as per-session files under
 `sessions/{session_id}/` — that is the intended home for the large streams

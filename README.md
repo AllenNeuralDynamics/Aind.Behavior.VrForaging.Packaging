@@ -121,6 +121,12 @@ vr-foraging-packaging batch --input-dir /data/raw --output-dir /data/export
 | `aggregate` | a `sessions/` tree from an earlier run | Rebuild the experiment-level tables only |
 
 Swap `batch` for `session` or `aggregate` in the command above to run those.
+
+The aggregated `session.parquet` and `sites.parquet` are sorted by `session_id`
+(within-session row order is kept) and written in bounded row groups with
+min/max statistics. Readers that filter by session, such as
+`pl.scan_parquet("sites.parquet").filter(pl.col("session_id").is_in(ids))`,
+fetch only the row groups that hold those sessions, not the whole file.
 Run `vr-foraging-packaging <command> --help` for that command's full flag
 reference, or see the [Getting Started guide](https://allenneuraldynamics.github.io/Aind.Behavior.VrForaging.Packaging/getting-started/) for common flag combinations.
 
