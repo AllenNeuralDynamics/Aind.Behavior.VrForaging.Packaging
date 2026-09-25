@@ -652,10 +652,11 @@ def test_sorting_keeps_every_row_of_every_session(tmp_path, table, small_row_gro
     sources = [pq.read_table(sessions_dir / d / f"{table}.parquet") for d in sorted(_UNSORTED_SESSIONS)]
     assert combined.num_rows == sum(s.num_rows for s in sources)
     assert combined.schema.remove_metadata() == pa.unify_schemas([s.schema for s in sources]).remove_metadata()
+    combined_rows = combined.to_pylist()
     for source in sources:
         session_id = source["session_id"][0].as_py()
-        rows = combined.filter(pa.compute.equal(combined["session_id"], session_id))
-        assert rows.to_pylist() == source.to_pylist(), session_id
+        rows = [r for r in combined_rows if r["session_id"] == session_id]
+        assert rows == source.to_pylist(), session_id
 
 
 def test_sorted_small_row_groups_keep_the_json_logical_type(tmp_path, small_row_groups):
