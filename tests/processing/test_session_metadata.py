@@ -526,5 +526,5 @@ def test_date_stays_naive_when_the_source_has_no_offset():
     """Legacy sessions carry no offset; none is invented for them."""
     df = SessionMetadataProcessor(_make_dataset({"subject": "716458", "date": "2024-05-13T09:03:55.480294"}))._compute()
 
-    assert df["date"].iloc[0] == datetime.datetime(2024, 5, 13, 9, 3, 55, 480294)  # noqa: DTZ001 -- asserting naive
+    assert df["date"].iloc[0] == datetime.datetime(2024, 5, 13, 9, 3, 55, 480294)
     assert df["date"].iloc[0].tzinfo is None
