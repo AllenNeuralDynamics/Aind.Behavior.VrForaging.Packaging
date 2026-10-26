@@ -27,8 +27,17 @@ def _make_processor(strict_parsing: bool = False) -> EventsProcessor:
     return proc
 
 
-def _make_force_reward_dataset(index, data):
-    """Dataset stub whose Behavior/SoftwareEvents/ForceGiveReward stream returns the given rows."""
+def _make_force_reward_dataset(index, data, *, start_session_times=None, rng_seed_times=None):
+    """Dataset stub whose Behavior/SoftwareEvents/ForceGiveReward stream returns the given rows.
+
+    ``StartSessionTime``/``RngSeed`` streams exist only when their times are given; otherwise they
+    are undeclared nodes, as in schemas without them.
+    """
+    streams = {"ForceGiveReward": (index, data)}
+    if start_session_times is not None:
+        streams["StartSessionTime"] = (start_session_times, ["2026-01-01T00:00:00Z"] * len(start_session_times))
+    if rng_seed_times is not None:
+        streams["RngSeed"] = (rng_seed_times, [0] * len(rng_seed_times))
 
     class _Stream:
         def __init__(self, df: pd.DataFrame) -> None:
@@ -36,13 +45,18 @@ def _make_force_reward_dataset(index, data):
             self.has_data = not df.empty
 
     class _Node:
+        def __init__(self, name: str) -> None:
+            self._name = name
+
         def load(self) -> _Stream:
+            index, data = streams[self._name]
             return _Stream(pd.DataFrame({"data": data}, index=np.asarray(index, dtype=float)))
 
     class _SoftwareEvents:
         def at(self, name: str) -> _Node:
-            assert name == "ForceGiveReward"
-            return _Node()
+            if name not in streams:
+                raise KeyError(f"Stream with name: '{name}' not found in data streams.")
+            return _Node(name)
 
     class _Behavior:
         def at(self, name: str) -> _SoftwareEvents:
@@ -114,6 +128,24 @@ class TestParseForceReward:
         result = parse_force_reward(dataset)
         assert result.index.tolist() == [1.0, 2.0]
         assert result["data"].tolist() == ["a", "b"]
+
+    def test_drops_events_before_session_start(self):
+        # The pre-fix BehaviorSubject logs one spurious event before the session starts.
+        dataset = _make_force_reward_dataset(
+            index=[0.5, 0.8, 3.0], data=[0.0, 3.0, 3.0], start_session_times=[0.7], rng_seed_times=[0.9]
+        )
+        result = parse_force_reward(dataset)
+        assert result.index.tolist() == [0.8, 3.0]
+
+    def test_falls_back_to_rng_seed_without_start_session_time(self):
+        dataset = _make_force_reward_dataset(index=[0.5, 1.0], data=[0.0, 3.0], rng_seed_times=[0.7])
+        result = parse_force_reward(dataset)
+        assert result.index.tolist() == [1.0]
+
+    def test_no_session_start_keeps_all_events(self):
+        dataset = _make_force_reward_dataset(index=[0.5, 1.0], data=[0.0, 3.0])
+        result = parse_force_reward(dataset)
+        assert result.index.tolist() == [0.5, 1.0]
 
 
 class TestManualWaterDelivery:

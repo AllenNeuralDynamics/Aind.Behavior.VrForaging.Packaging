@@ -22,17 +22,43 @@ def parse_reward_metadata(dataset: contraqctor.contract.Dataset) -> pd.DataFrame
     return dataset.at("Behavior").at("SoftwareEvents").at("GiveReward").load().data
 
 
+def session_start_time(dataset: contraqctor.contract.Dataset) -> float | None:
+    """Harp time the session started: the ``StartSessionTime`` event, else the first ``RngSeed`` event.
+
+    ``StartSessionTime`` is absent from older datasets; ``RngSeed`` is logged a few ms after it.
+    Returns ``None`` when neither stream has data.
+    """
+    for name in ("StartSessionTime", "RngSeed"):
+        try:
+            stream = dataset.at("Behavior").at("SoftwareEvents").at(name).load()
+        except (KeyError, FileNotFoundError):
+            continue
+        if stream.has_data:
+            return float(stream.data.index.min())
+    return None
+
+
 def parse_force_reward(dataset: contraqctor.contract.Dataset) -> pd.DataFrame:
     """Forced/manual reward events (``SoftwareEvents/ForceGiveReward``).
 
     Not a declared node at all in pre-0.6.0 schemas (``KeyError`` from ``.at()``); guarded the same
     as a declared-but-missing file (``FileNotFoundError``), since either way there's no data to read.
+
+    Events before :func:`session_start_time` are dropped: until the acquisition fix in
+    AllenNeuralDynamics/Aind.Behavior.VrForaging#604, ``ForceGiveReward`` was a ``BehaviorSubject``
+    that logged one spurious event when the workflow started, with no valve opening behind it.
     """
     try:
         stream = dataset.at("Behavior").at("SoftwareEvents").at("ForceGiveReward").load()
     except (KeyError, FileNotFoundError):
         return pd.DataFrame(columns=["data"])
-    return stream.data if stream.has_data else pd.DataFrame(columns=["data"])
+    if not stream.has_data:
+        return pd.DataFrame(columns=["data"])
+    force_reward = stream.data
+    start = session_start_time(dataset)
+    if start is not None:
+        force_reward = force_reward[force_reward.index >= start]
+    return force_reward
 
 
 def nearest_positions(sorted_values: np.ndarray, query: np.ndarray) -> np.ndarray:
