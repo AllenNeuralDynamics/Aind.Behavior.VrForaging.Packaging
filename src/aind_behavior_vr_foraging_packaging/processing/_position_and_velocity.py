@@ -113,6 +113,9 @@ class PositionAndVelocityProcessor(AbstractProcessor):
             dataset.at("Behavior").at("HarpTreadmill").load().at("SensorData").load().data,
         )
         encoder = treadmill_data.query("MessageType == 'EVENT'")["Encoder"].copy()
+        # Encoder is an absolute count, so the last sample at a repeated timestamp is the current one.
+        # Keeping duplicates would give dt == 0 and an infinite velocity.
+        encoder = encoder[~encoder.index.duplicated(keep="last")]
         position = (encoder - encoder.iloc[0]) * converting_factor
         displacement = position.diff().fillna(0)
         velocity = displacement / position.index.to_series().diff().fillna(1)
