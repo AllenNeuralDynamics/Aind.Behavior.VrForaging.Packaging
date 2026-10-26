@@ -23,11 +23,12 @@ def parse_reward_metadata(dataset: contraqctor.contract.Dataset) -> pd.DataFrame
 
 
 def session_start_time(dataset: contraqctor.contract.Dataset) -> float | None:
-    """Harp time the task started: the first ``Block`` event, else the first ``RngSeed`` event.
+    """Harp time the session started: the ``StartSessionTime`` event, else the first ``RngSeed`` event.
 
+    ``StartSessionTime`` is absent from older datasets; ``RngSeed`` is logged a few ms after it.
     Returns ``None`` when neither stream has data.
     """
-    for name in ("Block", "RngSeed"):
+    for name in ("StartSessionTime", "RngSeed"):
         try:
             stream = dataset.at("Behavior").at("SoftwareEvents").at(name).load()
         except (KeyError, FileNotFoundError):

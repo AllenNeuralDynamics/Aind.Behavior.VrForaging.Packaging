@@ -27,15 +27,15 @@ def _make_processor(strict_parsing: bool = False) -> EventsProcessor:
     return proc
 
 
-def _make_force_reward_dataset(index, data, *, block_times=None, rng_seed_times=None):
+def _make_force_reward_dataset(index, data, *, start_session_times=None, rng_seed_times=None):
     """Dataset stub whose Behavior/SoftwareEvents/ForceGiveReward stream returns the given rows.
 
-    ``Block``/``RngSeed`` streams exist only when their times are given; otherwise they are
-    undeclared nodes, as in schemas without them.
+    ``StartSessionTime``/``RngSeed`` streams exist only when their times are given; otherwise they
+    are undeclared nodes, as in schemas without them.
     """
     streams = {"ForceGiveReward": (index, data)}
-    if block_times is not None:
-        streams["Block"] = (block_times, [{}] * len(block_times))
+    if start_session_times is not None:
+        streams["StartSessionTime"] = (start_session_times, ["2026-01-01T00:00:00Z"] * len(start_session_times))
     if rng_seed_times is not None:
         streams["RngSeed"] = (rng_seed_times, [0] * len(rng_seed_times))
 
@@ -129,15 +129,15 @@ class TestParseForceReward:
         assert result.index.tolist() == [1.0, 2.0]
         assert result["data"].tolist() == ["a", "b"]
 
-    def test_drops_events_before_first_block(self):
-        # The pre-fix BehaviorSubject logs one spurious event before the task starts.
+    def test_drops_events_before_session_start(self):
+        # The pre-fix BehaviorSubject logs one spurious event before the session starts.
         dataset = _make_force_reward_dataset(
-            index=[0.5, 3.0], data=[0.0, 3.0], block_times=[2.5, 10.0], rng_seed_times=[0.7]
+            index=[0.5, 0.8, 3.0], data=[0.0, 3.0, 3.0], start_session_times=[0.7], rng_seed_times=[0.9]
         )
         result = parse_force_reward(dataset)
-        assert result.index.tolist() == [3.0]
+        assert result.index.tolist() == [0.8, 3.0]
 
-    def test_falls_back_to_rng_seed_without_block(self):
+    def test_falls_back_to_rng_seed_without_start_session_time(self):
         dataset = _make_force_reward_dataset(index=[0.5, 1.0], data=[0.0, 3.0], rng_seed_times=[0.7])
         result = parse_force_reward(dataset)
         assert result.index.tolist() == [1.0]
