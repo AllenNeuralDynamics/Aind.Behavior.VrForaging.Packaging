@@ -83,6 +83,9 @@ class LegacyPositionAndVelocityProcessor(PositionAndVelocityProcessor):
             dataset.at("Behavior").at("HarpBehavior").load().at("AnalogData").load().data,
         )
         encoder = analog_data[analog_data["MessageType"] == "EVENT"]["Encoder"].astype(float)
+        # Counts are differential, so samples sharing a timestamp are summed rather than dropped.
+        # Keeping duplicates would give dt == 0 and an infinite velocity.
+        encoder = encoder.groupby(level=0, sort=False).sum()
 
         # Already-differential counts: displacement per sample
         displacement = encoder * converter
