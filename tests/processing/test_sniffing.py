@@ -22,7 +22,7 @@ DURATION_S = 5.0
 
 
 class _InMemoryStream(DataStream):
-    def _reader(self, params: pd.DataFrame) -> pd.DataFrame:
+    def _reader(self, params: pd.DataFrame) -> pd.DataFrame:  # ty: ignore[invalid-mutable-override]
         return params
 
 
@@ -69,7 +69,7 @@ class _MissingFileStream(DataStream):
     """A stream whose reader always raises ``FileNotFoundError``, simulating a
     session whose ``SniffDetector.harp/SniffDetector_32.bin`` file is absent."""
 
-    def _reader(self, params: ty.Any) -> pd.DataFrame:
+    def _reader(self, params: ty.Any) -> pd.DataFrame:  # ty: ignore[invalid-mutable-override]
         raise FileNotFoundError("SniffDetector_32.bin")
 
 
@@ -141,14 +141,14 @@ def test_write_parquet_writes_file_when_sniff_detector_data_present(tmp_path: ty
 class _ConstantStream(DataStream):
     """A stream whose reader returns *reader_params* verbatim, whatever its type."""
 
-    def _reader(self, params: ty.Any) -> ty.Any:
+    def _reader(self, params: ty.Any) -> ty.Any:  # ty: ignore[invalid-mutable-override]
         return params
 
 
 class _UnreachableStream(DataStream):
     """A stream whose reader must never be called -- proves a shortcut skipped loading it."""
 
-    def _reader(self, params: ty.Any) -> pd.DataFrame:
+    def _reader(self, params: ty.Any) -> pd.DataFrame:  # ty: ignore[invalid-mutable-override]
         raise AssertionError(
             "HarpSniffDetector should not have been loaded: the rig-based shortcut should have short-circuited first."
         )

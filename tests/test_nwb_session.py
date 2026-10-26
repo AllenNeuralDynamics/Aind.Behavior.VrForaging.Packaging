@@ -24,7 +24,7 @@ CREATION_TIME = datetime(2026, 1, 15, 10, 30, tzinfo=UTC)
 
 def _base_nwb_file() -> NWBFile:
     """A minimal base file, standing in for whatever create_base_nwb_file would return."""
-    return NWBFile(
+    return NWBFile(  # ty: ignore[call-non-callable]
         session_description="A VR Foraging experiment.",
         identifier="test-identifier",
         session_start_time=CREATION_TIME,
