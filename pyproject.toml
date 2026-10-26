@@ -28,7 +28,7 @@ dependencies = [
     "pyarrow>=14.0.0",
     "pydantic-settings>=2.10.1",
     "pydantic>=2.10",
-    "pynwb>=4.1",
+    "pynwb>=4.2",
     "scipy",
     "pydantic-settings",
     "aind-nwb-utils>=0.2.9",
