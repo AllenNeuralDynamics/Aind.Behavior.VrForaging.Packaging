@@ -8,6 +8,7 @@ import semver
 from pydantic import BaseModel
 
 from .._base import AbstractProcessor, DatasetProcessorError
+from ._legacy_position_and_velocity import LegacyPositionAndVelocityProcessor
 from ._site_table import SiteTableProcessor
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ class LegacySiteTableProcessor(SiteTableProcessor):
       delivery at or after the choice tone is taken as the earned one; see
       :meth:`_first_after_choice`.
     - HarpTreadmill is optional; friction defaults to 0 when absent.
-    - IsStopped and velocity streams are absent; last_stop_* fields are always None.
+    - Velocity for last_stop_* falls back to HarpBehavior.AnalogData when HarpTreadmill is absent (v0.3).
 
     Note on NWB table naming: re-ingested legacy datasets use the current
     full-path naming convention for DynamicTables (e.g., "Behavior.HarpBehavior.PwmStart"),
@@ -272,8 +273,17 @@ class LegacySiteTableProcessor(SiteTableProcessor):
             return pd.Series(dtype=float)
 
     @staticmethod
-    def _parse_is_stopped(dataset: contraqctor.contract.Dataset) -> None:  # type: ignore[override]
-        return None
+    def _parse_is_stopped(dataset: contraqctor.contract.Dataset) -> pd.DataFrame | None:
+        try:
+            return SiteTableProcessor._parse_is_stopped(dataset)
+        except (KeyError, FileNotFoundError):
+            logger.info("IsStopped not found; last_stop_* will be None for all sites.")
+            return None
 
-    def _parse_velocity(self, dataset: contraqctor.contract.Dataset) -> None:  # type: ignore[override]
-        return None
+    def _parse_velocity(self, dataset: contraqctor.contract.Dataset) -> pd.Series | None:
+        try:
+            processor = LegacyPositionAndVelocityProcessor(dataset)
+            return processor.compute_position_and_velocity(dataset, downsample_to_hz=None)["velocity"]
+        except (KeyError, FileNotFoundError):
+            logger.info("Treadmill encoder not found; velocity_at_last_stop will be None for all sites.")
+            return None

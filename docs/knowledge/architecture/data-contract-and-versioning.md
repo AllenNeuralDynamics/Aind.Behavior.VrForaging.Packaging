@@ -109,7 +109,7 @@ in the codebase go through `semver`.
 `pipeline._LEGACY_VERSION_CUTOFF = 0.6.0`. Datasets below it use the
 `Legacy*` processors. Concretely, `< 0.6.0` datasets differ in odor
 specification format, block-stream availability, `PatchStateAtReward`
-presence, and `IsStopped`/velocity streams. The integration suite covers a
+presence, and where the treadmill encoder is logged. The integration suite covers a
 `0.3.0` legacy dataset explicitly (see
 [testing/integration-tests.md](../testing/integration-tests.md)); test code
 also normalizes `schema_version` `< 0.4.0` sessions onto the `0.4.0` loader.

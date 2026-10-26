@@ -67,9 +67,10 @@ timestamp interval. Documented edge cases it handles:
 
 **Reachability on legacy data.** `LegacySiteTableProcessor` overrides hook
 methods but *not* `_compute`, so pre-0.6.0 sessions run this same alignment
-logic and honour `strict_parsing` through it. The two `IsStopped` branches above
-are the exception: legacy's `_parse_is_stopped` returns `None`, so the guard that
-wraps them is never entered and `last_stop_*` is always `None` there. See
+logic and honour `strict_parsing` through it, including the two `IsStopped`
+branches above. Legacy's `_parse_velocity` uses `LegacyPositionAndVelocityProcessor`,
+so v0.3 sessions without `HarpTreadmill` read the encoder from
+`HarpBehavior.AnalogData`. See
 [error-policy.md](../conventions/error-policy.md) for which failures the flag
 covers, and its **Known gaps** section for two unfixed legacy hard-raises.
 

@@ -55,15 +55,31 @@ class TestLegacyChannelCount:
 
 
 class TestLegacyIsStoppedAndVelocity:
-    def test_parse_is_stopped_returns_none(self):
+    def test_parse_is_stopped_reads_operation_control(self):
         from unittest.mock import MagicMock
 
-        assert LegacySiteTableProcessor._parse_is_stopped(MagicMock()) is None
+        import pandas as pd
 
-    def test_parse_velocity_returns_none(self):
+        is_stopped = pd.DataFrame({"IsStopped": [False, True]}, index=[1.0, 2.0])
+        dataset = MagicMock()
+        dataset.at("Behavior").at("OperationControl").at("IsStopped").load().data = is_stopped
+        assert LegacySiteTableProcessor._parse_is_stopped(dataset) is is_stopped
+
+    def test_parse_is_stopped_returns_none_when_missing(self):
         from unittest.mock import MagicMock
 
-        assert _uninit_processor()._parse_velocity(MagicMock()) is None
+        dataset = MagicMock()
+        dataset.at.side_effect = KeyError("OperationControl")
+        assert LegacySiteTableProcessor._parse_is_stopped(dataset) is None
+
+    def test_parse_velocity_returns_none_when_missing(self):
+        from unittest.mock import MagicMock, patch
+
+        with patch(
+            "aind_behavior_vr_foraging_packaging.processing._legacy_site_table.LegacyPositionAndVelocityProcessor",
+            side_effect=FileNotFoundError,
+        ):
+            assert _uninit_processor()._parse_velocity(MagicMock()) is None
 
 
 class TestLegacyLoadBlocksFallback:
