@@ -130,6 +130,23 @@ class SiteTableProcessor(AbstractProcessor):
         blocks["block_count"] = range(len(blocks))
         return blocks
 
+    @staticmethod
+    def _merge_blocks(events: pd.DataFrame, blocks: pd.DataFrame) -> pd.DataFrame:
+        """Attach the ``block_count`` of the most recent block to each event.
+
+        The first block, patch and site are emitted on the same frame, but their harp timestamps can
+        still land slightly out of order. Events preceding the first block are assigned to it.
+        """
+        merged = pd.merge_asof(
+            events.sort_index(),
+            blocks[["block_count"]].sort_index(),
+            left_index=True,
+            right_index=True,
+            direction="backward",
+        )
+        merged["block_count"] = merged["block_count"].bfill()
+        return merged
+
     def _select_patch_state_at_reward(
         self, candidates: pd.DataFrame, *, choice_time: float, site_start: float, site_stop: float
     ) -> pd.DataFrame:
@@ -222,14 +239,7 @@ class SiteTableProcessor(AbstractProcessor):
         )
         merged["patch_index"] = merged["patch_data"].apply(lambda d: d["state_index"])
 
-        # Merge nearest block (backward in time)
-        merged = pd.merge_asof(
-            merged.sort_index(),
-            blocks[["block_count"]].sort_index(),
-            left_index=True,
-            right_index=True,
-            direction="backward",
-        )
+        merged = self._merge_blocks(merged, blocks)
 
         choice_feedback = self._parse_speaker_choice_feedback(dataset)
         water_delivery = parse_water_delivery(dataset)
@@ -259,13 +269,7 @@ class SiteTableProcessor(AbstractProcessor):
         merged["_site_index_in_block_by_type"] = merged.groupby(["block_count", "site_label"]).cumcount()
 
         # Patch-level indices (computed on patches, then mapped back to sites via patch_count)
-        patches_with_blocks = pd.merge_asof(
-            patches.sort_index(),
-            blocks[["block_count"]].sort_index(),
-            left_index=True,
-            right_index=True,
-            direction="backward",
-        )
+        patches_with_blocks = self._merge_blocks(patches, blocks)
         patches_with_blocks["patch_label"] = patches_with_blocks["data"].apply(lambda d: d["label"])
         patches_with_blocks["_patch_index_in_block"] = patches_with_blocks.groupby("block_count").cumcount()
         patches_with_blocks["_patch_index_by_type"] = patches_with_blocks.groupby("patch_label").cumcount()

@@ -9,6 +9,8 @@ SiteTableProcessor.process_to_sites without requiring a real dataset.
 import pandas as pd
 import pytest
 
+from aind_behavior_vr_foraging_packaging.processing._site_table import SiteTableProcessor
+
 
 def _build_merged(sites: pd.DataFrame, patches: pd.DataFrame, blocks: pd.DataFrame) -> pd.DataFrame:
     """Replicate the merge + index precomputation from process_to_sites.
@@ -32,14 +34,7 @@ def _build_merged(sites: pd.DataFrame, patches: pd.DataFrame, blocks: pd.DataFra
         suffixes=("", "_patch"),
     )
 
-    # Merge nearest block (backward in time)
-    merged = pd.merge_asof(
-        merged.sort_index(),
-        blocks[["block_count"]].sort_index(),
-        left_index=True,
-        right_index=True,
-        direction="backward",
-    )
+    merged = SiteTableProcessor._merge_blocks(merged, blocks)
 
     # --- Precompute all trial indices (same as production code) ---
     merged["site_label"] = merged["data"].apply(lambda d: d["label"])
@@ -53,13 +48,7 @@ def _build_merged(sites: pd.DataFrame, patches: pd.DataFrame, blocks: pd.DataFra
     merged["_site_index_in_block_by_type"] = merged.groupby(["block_count", "site_label"]).cumcount()
 
     # Patch-level indices (computed on patches, then mapped back to sites via patch_count)
-    patches_with_blocks = pd.merge_asof(
-        patches.sort_index(),
-        blocks[["block_count"]].sort_index(),
-        left_index=True,
-        right_index=True,
-        direction="backward",
-    )
+    patches_with_blocks = SiteTableProcessor._merge_blocks(patches, blocks)
     patches_with_blocks["patch_label"] = patches_with_blocks["data"].apply(lambda d: d["label"])
     patches_with_blocks["_patch_index_in_block"] = patches_with_blocks.groupby("block_count").cumcount()
     patches_with_blocks["_patch_index_by_type"] = patches_with_blocks.groupby("patch_label").cumcount()
@@ -139,6 +128,28 @@ class TestMergeAssignment:
     def test_index_preserved(self, session):
         """The time-based index must survive all merge/join operations."""
         assert list(session.index) == [2.0, 3.0, 4.0, 6.0, 7.0, 10.0, 11.0, 13.0, 14.0]
+
+
+class TestEventsBeforeFirstBlock:
+    """The first patch/site can be timestamped slightly before the first block it belongs to."""
+
+    @pytest.fixture
+    def session(self):
+        blocks = pd.DataFrame({"data": [_make_block_data()]}, index=[1.0])
+        patches = pd.DataFrame({"data": [_make_patch_data("A"), _make_patch_data("B")]}, index=[0.5, 3.0])
+        sites = pd.DataFrame(
+            {"data": [_make_site_data("Reward"), _make_site_data("Reward"), _make_site_data("Reward")]},
+            index=[0.9, 2.0, 4.0],
+        )
+        return _build_merged(sites, patches, blocks)
+
+    def test_assigned_to_first_block(self, session):
+        assert list(session["block_count"]) == [0, 0, 0]
+        assert list(session["_site_index_in_block"]) == [0, 1, 2]
+
+    def test_patch_indices_are_defined(self, session):
+        assert list(session["_patch_index_in_block"]) == [0, 0, 1]
+        assert list(session["_patch_index_in_block_by_type"]) == [0, 0, 0]
 
 
 class TestSiteLevelIndices:
