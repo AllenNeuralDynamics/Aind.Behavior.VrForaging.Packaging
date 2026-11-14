@@ -72,6 +72,9 @@ extend-ignore = ["BLE001"]
 mccabe = { max-complexity = 14 }
 pydocstyle = { convention = 'google' }
 
+[tool.ruff.lint.per-file-ignores]
+"docs/notebooks/*.py" = ["PLR1711", "B018"]
+
 [tool.setuptools_scm]
 
 [tool.codespell]

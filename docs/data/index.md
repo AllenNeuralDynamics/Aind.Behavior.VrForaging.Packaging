@@ -50,9 +50,7 @@ Its location is the `source_s3_location` column of `session.parquet`.
     SESSION_ID = "841312_2026-06-04_20-19-36"
 
     sites = (
-        pl.scan_parquet(f"{ROOT}/sites.parquet", storage_options=OPTS)
-        .filter(pl.col("session_id") == SESSION_ID)
-        .collect()
+        pl.scan_parquet(f"{ROOT}/sites.parquet", storage_options=OPTS).filter(pl.col("session_id") == SESSION_ID).collect()
     )
     sites.group_by("site_label").agg(pl.len(), pl.col("has_reward").sum())
     ```
@@ -66,9 +64,7 @@ Its location is the `source_s3_location` column of `session.parquet`.
     OPTS = {"anon": True}
     SESSION_ID = "841312_2026-06-04_20-19-36"
 
-    sites = pd.read_parquet(
-        f"{ROOT}/sites.parquet", storage_options=OPTS, filters=[("session_id", "==", SESSION_ID)]
-    )
+    sites = pd.read_parquet(f"{ROOT}/sites.parquet", storage_options=OPTS, filters=[("session_id", "==", SESSION_ID)])
     sites.groupby("site_label").agg(n=("site_label", "size"), rewards=("has_reward", "sum"))
     ```
 

@@ -5,6 +5,7 @@
 #     "polars>=1.0",
 #     "matplotlib>=3.8",
 #     "aind-data-access-api>=1.9.2",
+#     "boto3>=1.35",  # keeps the resolver off ancient boto3 when python-dateutil 4 is picked
 # ]
 # ///
 
@@ -81,10 +82,7 @@ def _(OPTS, ROOT, SESSION_ID, pl):
         .collect()
     )
     sites = (
-        pl.scan_parquet(f"{ROOT}/sites.parquet", storage_options=OPTS)
-        .filter(in_session)
-        .sort("start_time")
-        .collect()
+        pl.scan_parquet(f"{ROOT}/sites.parquet", storage_options=OPTS).filter(in_session).sort("start_time").collect()
     )
     asset = session["source_s3_location"][0]
     session

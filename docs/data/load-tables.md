@@ -89,11 +89,13 @@ Read one file per session from its `source_s3_location`, tag it with its `sessio
     def load_table(table: str, session: pl.DataFrame) -> pl.DataFrame:
         dtype = pl.Enum(sorted(session["session_id"]))  # cheap for ~1M-row tables
         frames = [
-            pl.scan_parquet(f"{location}/{table}.parquet", storage_options=OPTS)
-            .with_columns(pl.lit(sid, dtype=dtype).alias("session_id"))
+            pl.scan_parquet(f"{location}/{table}.parquet", storage_options=OPTS).with_columns(
+                pl.lit(sid, dtype=dtype).alias("session_id")
+            )
             for sid, location in zip(session["session_id"], session["source_s3_location"])
         ]
         return pl.concat(frames).collect()
+
 
     licks = load_table("licks", session)
     ```
@@ -107,6 +109,7 @@ Read one file per session from its `source_s3_location`, tag it with its `sessio
             for sid, location in zip(session["session_id"], session["source_s3_location"])
         ]
         return pd.concat(frames).astype({"session_id": "category"})
+
 
     licks = load_table("licks", session)  # timestamp is the index
     ```

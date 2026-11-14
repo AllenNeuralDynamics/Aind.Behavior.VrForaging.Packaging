@@ -50,10 +50,10 @@ The stream tables are indexed by `timestamp`; use `.reset_index()` before conver
 `write_parquet` (on by default) and `write_nwb` (off by default) choose what reaches disk; every requested table is computed either way:
 
 ```python
-process_session(ds, "output/my_session")                                      # parquet only
-process_session(ds, "output/my_session", write_nwb=True)                      # parquet and NWB
-process_session(ds, "output/my_session", write_parquet=False, write_nwb=True) # NWB only
-tables = process_session(ds, write_parquet=False)                             # nothing, in memory
+process_session(ds, "output/my_session")  # parquet only
+process_session(ds, "output/my_session", write_nwb=True)  # parquet and NWB
+process_session(ds, "output/my_session", write_parquet=False, write_nwb=True)  # NWB only
+tables = process_session(ds, write_parquet=False)  # nothing, in memory
 ```
 
 The NWB file is written as `output/my_session/behavior.nwb.zarr`.

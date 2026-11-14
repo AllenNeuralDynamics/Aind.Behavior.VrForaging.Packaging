@@ -5,6 +5,7 @@
 #     "polars>=1.0",
 #     "matplotlib>=3.8",
 #     "aind-data-access-api>=1.9.2",
+#     "boto3>=1.35",  # keeps the resolver off ancient boto3 when python-dateutil 4 is picked
 # ]
 # ///
 
