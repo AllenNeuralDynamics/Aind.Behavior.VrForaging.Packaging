@@ -187,6 +187,12 @@ jobs:
       - name: Install dependencies
         run: uv sync --group docs
 
+      - name: Generate reference pages
+        run: uv run python scripts/generate_reference_docs.py
+
+      - name: Export marimo notebooks
+        run: for nb in docs/notebooks/*.py; do uvx marimo export html --sandbox -o "${nb%.py}.html" "$nb"; done
+
       - name: Build site
         run: uv run zensical build --clean
 

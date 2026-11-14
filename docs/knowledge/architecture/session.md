@@ -226,5 +226,5 @@ data = process_session(ds, "/path/to/out")  # writes 7 parquet files
 sites = data["sites"]  # also returned in-memory
 ```
 
-See [session-from-disk.md](../../guides/session-from-disk.md) for
-all-at-once, single-stream, and load-from-disk patterns.
+See [one-session.md](../../processing/one-session.md) for
+all-at-once, single-table, and output-format patterns.

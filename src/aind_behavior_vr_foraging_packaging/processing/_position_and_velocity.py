@@ -12,6 +12,15 @@ logger = logging.getLogger(__name__)
 
 
 class PositionAndVelocityProcessor(AbstractProcessor):
+    """Treadmill-derived position and velocity, one row per sample.
+
+    | Column | Type | Unit | Description |
+    | --- | --- | --- | --- |
+    | `timestamp` | `float` | second | Harp time. |
+    | `position` | `float` | centimeter | Position along the VR environment. |
+    | `velocity` | `float` | cm/s | Velocity. |
+    """
+
     __output_name__ = "position_velocity"
 
     def __init__(self, dataset: contraqctor.contract.Dataset, *, sampling_rate_hz: float | None = None, **kwargs):

@@ -24,30 +24,37 @@ edit_uri = "edit/main/docs/"
 
 nav = [
   { "Home" = "index.md" },
-  { "Getting Started" = "getting-started.md" },
-  { "Guides" = [
-    { "Overview" = "guides/index.md" },
-    { "Run a session from disk" = "guides/session-from-disk.md" },
-    { "Query parquet files" = "guides/parquet-files.md" },
-    { "Query from AWS S3" = "guides/aws-s3.md" },
-    { "Raw streams with contraqctor" = "guides/contraqctor-streams.md" },
+  { "Use existing data" = [
+    { "Quickstart" = "data/index.md" },
+    { "Find sessions" = "data/find-sessions.md" },
+    { "Load tables" = "data/load-tables.md" },
+    { "Examples" = [
+      { "One session" = "data/example-session.md" },
+      { "One subject across sessions" = "data/example-subject.md" },
+    ] },
   ] },
-  { "Examples" = [
-    { "Query local export" = "examples/query-export.md" },
-    { "Query from S3 (DuckDB)" = "examples/query-export-s3-duckdb.md" },
-    { "Query from S3 (Polars)" = "examples/query-export-s3-polars.md" },
+  { "Process raw sessions" = [
+    { "Quickstart" = "processing/index.md" },
+    { "One session" = "processing/one-session.md" },
+    { "Many sessions" = "processing/many-sessions.md" },
+    { "Raw streams" = "processing/raw-streams.md" },
   ] },
-  { "Schema migrations" = [
-    { "Overview" = "schema-migrations.md" },
-    { "Caveats and review notes" = "schema-migration-notes.md" },
-  ] },
-  { "API Reference" = [
-    { "Overview" = "api/index.md" },
-    { "Session pipeline" = "api/session.md" },
-    { "Export pipeline" = "api/batch.md" },
-    { "CLI" = "api/cli.md" },
-    { "Processors" = "api/processors.md" },
-    { "NWB export" = "api/nwb.md" },
+  { "Reference" = [
+    { "Overview" = "reference/index.md" },
+    { "Processed tables" = "reference/processed-tables.md" },
+    { "Raw data contract" = "reference/raw-data-contract.md" },
+    { "Python API" = [
+      { "Overview" = "api/index.md" },
+      { "Session pipeline" = "api/session.md" },
+      { "Export pipeline" = "api/batch.md" },
+      { "CLI" = "api/cli.md" },
+      { "Processors" = "api/processors.md" },
+      { "NWB export" = "api/nwb.md" },
+    ] },
+    { "Schema migrations" = [
+      { "Overview" = "schema-migrations.md" },
+      { "Review notes" = "schema-migration-notes.md" },
+    ] },
   ] },
 ]
 

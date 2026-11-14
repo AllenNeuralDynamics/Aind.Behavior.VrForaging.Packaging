@@ -8,11 +8,18 @@ from ._helper import parse_manual_water_delivery
 
 
 class EventsProcessor(AbstractProcessor):
-    """Collects derived/computed events into a single tall table, alongside SoftwareEventsProcessor's raw streams.
+    """Events derived from underlying streams, one row per event.
 
-    Each row is one event, with columns ``event_name`` (str) and ``data`` (the event's payload),
-    indexed by ``timestamp`` (harp seconds). Unlike SoftwareEventsProcessor, sources here are
+    Collects derived/computed events into a single tall table, alongside SoftwareEventsProcessor's raw streams.
+
+    Each row is one event. Unlike SoftwareEventsProcessor, sources here are
     computed from one or more underlying streams rather than being a straight passthrough.
+
+    | Column | Type | Unit | Description |
+    | --- | --- | --- | --- |
+    | `timestamp` | `float` | second | Harp time. |
+    | `event_name` | `string` | | Name of the event, e.g. `ManualWaterDelivery`. |
+    | `data` | `float` | | The event's payload. |
 
     To add a new event source: write a ``@staticmethod(dataset) -> pd.DataFrame`` returning a
     ``data``-column frame indexed by timestamp, and append it to ``_EVENT_SOURCES``.

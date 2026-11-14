@@ -10,13 +10,19 @@ logger = logging.getLogger(__name__)
 
 
 class SoftwareEventsProcessor(AbstractProcessor):
-    """Collects all SoftwareEvents streams into a single tall DataFrame.
+    """Events logged by the task software, one row per event.
 
-    Each row is one event, with columns:
+    All SoftwareEvents streams are collected into a single tall DataFrame.
 
-    - ``event_name`` (str): the stream's short name, e.g. ``"ActiveSite"``.
-    - ``data`` (str): JSON-serialized event payload. The structure varies by
-      event type (polymorphic). Parse back with::
+    Software timestamps are low precision; do not use them to align to physiology data.
+
+    | Column | Type | Unit | Description |
+    | --- | --- | --- | --- |
+    | `timestamp` | `float` | second | Harp time. |
+    | `event_name` | `string` | | Name of the event stream, e.g. `ActiveSite`. |
+    | `data` | `string` | | JSON-serialized payload. Its structure depends on the event, so parse it per event name. |
+
+    The ``data`` column is polymorphic. Parse it back with::
 
           df["data"].apply(json.loads)
           # or flatten a specific event type:

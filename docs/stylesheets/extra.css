@@ -87,3 +87,50 @@
 .md-tabs__item--active {
   border-bottom: 2px solid var(--md-primary-bg-color);
 }
+
+/* --- "Where does this come from?" badges -----------------------------------
+   !!! allen   — shared data and services the Allen Institute already runs
+   !!! package — steps that run this package yourself
+   -------------------------------------------------------------------------- */
+:root {
+  --md-admonition-icon--allen: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4M4 9v3c0 2.21 3.58 4 8 4s8-1.79 8-4V9c0 2.21-3.58 4-8 4s-8-1.79-8-4m0 5v3c0 2.21 3.58 4 8 4s8-1.79 8-4v-3c0 2.21-3.58 4-8 4s-8-1.79-8-4Z"/></svg>');
+  --md-admonition-icon--package: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.99.99 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9M12 4.15 6.04 7.5 12 10.85l5.96-3.35L12 4.15M5 15.91l6 3.38v-6.71L5 9.21v6.7m14 0v-6.7l-6 3.37v6.71l6-3.38Z"/></svg>');
+}
+
+.md-typeset .admonition.allen,
+.md-typeset details.allen {
+  border-color: #2e9d6b;
+}
+.md-typeset .allen > .admonition-title,
+.md-typeset .allen > summary {
+  background-color: rgba(46, 157, 107, 0.1);
+}
+.md-typeset .allen > .admonition-title::before,
+.md-typeset .allen > summary::before {
+  background-color: #2e9d6b;
+  -webkit-mask-image: var(--md-admonition-icon--allen);
+  mask-image: var(--md-admonition-icon--allen);
+}
+
+.md-typeset .admonition.package,
+.md-typeset details.package {
+  border-color: #c77d1a;
+}
+.md-typeset .package > .admonition-title,
+.md-typeset .package > summary {
+  background-color: rgba(199, 125, 26, 0.1);
+}
+.md-typeset .package > .admonition-title::before,
+.md-typeset .package > summary::before {
+  background-color: #c77d1a;
+  -webkit-mask-image: var(--md-admonition-icon--package);
+  mask-image: var(--md-admonition-icon--package);
+}
+
+/* Embedded marimo notebooks */
+.notebook-frame {
+  width: 100%;
+  height: 1300px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.4rem;
+}
