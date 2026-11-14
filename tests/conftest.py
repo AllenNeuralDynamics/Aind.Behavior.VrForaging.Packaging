@@ -9,7 +9,7 @@ from pynwb import NWBFile
 @pytest.fixture
 def nwb_file() -> NWBFile:
     """A minimal, empty NWBFile for processors to write into."""
-    return NWBFile(  # ty: ignore[call-non-callable]
+    return NWBFile(  # ty: ignore[abstract-class-instantiation]
         session_description="test",
         identifier="test",
         session_start_time=datetime(2026, 1, 1, tzinfo=UTC),
