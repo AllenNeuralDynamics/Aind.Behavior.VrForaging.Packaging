@@ -83,9 +83,11 @@ def processed_tables_page() -> str:
     parts = [
         "# Processed tables",
         "",
-        "These tables are written by this package from the raw acquisition data "
-        "(see [Raw data contract](raw-data-contract.md) for the inputs). "
-        "They are what you read when you follow the [data access patterns](../data/load-tables.md).",
+        (
+            "These tables are written by this package from the raw acquisition data "
+            "(see [Raw data contract](raw-data-contract.md) for the inputs). "
+            "They are what you read when you follow the [data access patterns](../data/load-tables.md)."
+        ),
         "",
         "| Table | Description | Where |",
         "| --- | --- | --- |",
@@ -98,8 +100,10 @@ def processed_tables_page() -> str:
         ),
         "",
         "`session_id` is the join key across all of them.",
-        "Every parquet file also carries packaging provenance in its schema metadata "
-        "(`packaging_version`, `data_contract_version`, `dataset_version`, `processor`).",
+        (
+            "Every parquet file also carries packaging provenance in its schema metadata "
+            "(`packaging_version`, `data_contract_version`, `dataset_version`, `processor`)."
+        ),
         "",
         "## session",
         "",
@@ -108,22 +112,28 @@ def processed_tables_page() -> str:
         model_table(SessionMetadata),
         "",
         '!!! tip "Skip the config columns"',
-        "    `session`, `rig`, `task_logic` and `trainer_state` hold the full serialized configuration "
-        "and make up nearly all of the file. Drop them when you do not need them.",
+        (
+            "    `session`, `rig`, `task_logic` and `trainer_state` hold the full serialized configuration "
+            "and make up nearly all of the file. Drop them when you do not need them."
+        ),
         "",
         "## sites",
         "",
-        "One row per site (the unit the animal visits in the corridor), in the aggregated `sites.parquet`, "
-        "with a `session_id` column added when sessions are aggregated. "
-        "Times are in seconds on the same clock as the stream tables below.",
+        (
+            "One row per site (the unit the animal visits in the corridor), in the aggregated `sites.parquet`, "
+            "with a `session_id` column added when sessions are aggregated. "
+            "Times are in seconds on the same clock as the stream tables below."
+        ),
         "",
         model_table(Site),
         "",
         "## Stream tables",
         "",
-        "Large tables stored once per session, in the session's own processed asset "
-        "(`source_s3_location` in `session.parquet`). They are not aggregated. "
-        "Each description below is the docstring of the processor that writes the table.",
+        (
+            "Large tables stored once per session, in the session's own processed asset "
+            "(`source_s3_location` in `session.parquet`). They are not aggregated. "
+            "Each description below is the docstring of the processor that writes the table."
+        ),
     ]
     for p in STREAM_PROCESSORS:
         parts += [
@@ -162,12 +172,16 @@ def contract_page() -> str:
     parts = [
         "# Raw data contract",
         "",
-        "The raw acquisition data of a session, as described by the "
-        f"[`aind-behavior-vr-foraging`](https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging) data contract "
-        f"(version `{__semver__}`), which [contraqctor](https://github.com/AllenNeuralDynamics/contraqctor) uses to load it.",
+        (
+            "The raw acquisition data of a session, as described by the "
+            f"[`aind-behavior-vr-foraging`](https://github.com/AllenNeuralDynamics/Aind.Behavior.VrForaging) data contract "
+            f"(version `{__semver__}`), which [contraqctor](https://github.com/AllenNeuralDynamics/contraqctor) uses to load it."
+        ),
         "",
-        "These are the *inputs* to the pipeline. For the tables it produces, see [Processed tables](processed-tables.md). "
-        "To read these streams directly, see [Raw streams with contraqctor](../processing/raw-streams.md).",
+        (
+            "These are the *inputs* to the pipeline. For the tables it produces, see [Processed tables](processed-tables.md). "
+            "To read these streams directly, see [Raw streams with contraqctor](../processing/raw-streams.md)."
+        ),
         "",
         "Older sessions are loaded with the contract matching their dataset version, so some streams may be absent or differ.",
         "Paths are relative to the session root. A stream without a description is documented upstream.",
