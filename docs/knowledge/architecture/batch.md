@@ -194,8 +194,8 @@ See [cli.md](cli.md). One subcommand per public function — `session`, `batch`,
 # Reading an export back
 
 The flat tables are ordinary parquet, so any engine can read them without
-pandas. `docs/examples/query_export.py` and `docs/examples/query_export_s3.py`
-show DuckDB queries over a local and an S3-hosted export respectively.
+pandas. `docs/data/load-tables.md` and `docs/processing/many-sessions.md`
+show queries over an S3-hosted and a local export respectively.
 
 ## Provenance does not survive Phase 2
 

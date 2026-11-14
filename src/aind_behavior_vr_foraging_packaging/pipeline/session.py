@@ -4,7 +4,7 @@ Selects the correct processor set for a dataset version and returns it ready
 to pass to ``NwbSession.run()``. Version dispatch is automatic: datasets with
 schema version < 0.6.0 receive the legacy processor variants.
 
-See ``docs/guides/session-from-disk.md`` for usage examples.
+See ``docs/processing/one-session.md`` for usage examples.
 """
 
 import logging

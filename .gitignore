@@ -167,3 +167,9 @@ cython_debug/
 # Temporary files
 .tmp/
 scratch/
+# Generated marimo notebook exports (built in CI)
+docs/notebooks/*.html
+# Generated reference pages (built in CI)
+docs/reference/processed-tables.md
+docs/reference/raw-data-contract.md
+docs/notebooks/__marimo__/

@@ -36,27 +36,6 @@ instead of in the distribution — see "Examples" below.
 `pynwb>=4.1` is a hard floor, not a preference: `EventsTable` was merged into
 core pynwb at that version, replacing the former `ndx-events` extension.
 
-# Examples: PEP 723 inline scripts
-
-Everything in `docs/examples/` is a self-contained script carrying its own
-dependency block, so it runs without a project install:
-
-```python
-# /// script
-# dependencies = ["polars==1.43.2"]
-# requires-python = ">=3.11"
-# ///
-```
-
-```bash
-uv run docs/examples/query_export_s3_polars.py    # uv resolves the block per-run
-```
-
-This is what keeps query backends out of the published distribution. Two backends
-are demonstrated over the same export layout — DuckDB (`query_export.py`,
-`query_export_s3.py`) and Polars (`query_export_s3_polars.py`) — pinned
-independently of the package's own dependency set.
-
 # Linting & formatting: ruff
 
 Configured in `pyproject.toml`:

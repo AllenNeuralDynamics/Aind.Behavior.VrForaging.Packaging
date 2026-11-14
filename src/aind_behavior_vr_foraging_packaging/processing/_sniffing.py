@@ -15,6 +15,16 @@ logger = logging.getLogger(__name__)
 
 
 class SniffingProcessor(AbstractProcessor):
+    """Sniff sensor trace, one row per sample.
+
+    The sampling rate is stored in the file's metadata as `sampling_rate_hz`.
+
+    | Column | Type | Unit | Description |
+    | --- | --- | --- | --- |
+    | `timestamp` | `float` | second | Harp time. |
+    | `voltage` | `float` | volt | Sniff sensor voltage. |
+    """
+
     __output_name__ = "sniffing"
 
     def __init__(

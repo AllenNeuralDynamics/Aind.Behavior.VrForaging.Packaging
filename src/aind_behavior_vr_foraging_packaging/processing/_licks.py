@@ -11,6 +11,14 @@ logger = logging.getLogger(__name__)
 
 
 class LicksProcessor(AbstractProcessor):
+    """Lickometer state changes, one row per lick onset or offset.
+
+    | Column | Type | Unit | Description |
+    | --- | --- | --- | --- |
+    | `timestamp` | `float` | second | Harp time. |
+    | `is_lick_onset` | `bool` | | `true` for a lick onset, `false` for a lick offset. |
+    """
+
     __output_name__ = "licks"
 
     def __init__(self, dataset: contraqctor.contract.Dataset, *, refractory_period_s: float | None = 0.01, **kwargs):

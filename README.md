@@ -47,11 +47,9 @@ legacy processor variants.
 
 ## Examples
 
-- Walkthrough of the parquet workflows (all-at-once, single stream, load-back):
-  [docs/guides/session-from-disk.md](docs/guides/session-from-disk.md)
-- Query the local export with pandas and DuckDB: [docs/examples/query_export.py](docs/examples/query_export.py)
-- Query from S3 with DuckDB: [docs/examples/query_export_s3.py](docs/examples/query_export_s3.py)
-- Query from S3 with Polars: [docs/examples/query_export_s3_polars.py](docs/examples/query_export_s3_polars.py)
+- Use the already-processed shared dataset (no install needed): [docs/data/](docs/data/index.md)
+- Process raw sessions with this package: [docs/processing/](docs/processing/index.md)
+- Every table column and raw stream: [docs/reference/](docs/reference/index.md)
 - Full architecture docs: [docs/knowledge/](docs/knowledge/) (start at [overview.md](docs/knowledge/overview.md))
 
 ### Get a sites table
@@ -128,7 +126,7 @@ min/max statistics. Readers that filter by session, such as
 `pl.scan_parquet("sites.parquet").filter(pl.col("session_id").is_in(ids))`,
 fetch only the row groups that hold those sessions, not the whole file.
 Run `vr-foraging-packaging <command> --help` for that command's full flag
-reference, or see the [Getting Started guide](https://allenneuraldynamics.github.io/Aind.Behavior.VrForaging.Packaging/getting-started/) for common flag combinations.
+reference, or see the [Many sessions guide](https://allenneuraldynamics.github.io/Aind.Behavior.VrForaging.Packaging/processing/many-sessions/) for common flag combinations.
 
 Want to try the latest `main` without installing? [uvx](https://docs.astral.sh/uv/guides/tools/)
 runs it straight from GitHub — since the command name differs from the package
@@ -147,6 +145,8 @@ The full documentation site is built with [Zensical](https://zensical.org).
 
 ```bash
 uv sync --group docs
+uv run python scripts/generate_reference_docs.py  # data reference pages
+for nb in docs/notebooks/*.py; do uvx marimo export html --sandbox -o "${nb%.py}.html" "$nb"; done  # notebooks
 uv run zensical serve
 ```
 
