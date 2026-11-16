@@ -28,9 +28,11 @@ nav = [
     { "Quickstart" = "data/index.md" },
     { "Find sessions" = "data/find-sessions.md" },
     { "Load tables" = "data/load-tables.md" },
+    { "Load raw streams" = "data/load-raw.md" },
     { "Examples" = [
       { "One session" = "data/example-session.md" },
       { "One subject across sessions" = "data/example-subject.md" },
+      { "One raw stream" = "data/example-raw-stream.md" },
     ] },
   ] },
   { "Process raw sessions" = [
