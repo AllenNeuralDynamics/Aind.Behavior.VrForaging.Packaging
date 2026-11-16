@@ -7,6 +7,7 @@
 The processed tables cover what most analyses need.
 Read the raw streams when you need something they do not extract, or to check how a table was made.
 Every stream is listed, with its file and description, in [Raw data contract](../reference/raw-data-contract.md).
+To read one stream straight from a session's public raw asset, without downloading the session, see [Load raw streams](../data/load-raw.md).
 
 ## Load a session
 
